@@ -1,0 +1,35 @@
+# Secrets & local config
+.env
+.env.local
+*.key
+config/*.local.yaml
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Docker/data
+data/
+mem0-data/
+*.sqlite
+*.db
+
+# GSD runtime lock (keep state files, ignore transient lock)
+.gsd/runtime/LOCK.json
+.gsd/cost/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & metrics output
+*.log
+metrics/runs/
