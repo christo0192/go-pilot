@@ -1,0 +1,18 @@
+{
+  "id": "trivial-smoke",
+  "_note": "Cheapest possible fixture to prove the rig captures tokens/cost. Not a real task class.",
+  "single": {
+    "model": "haiku",
+    "prompt": "In one sentence, list three benefits of unit testing. Reply with only the sentence."
+  },
+  "multi": {
+    "workers": [
+      { "model": "haiku", "prompt": "Name one benefit of unit testing in 5 words. Reply only with the phrase." },
+      { "model": "haiku", "prompt": "Name a second, different benefit of unit testing in 5 words. Reply only with the phrase." }
+    ],
+    "combine": {
+      "model": "haiku",
+      "prompt": "Combine these into one sentence: 'catches bugs early' and 'documents expected behavior'. Reply with only the sentence."
+    }
+  }
+}

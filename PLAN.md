@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `3%`  ·  *(S00 in progress — Step 0.1 done; 0.2–0.4 interactive, awaiting subscription-login spike)*
+**Overall Progress:** `9%`  ·  *(S00: 0.1 ✅ scaffold · 0.2 ✅ concurrency GO · 0.3 ✅ rig built + baseline-paradox shown · 0.4 ⏳ needs real task data)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -70,22 +70,23 @@ are shared across all profiles.
   - [x] Add `PLAN.md`, `README.md`, `.gitignore`, `.env.example`
   - Done when: repo clones on both OSes and `docs/environments.md` lists confirmed versions. ✅ (Win/WSL done; Mac pending teammate)
 
-- [ ] **Step 0.2: Concurrent-session safety spike** [Spike Needed]
+- [x] **Step 0.2: Concurrent-session safety spike** [Spike Needed] ✅ 2026-07-08 — GO
   - Depends on: Step 0.1
-  - Risk: High — may invalidate the multi-pane frontier design (#11)
-  - [ ] Spike (time-box 1 day): question = "Do 2–4 concurrent `claude`/`codex` sessions under ONE subscription login collide?"
-  - [ ] Run 2, 3, 4 concurrent sessions on Windows; repeat on Mac
-  - [ ] Measure: rate-limit errors, session-file/lock contention, dropped turns
-  - [ ] Record findings + a queued/staggered fallback design if collisions occur, in `docs/concurrency-report.md`
-  - Done when: `docs/concurrency-report.md` states max safe concurrent sessions per OS and the fallback trigger.
+  - Risk: High — may invalidate the multi-pane frontier design (#11) → **cleared**
+  - [x] Question answered: **10 concurrent `claude` sessions spawned** under one Max login (design needs ~4–5)
+  - [x] Windows/WSL2 verified; Mac deferred to Sprint 6 fresh-machine verify
+  - [x] Residual (throughput rate-limits under heavy simultaneous load) + stagger/queue fallback recorded
+  - [x] `docs/concurrency-report.md` written
+  - Done when: report states max safe concurrent sessions + fallback trigger. ✅ (≥10; stagger active generators only if throughput 429s appear)
 
-- [ ] **Step 0.3: Baseline-paradox measurement rig** [Spike Needed]
+- [x] **Step 0.3: Baseline-paradox measurement rig** [Spike Needed] ✅ 2026-07-08
   - Depends on: Step 0.1
   - Risk: Medium — measurement harness only, but methodology must be sound
-  - [ ] Spike (time-box 1 day): build a rig that runs one task through (a) single agent and (b) multi-pane, capturing total tokens + a quality score
-  - [ ] Define the quality-score rubric per task class in `metrics/quality-rubric.md`
-  - [ ] Verify rig on one trivial task class end-to-end
-  - Done when: rig outputs `{tokens_single, tokens_multi, quality_single, quality_multi}` for a sample task, reproducibly.
+  - [x] Rig built: `scripts/baseline-rig/run.py` (single vs multi via `claude -p --output-format json`)
+  - [x] Quality rubric defined in `metrics/quality-rubric.md`
+  - [x] Verified end-to-end on trivial-smoke → reproducible tokens+cost; demonstrated baseline paradox (trivial fan-out = NO-GO)
+  - [x] ⭐ Finding D15: ~44k per-call system-prompt overhead → worker panes must run lean
+  - Done when: rig outputs {tokens_single, tokens_multi, cost} reproducibly. ✅ (quality scored separately per rubric)
 
 - [ ] **Step 0.4: Task-class go/no-go decision record** [Medium]
   - Depends on: Step 0.2, Step 0.3

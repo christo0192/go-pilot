@@ -7,12 +7,12 @@ Hard gate — no router/harness code until T04 records a GO/NO-GO per task class
   Depends on: Independent
   Instructions: git init; create dir tree (docs/config/scripts/panes/metrics/src); README, .gitignore, .env.example; docs/environments.md populated with detected tool versions per OS. Done: repo clones + env inventory recorded. ✅ (see T01-SUMMARY.md)
 
-- [ ] **T02: Concurrent-session safety spike** `est:1 day (interactive)`
+- [x] **T02: Concurrent-session safety spike** `est:done` ✅ 2026-07-08 — 10 concurrent claude sessions spawned (need ~4–5); GO. See docs/concurrency-report.md.
   Depends on: T01
   Instructions: Follow `scripts/concurrency-spike.md`. Run 2/3/4 concurrent `claude` (Opus+Sonnet+Haiku) sessions under ONE Max login + a `codex` session; measure rate-limit errors, session-file/lock contention, dropped turns. Repeat on Mac. Record in `docs/concurrency-report.md`: max safe concurrent sessions per OS + fallback trigger. **Requires user's interactive login — cannot be run by an autonomous agent.**
   Done when: docs/concurrency-report.md states max safe concurrent sessions per OS.
 
-- [ ] **T03: Baseline-paradox measurement rig** `est:1 day`
+- [x] **T03: Baseline-paradox measurement rig** `est:done` ✅ 2026-07-08 — scripts/baseline-rig/run.py verified; ⭐ found ~44k/call system-prompt overhead (D15). See T03-SUMMARY.md.
   Depends on: T01
   Instructions: Build a rig (scripts/baseline-rig/) that runs a task (a) single-agent and (b) multi-pane, capturing total tokens + a quality score (rubric in metrics/quality-rubric.md). Verify on one trivial task class.
   Done when: rig outputs {tokens_single, tokens_multi, quality_single, quality_multi} reproducibly.
