@@ -19,3 +19,13 @@
 - Consequence: MULTI-PANE FAN-OUT HAS A HIGH FIXED COST PER PANE. Trivial fan-out LOSES (smoke test: multi = 3x tokens, 2.6x cost = NO-GO). Multi-pane only wins when per-subtask REAL work >> ~44k fixed overhead, OR workers use a much cheaper per-token rate that beats the multiplication.
 - DESIGN IMPLICATION: worker panes must run LEAN — minimal system prompt, skills+MCP DISABLED — to shrink the ~44k fixed cost. This is a strong argument for lean Pi worker panes (tiny system prompt) over full Claude Code worker panes in hybrid; and for a stripped worker settings profile in pure-anthropic. Feeds Sprint 1/2/3.
 - This is precisely the "baseline paradox" the T04 gate must measure on REAL task classes (big-work tasks may flip to GO).
+
+## 2026-07-08 — Where the 44k comes from + how to cut it (MEASURED) ⭐⭐
+Trivial "reply ok" on haiku, varying config (total tokens / cost):
+- A. default:                 45,369 / $0.0580   (cc=28010 cr=17294)
+- B. no MCP:                  43,877 / $0.0472   (MCP tool schemas ≈ 19% of cost)
+- C. --setting-sources project (skip global ~/.claude/CLAUDE.md + user skills): 31,416 / $0.0228  (cc 28k→10k) — BIGGEST lever
+- D. project-only + no MCP:   31,154 / $0.0223   → ~62% cost cut vs default
+- E. --system-prompt replace: 43,648 / $0.0875   (busts prompt cache → worse; avoid)
+BREAKDOWN: the 44k is mostly the USER's heavy global CLAUDE.md (the big pipeline/routing doc) + user-level skills, then MCP tool schemas (Adobe/Figma/Canva/Slack/Vercel...), then base CC prompt+tools. It is NOT inherent to Claude Code.
+LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-config --mcp-config '{"mcpServers":{}}'` → ~60% cheaper per worker call. Lowers fan-out fixed overhead ~44k→~31k (and cost 2.5x lower), so fan-out breaks even on much smaller tasks. Do NOT use --system-prompt replace (cache-busts).

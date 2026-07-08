@@ -38,11 +38,15 @@ RUNS = ROOT / "metrics" / "runs"
 RUNS.mkdir(parents=True, exist_ok=True)
 
 
-def run_claude(prompt: str, model: str) -> dict:
-    """One headless claude call → parsed result with token/cost fields."""
+def run_claude(prompt: str, model: str, lean: bool = False) -> dict:
+    """One headless claude call → parsed result with token/cost fields.
+    lean=True strips the global CLAUDE.md + all MCP (~60% cheaper per call, D15) — use for workers."""
+    cmd = ["claude", "-p", "--output-format", "json", "--model", model]
+    if lean:
+        cmd += ["--setting-sources", "project",
+                "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
     proc = subprocess.run(
-        ["claude", "-p", "--output-format", "json", "--model", model],
-        input=prompt, capture_output=True, text=True, timeout=600,
+        cmd, input=prompt, capture_output=True, text=True, timeout=600,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"claude failed ({model}): {proc.stderr[:300]}")
@@ -72,7 +76,7 @@ def totals(calls: list[dict]) -> dict:
 
 def run_single(task: dict) -> dict:
     s = task["single"]
-    call = run_claude(s["prompt"], s["model"])
+    call = run_claude(s["prompt"], s["model"], lean=s.get("lean", False))
     rec = {"id": task["id"], "mode": "single", "calls": [call], **totals([call])}
     _write(task["id"], "single", rec)
     return rec
@@ -82,11 +86,13 @@ def run_multi(task: dict) -> dict:
     m = task["multi"]
     calls = []
     if m.get("orchestrator"):
-        calls.append(run_claude(m["orchestrator"]["prompt"], m["orchestrator"]["model"]))
-    for w in m.get("workers", []):
-        calls.append(run_claude(w["prompt"], w["model"]))
+        o = m["orchestrator"]
+        calls.append(run_claude(o["prompt"], o["model"], lean=o.get("lean", False)))
+    for w in m.get("workers", []):                 # workers default to LEAN (D15)
+        calls.append(run_claude(w["prompt"], w["model"], lean=w.get("lean", True)))
     if m.get("combine"):
-        calls.append(run_claude(m["combine"]["prompt"], m["combine"]["model"]))
+        c = m["combine"]
+        calls.append(run_claude(c["prompt"], c["model"], lean=c.get("lean", False)))
     rec = {"id": task["id"], "mode": "multi", "calls": calls, **totals(calls)}
     _write(task["id"], "multi", rec)
     return rec

@@ -21,3 +21,5 @@
 - D14: Concurrency GATE PASSED (provisional). 10 concurrent claude sessions spawned under one Max login — >> the ~4–5 panes pure-anthropic needs. Session-count is NOT a blocker. Residual: throughput-based rate-limits under heavy simultaneous generation — monitor; fallback = stagger/queue active generators if 429s appear.
 
 - D15: Worker panes MUST run lean (minimal system prompt; skills+MCP disabled) to amortize the ~44k-token per-call Claude Code overhead (T03 finding). Fan-out is justified only when per-subtask real work >> fixed overhead OR workers use a much cheaper per-token model. Reframes Sprint 2/3 worker config + strengthens the case for lean Pi workers.
+
+- D16: 44k overhead breakdown MEASURED — mostly the global ~/.claude/CLAUDE.md + user skills, then MCP schemas. LEAN WORKER config = `--setting-sources project --strict-mcp-config --mcp-config '{"mcpServers":{}}'` cuts ~60% cost/call. Baked into scripts/lean-worker.sh and baseline rig (workers default lean). Avoid --system-prompt (cache-busts). Obsidian *app* is in Program Files; actual vault ~ C:\Graphify X\obsidian (mine in Sprint 5 for workflow skills).
