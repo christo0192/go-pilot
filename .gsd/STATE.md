@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S04b — Real Mem0 LIVE ✅ (Step 4.3 complete — add/search verified end-to-end)
-**Active Task**: — (reassess: S05 Pi skills / S06 self-install / S03 pilots / live sign-off remain — need installs)
-**Progress**: S00✅ S01✅ S03-core✅ S04✅(+real Mem0 LIVE) S07✅ (S02 skipped) · unit suite 128/128, zero deps · Overall PLAN 70%
+**Active Slice**: S06 — Self-installing repo ✅ (install.sh LIVE-verified; install.ps1 authored)
+**Active Task**: — (reassess: everything left is install-gated — see Reassess)
+**Progress**: S00✅ S01✅ S03-core✅ S04✅(real Mem0 LIVE) S06✅(install.sh verified) S07✅ (S02 skipped) · unit 128/128 · Overall PLAN 78%
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
@@ -25,7 +25,19 @@
   signoff (per-class GO vs revert; no-data→revert, D17 safe default). 115/115, zero deps. See S07-SUMMARY.md.
 - Residual: LIVE per-class sign-off needs real baseline-rig runs fed into signoff() (D17).
 
-## REASSESS (2026-07-09): all remaining M001 work needs installs / deferred services
+## S06 — Self-installing repo ✅ 2026-07-09
+- install.sh (mac/WSL) LIVE-verified idempotent no-op (exit 0, Mem0 200) — Step 6.1 done-when met. install.ps1
+  authored (Windows parity; live run = 6.5). docs/INSTALL.md both OSes + revert. 6.3 compose ✅, 6.4 templating ✅.
+- Remaining S06: only 6.5 fresh-machine Win+Mac acceptance (needs clean boxes + teammate). Decisions D27.
+
+## REASSESS (2026-07-09, post-S06): remaining M001 is ALL install-gated / other-machine
+- S05 (Pi workflow skills brainstorm→…→auto + Phase-0 gate) — needs Pi (`npm i -g @earendil-works/pi-coding-agent`).
+- S03 pilots (3.4 rtk / 3.5 CCE / 3.6 context-mode) — need rtk + CCE installed.
+- Live per-class sign-off (D17) — needs real baseline-rig runs to feed src/metrics/signoff.mjs.
+- S06/6.5 fresh-machine Win+Mac verify — needs clean boxes + a teammate.
+- No buildable-now-without-install work remains. Next session: pick an install path with the user.
+
+## (earlier reassess note, superseded)
 Pure-code buildable-now work is EXHAUSTED. Remaining:
 - S05 (Pi workflow skills brainstorm→…→auto + Phase-0 gate) — needs Pi installed (`npm i -g @earendil-works/pi-coding-agent`).
 - S06 (self-installing repo install.sh/.ps1 + docker compose) — needs the deferred services to exist to be meaningful.
