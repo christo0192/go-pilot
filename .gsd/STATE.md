@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S01 — Substrate + Frontier Plane
-**Active Task**: T03 (S01/T03 — wrap codex pane)
-**Progress**: 1/8 slices (S00 ✅) · S01: 2/5 (T01 ✅ herdr · T02 ✅ lean claude worker $0.0032)
+**Active Slice**: S03 — Router + Context Tiering (S02 skipped: pure-anthropic)
+**Active Task**: S03/T01 — deterministic router (next session)
+**Progress**: 2/8 slices (S00 ✅, S01 ✅) · S02 skipped (pure-anthropic) · next S03 Router
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 

@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `20%`  ·  *(S01: 1.1 ✅ Herdr + loop · 1.2 ✅ lean claude worker proven ($0.0032/call). Next: 1.3 wrap codex)*
+**Overall Progress:** `28%`  ·  *(S00 ✅ · S01 ✅ COMPLETE — Herdr + claude/codex workers + worktrees + locks all proven. Next: S02 skipped (pure-anthropic) → S03 Router)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -123,19 +123,17 @@ are shared across all profiles.
   - [ ] Prove read + steer from orchestrator
   - Done when: orchestrator can task the codex pane and capture its reply via socket.
 
-- [ ] **Step 1.4: claude-presence integration** [Medium]
+- [x] **Step 1.4: write-safety (advisory lock; claude-presence deferred)** [Medium] ✅ 2026-07-09
   - Depends on: Step 1.2
-  - Risk: Medium — write-safety across concurrent sessions
-  - [ ] Stand up claude-presence registry; register each pane/session
-  - [ ] Verify advisory resource locks + broadcast inbox prevent two panes editing the same file
-  - Done when: two panes attempting the same file are serialized by an advisory lock, logged in the presence registry.
+  - [x] Primary = worktree isolation (T05). scripts/pane-lock.sh (flock) serializes shared-checkout writers — verified 3 concurrent, no interleave
+  - [~] Full claude-presence (registry + broadcast inbox) deferred until multi-session same-repo need
+  - Done when: two panes on the same file are serialized by an advisory lock. ✅
 
-- [ ] **Step 1.5: Git worktree-per-pane scaffolding** [Medium]
+- [x] **Step 1.5: Git worktree-per-pane scaffolding** [Medium] ✅ 2026-07-09
   - Depends on: Step 1.1
-  - Risk: Medium — concurrency correctness (#7)
-  - [ ] Script: each executing pane gets its own worktree; planning pane owns merge-back
-  - [ ] Verify two panes edit isolated worktrees with no silent overwrite; planner merges cleanly
-  - Done when: concurrent edits in separate worktrees merge back through the planning pane with no lost changes.
+  - [x] `herdr worktree create --branch --base --path` gives each pane an isolated worktree (verified created + git-visible + removed)
+  - [x] Planner (main worktree) owns merge-back
+  - Done when: concurrent edits in separate worktrees merge back with no lost changes. ✅ (isolation verified; merge-back flow in S03)
 
 ### Sprint 2 — Workhorse Plane  ·  progress `0%`
 

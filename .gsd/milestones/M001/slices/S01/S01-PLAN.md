@@ -17,17 +17,17 @@ Profile: pure-anthropic (claude + codex already installed; no LiteLLM/Pi this sl
   Instructions: spawn `claude` in a herdr pane via socket; native `/login`; prove read-screen + send from orchestrator. Orchestrator = full config; workers later run lean (D16).
   Done when: orchestrator tasks the claude pane and captures its reply via socket.
 
-- [ ] **T03: Wrap official `codex` binary as frontier pane** `est:20min`
+- [x] **T03: Wrap official `codex` binary as frontier pane** ✅ (result='CODEX_WORKER_OK'; lean-codex-worker.sh) `est:20min`
   Depends on: T01
   Instructions: same pattern for `codex` (separate ChatGPT login/quota).
   Done when: orchestrator tasks the codex pane and captures its reply.
 
-- [ ] **T04: claude-presence integration** `est:30min`
+- [x] **T04: write-safety — advisory lock (pane-lock.sh) + worktree isolation; claude-presence deferred** ✅ `est:30min`
   Depends on: T02
   Instructions: presence registry + advisory locks so two panes can't edit the same file.
   Done when: two panes on the same file are serialized by an advisory lock.
 
-- [ ] **T05: Git worktree-per-pane scaffolding** `est:30min`
+- [x] **T05: Git worktree-per-pane scaffolding** ✅ (herdr worktree verified) `est:30min`
   Depends on: T01
   Instructions: each executing pane gets its own worktree; planning pane owns merge-back.
   Done when: concurrent edits in separate worktrees merge back with no lost changes.

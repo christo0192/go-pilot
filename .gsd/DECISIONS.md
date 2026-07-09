@@ -25,3 +25,6 @@
 - D16: 44k overhead breakdown MEASURED — mostly the global ~/.claude/CLAUDE.md + user skills, then MCP schemas. LEAN WORKER config = `--setting-sources project --strict-mcp-config --mcp-config '{"mcpServers":{}}'` cuts ~60% cost/call. Baked into scripts/lean-worker.sh and baseline rig (workers default lean). Avoid --system-prompt (cache-busts). Obsidian *app* is in Program Files; actual vault ~ C:\Graphify X\obsidian (mine in Sprint 5 for workflow skills).
 
 - D17: T04 (baseline-paradox per-class measurement) SKIPPED by user 2026-07-09. Mitigation: rig is built+ready; policy = each task class defaults to SINGLE-AGENT until validated with scripts/baseline-rig before relying on multi-pane for it. Preserves no-negative-return principle. Residual risk accepted given D14 (concurrency GO) + D16 (lean workers ~60% cheaper) priors.
+
+- D18: Worker dispatch model FINALIZED = lean one-shot via `herdr pane run` (claude -p / codex exec) + `herdr wait output --match <result-token>` + `pane read` parse. No agent-integration hooks required (optional polish). Match only result-only tokens in wait (never command-echo substrings).
+- D19: Write-safety = worktree-per-pane (herdr worktree) as primary isolation + pane-lock.sh (flock) for shared-checkout critical sections. claude-presence deferred until a real multi-session-same-repo need appears.

@@ -42,3 +42,8 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
 ## 2026-07-09 — S01/T02: full worker mechanic proven + real cost
 - Orchestrator → lean `claude -p` worker in a herdr pane → `wait output` (boomerang) → `pane read`+parse JSON. result='WORKER_OK', $0.0032, 24,265 tok — ~18x cheaper than default $0.058 (warm cache). No ~/.claude change.
 - GOTCHA: `herdr wait output --match` also matches the ECHOED command line. Never use a sentinel that appears literally in the dispatched command; match a result-only token (total_cost_usd / "result") or signal out-of-band.
+
+## 2026-07-09 — S01 COMPLETE (frontier-plane substrate proven)
+- T03 codex worker: `codex exec --json --skip-git-repo-check --sandbox read-only --ignore-user-config` → JSONL events; final answer = last item.completed agent_message; usage in turn.completed. Codex overhead ~12.5k tok (< Claude 44k). ChatGPT auth, separate quota. Wrapper scripts/lean-codex-worker.sh.
+- T05 worktree: `herdr worktree create --cwd REPO --branch B --base HEAD --path P --json` → linked worktree + own workspace/pane; `herdr worktree remove --workspace ID --force`. git worktree-per-pane = primary write-safety.
+- T04 lock: scripts/pane-lock.sh (flock) serializes shared-checkout writers (verified). claude-presence deferred.
