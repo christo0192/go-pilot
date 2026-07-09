@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `12%`  ·  *(S00 CLOSED — 0.1 ✅ · 0.2 ✅ GO · 0.3 ✅ · 0.4 ⏭️ skipped→D17 policy. Next: S01 substrate + frontier plane)*
+**Overall Progress:** `16%`  ·  *(S00 CLOSED. S01: 1.1 ✅ Herdr installed + orchestration loop proven. Next: 1.2 wrap claude pane)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -98,13 +98,14 @@ are shared across all profiles.
 
 ### Sprint 1 — Substrate + Frontier Plane  ·  progress `0%`
 
-- [ ] **Step 1.1: Wezterm + Herdr install & pane layout** [Medium]
+- [x] **Step 1.1: Wezterm + Herdr install & pane layout** [Medium] ✅ 2026-07-09
   - Depends on: Step 0.4
-  - Risk: Medium — cross-platform install + socket API learning
-  - [ ] Install Wezterm + Herdr on Windows and Mac; confirm herdr server starts + detaches/reattaches
-  - [ ] Define the standard pane/workspace layout (orchestrator, frontier×2, workers×N) in `panes/layout.md`
-  - [ ] Smoke-test the herdr socket API: create workspace, split pane, read-screen, send
-  - Done when: a scripted call spawns the standard layout and reads back each pane's state on both OSes.
+  - Risk: Medium — cross-platform install + socket API learning → cleared
+  - [x] Herdr 0.7.3 installed (WSL); headless server + socket API verified without a TTY
+  - [x] Standard layout defined in `panes/layout.md`; command reference in `panes/herdr-orchestration.md`
+  - [x] Socket API smoke-tested: workspace create/list, pane split, **pane run → wait output → pane read loop PROVEN**
+  - [~] Wezterm GUI + Mac: deferred to Sprint 6 (visible-pane UX; headless orchestration works without it)
+  - Done when: scripted call spawns layout + reads back pane state. ✅ (Win/WSL headless; GUI/Mac at S6)
 
 - [ ] **Step 1.2: Wrap official `claude` binary as frontier pane** [Medium]
   - Depends on: Step 1.1

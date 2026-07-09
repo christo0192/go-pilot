@@ -29,3 +29,12 @@ Trivial "reply ok" on haiku, varying config (total tokens / cost):
 - E. --system-prompt replace: 43,648 / $0.0875   (busts prompt cache → worse; avoid)
 BREAKDOWN: the 44k is mostly the USER's heavy global CLAUDE.md (the big pipeline/routing doc) + user-level skills, then MCP tool schemas (Adobe/Figma/Canva/Slack/Vercel...), then base CC prompt+tools. It is NOT inherent to Claude Code.
 LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-config --mcp-config '{"mcpServers":{}}'` → ~60% cheaper per worker call. Lowers fan-out fixed overhead ~44k→~31k (and cost 2.5x lower), so fan-out breaks even on much smaller tasks. Do NOT use --system-prompt replace (cache-busts).
+
+## 2026-07-09 — S01/T01: Herdr installed + orchestration loop PROVEN ⭐⭐⭐
+- herdr 0.7.3 → ~/.local/bin/herdr. Headless `herdr server` + socket API work WITHOUT a TTY (great for automation/cron).
+- Verified: workspace create/list, api snapshot, pane split, and the FULL LOOP:
+  `pane run` (dispatch) → `wait output --match <marker>` (block till done) → `pane read --source recent-unwrapped` (clean result).
+- `herdr wait output/agent-status` is the built-in boomerang/completion primitive — no polling/sleep needed. `herdr agent start/send/wait/read` for wrapped-agent panes.
+- `herdr integration install claude` writes a hook to /mnt/c/Users/Admin/.claude/hooks/herdr-agent-state.sh (+ likely settings.json). User has a heavy existing hook setup → inspect + back up before installing (T02).
+- Server running in background this session (task bg7g5a10h). Full command reference: panes/herdr-orchestration.md.
+- DESIGN: worker one-shots = lean `claude -p` via `pane run` (deterministic, token-accounted, cheapest). Interactive orchestrator pane = `agent start -- claude` + integration for TUI state.

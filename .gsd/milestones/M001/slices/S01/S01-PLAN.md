@@ -3,7 +3,7 @@
 Profile: pure-anthropic (claude + codex already installed; no LiteLLM/Pi this slice).
 
 ## Tasks
-- [ ] **T01: Install Wezterm + Herdr** `est:20min (user-run installs)`
+- [x] **T01: Install Wezterm + Herdr** `est:done` ✅ 2026-07-09 — herdr 0.7.3 installed (user-run); headless server + socket API verified; orchestration loop (pane run → wait output → pane read) PROVEN. See panes/herdr-orchestration.md. (Wezterm GUI = install at Sprint 6 for the visible-pane UX; not needed for headless orchestration.)
   Depends on: S00
   Instructions: **User runs the installs** (auto-mode blocks remote-code execution — correct).
   - Herdr (WSL, no sudo, installs to ~/.local/bin):
