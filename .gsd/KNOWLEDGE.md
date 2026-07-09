@@ -59,3 +59,14 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
   worth using for all cross-pane specs.
 - Router design that worked: key on WORK-TYPE (code/extract/plan/…), not business domain, so the pending
   per-class GO table (D17) doesn't block routing; multi-pane fan-out stays opt-in per validated class.
+
+## 2026-07-09 — S04 + parallel-agent testing
+- Two-tier memory pipeline shipped as zero-dep Node ESM: store→gate→promotion→mem0-adapter→recall. The gate
+  BEFORE compression is load-bearing (#6): failing results propagate FULL and are never summarized; promotion
+  only persists gate-passing keeper-kinds (decision/summary/pref) so Tier-2 can't be bloated/contaminated.
+- GOTCHA (parallel subagents): when two agents run concurrently in the SAME checkout and each runs the FULL
+  `node --test`, one can transiently fail on the OTHER's half-written test file (looks like a flaky test).
+  It is NOT a code defect. Always confirm suspicious counts with a SERIAL re-run (`for i in 1..N; node --test`)
+  before diagnosing a bug. Here: 28 serial runs = 0 fails; the "flake" was T05 reading T04's mid-write file.
+- Recall token-budgeting: compare char length vs `maxTokens*4` (exact inverse of the chars/4 proxy) and drop
+  whole bullets; truncate only the top bullet if it alone overflows — guarantees the injection never exceeds budget.

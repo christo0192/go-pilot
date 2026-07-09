@@ -32,14 +32,12 @@ Language = Node ESM, zero external deps (D20). Tests = `node --test`.
   untouched + `summarized:false`. Failures are never summarized. `node --test`.
 
 ## Then (fresh session — teed up)
-- [ ] **T03: Mem0 adapter interface + in-memory mock** (replaces Step 4.3 for now)
+- [x] **T03: Mem0 adapter interface + in-memory mock** (replaces Step 4.3 for now) ✅ 65/65
   `src/memory/mem0-adapter.mjs` — `{ add(memory), search(query, topK) }` interface + a deterministic
   in-memory mock impl (keyword/substring match). Real Docker Mem0 client implements the same interface later.
-- [ ] **T04: Promotion filter (Tier-1 → Mem0)** (Step 4.4) — distill only validated keepers into the
-  adapter; verify non-keepers/failed excluded. Built against the T03 mock.
-- [ ] **T05: Session-start recall seam** (Step 4.5) — `recall(context, topK)` queries the adapter for
-  top-k relevant memories as a few-hundred-token injection. Logic built + tested vs mock; real-Mem0
-  cross-session comparison deferred until Docker/Mem0 exist.
+- [x] **T04: Promotion filter (Tier-1 → Mem0)** (Step 4.4) ✅ gate+keeper-kind; failed/non-keeper excluded. 80/80.
+- [x] **T05: Session-start recall seam** (Step 4.5) ✅ bounded top-k injection (chars/4 budget). 80/80.
+  Real-Mem0 cross-session comparison deferred until Docker/Mem0 exist (residual).
 
 ## Deferred (needs Docker — user/infra decision)
 - Step 4.3 real Mem0 deploy; Step 4.5 real cross-session recall-vs-handover comparison.

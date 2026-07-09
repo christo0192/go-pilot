@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `46%`  ·  *(S00✅ S01✅ S03-core✅ + S04 Tier-1 store+gate✅ — 55/55 tests, zero deps. Next: S04 mock Mem0 adapter → promotion → recall. Deferred on env: rtk/CCE, Docker/Mem0.)*
+**Overall Progress:** `55%`  ·  *(S00✅ S01✅ S03-core✅ S04-seams✅ — two-tier memory store/gate/adapter/promotion/recall, 80/80 tests, zero deps. Deferred on env: rtk/CCE, Docker/Mem0. Next: S05 workflow skills.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -240,7 +240,7 @@ are shared across all profiles.
   - [ ] Log router LLM-judgment token cost as its own line item (never inside "savings")
   - Done when: a run report shows router overhead as a distinct, summable metric.
 
-### Sprint 4 — Memory (Tier-1 working + Mem0 Tier-2)  ·  progress `40%`  ·  *(pure-code seams: 4.1/4.2 done; 4.3 real-Mem0 deferred to mock; 4.4/4.5 next)*
+### Sprint 4 — Memory (Tier-1 working + Mem0 Tier-2)  ·  progress `80%`  ·  *(all 5 pure-code seams done vs mock adapter; only real-Mem0 Docker deploy (4.3) deferred)*
 
 - [x] **Step 4.1: Boomerang + shared task store (Tier-1)** [Medium]  ✅ 2026-07-09
   - Depends on: Step 3.1
@@ -263,14 +263,14 @@ are shared across all profiles.
   - [ ] Verify store + retrieve of a memory works end-to-end
   - Done when: a fact written to Mem0 is retrievable by semantic query through the deployed service.
 
-- [ ] **Step 4.4: Promotion filter (Tier-1 → Mem0)** [Complex]
+- [x] **Step 4.4: Promotion filter (Tier-1 → Mem0)** [Complex]  ✅ 2026-07-09 (against mock Mem0 adapter; real Docker deploy deferred)
   - Depends on: Step 4.2, Step 4.3
   - Risk: High — prevents memory bloat / bad-fact contamination
   - [ ] At run end, distill only validated keeper summaries/decisions/prefs into Mem0 (not everything)
   - [ ] Verify non-keeper/failed items are excluded
   - Done when: after a run, Mem0 contains only the validated keepers and none of the discarded scratch.
 
-- [ ] **Step 4.5: Session-start recall (retire handover)** [Complex]
+- [x] **Step 4.5: Session-start recall (retire handover)** [Complex]  ✅ 2026-07-09 (against mock Mem0 adapter; real Docker deploy deferred)
   - Depends on: Step 4.4
   - Risk: High — replaces an existing critical workflow
   - [ ] Orchestrator queries Mem0 top-k relevant at session start; scope is cross-project

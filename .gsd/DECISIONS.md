@@ -43,3 +43,10 @@
 - D22: agent-comms mesh is EXCEPTION-ONLY. The `isExceptionAllowed` guard admits only
   `{type:"query", exception:true, from, to, ask}` (a peer FACT request); default work-routing is rejected
   so chain-of-command (#4/D9) remains the only default path. Fact-not-full-content ties it to the #1 invariant.
+
+## 2026-07-09 — S04 Memory
+- D23: S04 memory seams (store, gate, mem0-adapter, promotion, recall) built + tested against an in-memory
+  MOCK Mem0 adapter under the pure-code scope chosen by the user. The mock and the future real Docker Mem0
+  client implement one identical `{ add(memory), search(query, topK) }` contract — the only coupling point,
+  so the real client is a drop-in (Step 4.3 deferred, not blocking). Two-tier pipeline: store(Tier-1) → gate →
+  promotion(keepers only) → mem0-adapter(Tier-2) → recall(session-start). Directly targets #1 friction (407 handovers).

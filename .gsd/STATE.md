@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S04 — Memory (SCOPED to pure-code seams; real Mem0/Docker deferred by user 2026-07-09)
-**Active Task**: S04/T03 — Mem0 adapter interface + in-memory mock (next, fresh session)
-**Progress**: S03-core✅ + S04 2/5 seams (T01 store✅ T02 gate✅); suite 55/55, zero deps. S04 remaining: T03 mock adapter → T04 promotion filter → T05 recall seam
+**Active Slice**: S04 — Memory — PURE-CODE SEAMS COMPLETE ✅ (real Mem0/Docker deferred by user)
+**Active Task**: S05/T01 — workflow skills (brainstorm→…→auto) — next slice (see Reassess)
+**Progress**: S00✅ S01✅ S03-core✅ S04-seams✅ (S02 skipped) · S04 5/5 seams, suite 80/80, zero deps · Overall PLAN 55%
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
@@ -15,11 +15,19 @@
 - Deferred pilots (Steps 3.4 rtk / 3.5 CCE / 3.6 context-mode) — tools NOT installed (D21). T03 guard already
   provides the Reference/Compressed seam they'd plug into. Revisit after tool install (user/infra decision).
 
-## REASSESS (2026-07-09): next slice needs environment setup
-- S04 (Memory) core = Mem0 (persistent Tier-2) which runs via Docker — Docker NOT installed. S03 pilots need
-  rtk/CCE. Both are env-setup/user decisions. Options for next session: (a) install Docker + Mem0 and do S04;
-  (b) install rtk/CCE and finish S03 pilots; (c) build pure-code S04 seams (boomerang/promotion filter) that
-  don't need Mem0 yet. Recommend confirming install scope with the user before committing to (a)/(b).
+## S04 — Memory PURE-CODE SEAMS COMPLETE ✅ 2026-07-09
+- 5/5 in src/memory/: store (Tier-1 atomic claim+boomerang), gate (validate-before-compress), mem0-adapter
+  (mock {add,search}), promotion (keepers-only), recall (bounded session-start injection). See S04-SUMMARY.md.
+  Pipeline: store→gate→promotion→adapter→recall. Decisions D23. suite 80/80, zero deps, 28 serial runs 0 flakes.
+
+## REASSESS (2026-07-09): remaining M001 work = env-setup or workflow-layer
+- DEFERRED on installs (user decision): S03 pilots (rtk/CCE), S04 real Mem0 (Docker/Step 4.3).
+- BUILDABLE without installs: S05 (workflow skills brainstorm→…→auto; Phase-0 alignment gate) — but S05 is a
+  Pi/skills UX layer (D-model); some depends on Pi installed. S07 instrumentation partly pure-code.
+- S06 (self-installing repo install.sh/.ps1 + compose) needs the deferred services to exist to be meaningful.
+- NEXT-SESSION OPTIONS: (a) install Docker+Mem0 → wire real adapter behind D23 contract + finish S04; (b) install
+  rtk/CCE → S03 pilots; (c) S05 workflow-skills groundwork that doesn't need Pi; (d) S07 metrics/acceptance seams.
+  Recommend surfacing the install-scope decision to the user before S05/S06.
 
 ## S00 — CLOSED ✅ (GO to build)
 - T01 scaffold ✅ · T02 concurrency GO (10 sessions) ✅ · T03 baseline rig ✅ · T04 SKIPPED (D17 policy)
