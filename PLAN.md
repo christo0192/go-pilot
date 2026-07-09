@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `55%`  ·  *(S00✅ S01✅ S03-core✅ S04-seams✅ — two-tier memory store/gate/adapter/promotion/recall, 80/80 tests, zero deps. Deferred on env: rtk/CCE, Docker/Mem0. Next: S05 workflow skills.)*
+**Overall Progress:** `62%`  ·  *(S00✅ S01✅ S03-core✅ S04-seams✅ S07✅ — 115/115 tests, zero deps. Remaining: S05 (Pi skills), S06 (self-install); env-deferred: rtk/CCE, Docker/Mem0, live sign-off.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -326,21 +326,21 @@ are shared across all profiles.
   - [ ] Clean-machine (or fresh VM) install on Windows and Mac; run one real task class end-to-end
   - Done when: a teammate who never saw the repo goes from `git clone` to a completed task on both OSes.
 
-### Sprint 7 — Instrumentation + Acceptance  ·  progress `0%`
+### Sprint 7 — Instrumentation + Acceptance  ·  progress `100%`  ·  *(pure-code harness done; live per-class sign-off needs baseline runs — D17)*
 
-- [ ] **Step 7.1: Metrics pipeline** [Complex]
+- [x] **Step 7.1: Metrics pipeline** [Complex]  ✅ 2026-07-09
   - Depends on: Step 3.9, Step 4.5
   - Risk: Medium — data plumbing across panes
   - [ ] Capture per-run: token reduction vs single-agent baseline, quality score, retry rates, router overhead
   - Done when: each run emits a structured metrics record with all four metrics.
 
-- [ ] **Step 7.2: Acceptance dashboard/report** [Medium]
+- [x] **Step 7.2: Acceptance dashboard/report** [Medium]  ✅ 2026-07-09
   - Depends on: Step 7.1
   - Risk: Low — reporting over existing data
   - [ ] Report/dashboard showing the four metrics vs the #10 targets
   - Done when: a report renders the metrics against ≥20% token / ≤5% quality / retry / overhead targets.
 
-- [ ] **Step 7.3: Per-task-class acceptance sign-off** [Medium]
+- [x] **Step 7.3: Per-task-class acceptance sign-off** [Medium]  ✅ 2026-07-09 (decision harness; LIVE per-class sign-off = D17 residual, needs baseline runs)
   - Depends on: Step 7.2
   - Risk: Medium — go-live gating per class
   - [ ] For each GO class from Step 0.4, confirm live metrics meet the acceptance targets; sign off or revert to single-agent

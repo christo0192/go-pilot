@@ -70,3 +70,13 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
   before diagnosing a bug. Here: 28 serial runs = 0 fails; the "flake" was T05 reading T04's mid-write file.
 - Recall token-budgeting: compare char length vs `maxTokens*4` (exact inverse of the chars/4 proxy) and drop
   whole bullets; truncate only the top bullet if it alone overflows — guarantees the injection never exceeds budget.
+
+## 2026-07-09 — S07 Instrumentation + Acceptance
+- #10 numeric-acceptance harness shipped as zero-dep Node ESM (src/metrics/): metrics(record+computeRun) →
+  acceptance(evaluate vs ≥20%/≤5% targets) → signoff(per-class GO vs revert). One shared metrics-record
+  contract; router overhead is ALWAYS its own line item, never subtracted from token savings.
+- Parallel-agent race mitigation (confirmed working): when spawning concurrent agents that add sibling test
+  files, instruct each to run ONLY its own file (`node --test <file>`) during dev, and have the orchestrator
+  run the FULL suite serially afterward. Eliminates the half-written-file false-flake seen in S04. 115/115 clean.
+- D17 residual made concrete: per-class sign-off DEFAULTS to revert-to-single when a class has no live data —
+  the safe no-negative-return default. Live sign-off just needs baseline-rig runs fed into signoff().

@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S04 — Memory — PURE-CODE SEAMS COMPLETE ✅ (real Mem0/Docker deferred by user)
-**Active Task**: S05/T01 — workflow skills (brainstorm→…→auto) — next slice (see Reassess)
-**Progress**: S00✅ S01✅ S03-core✅ S04-seams✅ (S02 skipped) · S04 5/5 seams, suite 80/80, zero deps · Overall PLAN 55%
+**Active Slice**: S07 — Instrumentation + Acceptance COMPLETE ✅ (built ahead of S05/S06, pure-code)
+**Active Task**: — (reassess: all remaining M001 work needs installs — see Reassess)
+**Progress**: S00✅ S01✅ S03-core✅ S04-seams✅ S07✅ (S02 skipped) · suite 115/115, zero deps · Overall PLAN 62%
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
@@ -20,14 +20,19 @@
   (mock {add,search}), promotion (keepers-only), recall (bounded session-start injection). See S04-SUMMARY.md.
   Pipeline: store→gate→promotion→adapter→recall. Decisions D23. suite 80/80, zero deps, 28 serial runs 0 flakes.
 
-## REASSESS (2026-07-09): remaining M001 work = env-setup or workflow-layer
-- DEFERRED on installs (user decision): S03 pilots (rtk/CCE), S04 real Mem0 (Docker/Step 4.3).
-- BUILDABLE without installs: S05 (workflow skills brainstorm→…→auto; Phase-0 alignment gate) — but S05 is a
-  Pi/skills UX layer (D-model); some depends on Pi installed. S07 instrumentation partly pure-code.
-- S06 (self-installing repo install.sh/.ps1 + compose) needs the deferred services to exist to be meaningful.
-- NEXT-SESSION OPTIONS: (a) install Docker+Mem0 → wire real adapter behind D23 contract + finish S04; (b) install
-  rtk/CCE → S03 pilots; (c) S05 workflow-skills groundwork that doesn't need Pi; (d) S07 metrics/acceptance seams.
-  Recommend surfacing the install-scope decision to the user before S05/S06.
+## S07 — Instrumentation + Acceptance COMPLETE ✅ 2026-07-09
+- src/metrics/: metrics (per-run record + computeRun), acceptance (evaluate vs #10 targets ≥20%/≤5%),
+  signoff (per-class GO vs revert; no-data→revert, D17 safe default). 115/115, zero deps. See S07-SUMMARY.md.
+- Residual: LIVE per-class sign-off needs real baseline-rig runs fed into signoff() (D17).
+
+## REASSESS (2026-07-09): all remaining M001 work needs installs / deferred services
+Pure-code buildable-now work is EXHAUSTED. Remaining:
+- S05 (Pi workflow skills brainstorm→…→auto + Phase-0 gate) — needs Pi installed (`npm i -g @earendil-works/pi-coding-agent`).
+- S06 (self-installing repo install.sh/.ps1 + docker compose) — needs the deferred services to exist to be meaningful.
+- Env-deferred: S03 pilots (rtk/CCE), S04 real Mem0 (Docker), S07 live per-class sign-off (baseline runs).
+NEXT-SESSION OPTIONS (all need a user install decision): (a) install Docker → wire real Mem0 behind D23 +
+run live acceptance/sign-off; (b) install Pi → S05 skills; (c) install rtk/CCE → S03 pilots; (d) start S06
+install scripts (can scaffold idempotent installers now, but end-to-end verify needs the services).
 
 ## S00 — CLOSED ✅ (GO to build)
 - T01 scaffold ✅ · T02 concurrency GO (10 sessions) ✅ · T03 baseline rig ✅ · T04 SKIPPED (D17 policy)
