@@ -69,3 +69,13 @@
   with infer:false, since pure-anthropic has no embeddings. (4) `AUTH_DISABLED=true` opens the local single-node
   store (no JWT/api-key). Compose rewritten to build-from-source; deploy/.env holds the OpenAI key (git-ignored).
   Remaining to finish Step 4.3: user supplies OPENAI_API_KEY, then add/search round-trip via mem0-client.
+
+## 2026-07-09 — S04b live integration COMPLETE (Step 4.3)
+- D26: Real Mem0 is LIVE and end-to-end validated. Docker Engine installed natively in WSL2 (docker.io via apt
+  + systemd, NO Windows restart — avoids losing the session). Built Mem0 from source (arm64-only prebuilt).
+  Runtime fixes baked into deploy/docker-compose.yml: `pip install psycopg[binary]` at start (slim base lacks
+  libpq) + `mem0_history` volume for HISTORY_DB_PATH. AUTH_DISABLED=true for the local single-node store.
+  Live proof: `src/memory/mem0-client.mjs` + OpenAI text-embedding-3-small added 3 memories and semantic search
+  ranked them correctly (router query→router memory 0.46; lunch query→lunch memory 0.48). The D23 mock→real
+  swap is proven — promotion/recall accept any {add,search} adapter, so wiring mem0-client is a config swap.
+  SECURITY: OpenAI key only in gitignored deploy/.env; it was pasted in chat → user advised to ROTATE it.

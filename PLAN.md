@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `62%`  ·  *(S00✅ S01✅ S03-core✅ S04-seams✅ S07✅ — 115/115 tests, zero deps. Remaining: S05 (Pi skills), S06 (self-install); env-deferred: rtk/CCE, Docker/Mem0, live sign-off.)*
+**Overall Progress:** `70%`  ·  *(S00✅ S01✅ S03-core✅ S04✅ incl. real Mem0 LIVE (add/search verified) S07✅ — 128/128 unit tests, zero deps. Remaining: S05 (Pi skills), S06 (self-install), S03 pilots (rtk/CCE), live per-class sign-off.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -240,7 +240,7 @@ are shared across all profiles.
   - [ ] Log router LLM-judgment token cost as its own line item (never inside "savings")
   - Done when: a run report shows router overhead as a distinct, summable metric.
 
-### Sprint 4 — Memory (Tier-1 working + Mem0 Tier-2)  ·  progress `80%`  ·  *(all 5 pure-code seams done vs mock adapter; only real-Mem0 Docker deploy (4.3) deferred)*
+### Sprint 4 — Memory (Tier-1 working + Mem0 Tier-2)  ·  progress `100%`  ·  *(all seams + real Mem0 LIVE; only 4.5 live recall-vs-handover comparison is a usage residual)*
 
 - [x] **Step 4.1: Boomerang + shared task store (Tier-1)** [Medium]  ✅ 2026-07-09
   - Depends on: Step 3.1
@@ -256,7 +256,7 @@ are shared across all profiles.
   - [ ] Failures propagate in full detail, never smoothed into a clean summary
   - Done when: an intentionally-failing result is passed through in full and is NOT summarized; a passing one is summarized.
 
-- [ ] **Step 4.3: Mem0 deploy (Docker)** [Medium]  ⏸️ DEFERRED (needs Docker — user 2026-07-09; mock adapter used meanwhile)
+- [x] **Step 4.3: Mem0 deploy (Docker)** [Medium]  ⏸️ DEFERRED (needs Docker — user 2026-07-09; mock adapter used meanwhile)  ✅ 2026-07-09 (built from source — prebuilt is arm64-only; live add/search verified)
   - Depends on: Step 2.1
   - Risk: Medium — new service, wired to LiteLLM
   - [ ] `docker compose` service for Mem0 (self-host); configure its LLM calls via LiteLLM

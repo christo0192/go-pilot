@@ -36,9 +36,16 @@ services:
       - PYTHONUNBUFFERED=1
     # Run DB migrations THEN serve (prod Dockerfile's CMD doesn't migrate; the app
     # needs its tables). --reload dropped for a non-dev run.
+    # psycopg[binary] bundles libpq (the slim base image lacks it → "no pq wrapper
+    # available"); install it before migrating/serving. Then migrate, then serve.
     command: >
-      sh -c "alembic upgrade head &&
+      sh -c "pip install --no-cache-dir 'psycopg[binary]' &&
+             alembic upgrade head &&
              uvicorn main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      # Mem0's core lib keeps a SQLite "history" DB at HISTORY_DB_PATH
+      # (default /app/history/history.db). The mount creates the dir + persists it.
+      - mem0_history:/app/history
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,3 +70,4 @@ services:
 
 volumes:
   mem0_pgdata:
+  mem0_history:

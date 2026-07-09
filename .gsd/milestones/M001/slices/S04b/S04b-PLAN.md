@@ -11,11 +11,12 @@ Split into Docker-INDEPENDENT prep (buildable now) and integration (needs the us
   Mem0 self-hosted API (researched): `POST /memories` {messages,user_id,metadata,infer} → {results:[{id,memory,event}]};
   `POST /search` {query,user_id,top_k} → {results:[{id,memory,score,...}]}. Image `mem0/mem0-api-server`.
 
-- [ ] **T02: Live integration (BLOCKED on user Docker install + embedder)** (Step 4.3 done-when)
-  Once `docker --version` works: `cd deploy && docker compose up -d`; verify store+retrieve via mem0-client
-  against the running server; reconcile the 7 flagged assumptions; then run live metrics → `signoff()`.
-  BLOCKER: Mem0 search needs an EMBEDDER even with infer:false — pure-anthropic has none. User must choose an
-  embedding provider (OpenAI embeddings key, or a local embedder) and wire it in `.env` before search works E2E.
+- [x] **T02: Live integration** ✅ 2026-07-09 (Step 4.3 done-when MET)
+  Docker Engine installed natively in WSL2 (no restart). Built Mem0 from source (arm64-only prebuilt), fixed
+  two runtime bugs: (1) `psycopg[binary]` installed at start (slim image lacks libpq), (2) `mem0_history` volume
+  for HISTORY_DB_PATH=/app/history/history.db. Server UP (/docs 200). LIVE round-trip via mem0-client with the
+  user's OpenAI embedder: added 3 memories, semantic search ranked the router memory first (0.46) for a routing
+  query and the lunch memory (0.48) for a lunch query — correct. Fact written → retrievable by semantic query. ✅
 
 ## Assumptions to re-verify against the running server (from research)
 1. Response `{results:[...]}` (v1.1) vs bare array (v1.0) — client tolerates both. 2. `infer:false` stores verbatim.

@@ -90,3 +90,14 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
   removes JWT/api-key for local. Endpoints (verified in server/main.py): POST /memories, POST /search, no /v1/.
 - Blobless+sparse clone got just server/ fast after a full `git clone` timed out:
   `git clone --filter=blob:none --no-checkout --depth 1 <repo> dst && cd dst && git sparse-checkout set server && git checkout`.
+
+## 2026-07-09 — Mem0 live bring-up (3 bugs, in order)
+1. sandbox couldn't reach dockerd (not in docker group, no sudo) → `sudo chmod 666 /var/run/docker.sock`
+   (dev convenience; resets on daemon restart; revert `chmod 660`).
+2. Mem0 slim image: `psycopg` "no pq wrapper available" (libpq missing) → add `pip install psycopg[binary]`
+   to the compose start command (bundles libpq; no apt needed).
+3. `sqlite3 unable to open database file` → Mem0's core keeps a SQLite history DB at
+   HISTORY_DB_PATH=/app/history/history.db; the dir must exist → mount a volume at /app/history.
+Prod Dockerfile does NOT run migrations → command must `alembic upgrade head` before uvicorn.
+Native Docker in WSL2 (Ubuntu 26.04 has systemd on): `apt install docker.io docker-compose-v2` +
+`systemctl enable --now docker` — no Docker Desktop, no Windows restart.
