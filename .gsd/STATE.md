@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S06 — Self-installing repo ✅ (install.sh LIVE-verified; install.ps1 authored)
-**Active Task**: — (reassess: everything left is install-gated — see Reassess)
-**Progress**: S00✅ S01✅ S03-core✅ S04✅(real Mem0 LIVE) S06✅(install.sh verified) S07✅ (S02 skipped) · unit 128/128 · Overall PLAN 78%
+**Active Slice**: S04b — real Mem0 WIRED as default Tier-2 ✅ (memory story fully complete)
+**Active Task**: — (reassess: everything left is install-gated / other-machine — see Reassess)
+**Progress**: S00✅ S01✅ S03-core✅ S04✅(real Mem0 default Tier-2) S06✅(install.sh verified) S07✅ (S02 skipped) · unit 135/135, zero deps · Overall PLAN ~80% · HEAD 1d2f1c3
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
@@ -30,7 +30,12 @@
   authored (Windows parity; live run = 6.5). docs/INSTALL.md both OSes + revert. 6.3 compose ✅, 6.4 templating ✅.
 - Remaining S06: only 6.5 fresh-machine Win+Mac acceptance (needs clean boxes + teammate). Decisions D27.
 
-## REASSESS (2026-07-09, post-S06): remaining M001 is ALL install-gated / other-machine
+## S04b Tier-2 wiring COMPLETE ✅ 2026-07-09 (the "no-install win" — now done)
+- src/memory/tier2.mjs createTier2Adapter({mode:auto|mock|mem0}); promote/recall made async → work with the
+  async real mem0-client AND sync mock. Live integration test proves gate→promote→mem0→recall. Memory = DONE.
+  Decisions D28. Suite 135/135. To use real Mem0 in orchestrator code: createTier2Adapter({mode:'mem0'}).
+
+## REASSESS (2026-07-09, post-Tier2-wiring): remaining M001 is ALL install-gated / other-machine
 - S05 (Pi workflow skills brainstorm→…→auto + Phase-0 gate) — needs Pi (`npm i -g @earendil-works/pi-coding-agent`).
 - S03 pilots (3.4 rtk / 3.5 CCE / 3.6 context-mode) — need rtk + CCE installed.
 - Live per-class sign-off (D17) — needs real baseline-rig runs to feed src/metrics/signoff.mjs.
