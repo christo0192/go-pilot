@@ -28,3 +28,18 @@
 
 - D18: Worker dispatch model FINALIZED = lean one-shot via `herdr pane run` (claude -p / codex exec) + `herdr wait output --match <result-token>` + `pane read` parse. No agent-integration hooks required (optional polish). Match only result-only tokens in wait (never command-echo substrings).
 - D19: Write-safety = worktree-per-pane (herdr worktree) as primary isolation + pane-lock.sh (flock) for shared-checkout critical sections. claude-presence deferred until a real multi-session-same-repo need appears.
+
+## 2026-07-09 — S03 Router
+- D20: Router + all Sprint-3 orchestration code = **Node.js ESM, zero external deps**, tested with the
+  built-in `node --test`. Rationale: python3 3.14 on this machine has no pip/ensurepip; Node v22 + npm work
+  and are cross-platform (D1) and already a hard dep; zero-dep keeps the self-bootstrapping repo (S06) light.
+  Router mapping is a **profile-keyed config** (`config/router.json`) so hybrid/open-first swap models with no
+  code change (D5). Router stays pure/side-effect-free except the separate judgment-cost log (feeds Step 3.9).
+
+## 2026-07-09 — S03 (continued)
+- D21: Sprint-3 external-tool pilots (Step 3.4 rtk, 3.5 CCE, 3.6 context-mode) DEFERRED — tools not
+  installed and installing them is an environment/user decision. Not blockers: the T03 boundary guard
+  already provides the Reference/Compressed seam these would plug real compressors into; all degrade-safe (D7).
+- D22: agent-comms mesh is EXCEPTION-ONLY. The `isExceptionAllowed` guard admits only
+  `{type:"query", exception:true, from, to, ask}` (a peer FACT request); default work-routing is rejected
+  so chain-of-command (#4/D9) remains the only default path. Fact-not-full-content ties it to the #1 invariant.

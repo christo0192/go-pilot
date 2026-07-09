@@ -2,20 +2,31 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S03 — Router + Context Tiering (S02 skipped: pure-anthropic)
-**Active Task**: S03/T01 — deterministic router (next session)
-**Progress**: 2/8 slices (S00 ✅, S01 ✅) · S02 skipped (pure-anthropic) · next S03 Router
+**Active Slice**: S03 — Router + Context Tiering (CORE COMPLETE ✅ · 3 pilots deferred on tooling)
+**Active Task**: S04/T01 — Memory (Mem0) — BLOCKED pending Docker + Mem0 decision (see Reassess)
+**Progress**: 3/8 slices core-done (S00✅ S01✅ S03-core✅; S02 skipped) · S03 6/6 tasks, suite 42/42, zero deps
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
+
+## S03 — Router + Context Tiering (CORE COMPLETE ✅ 2026-07-09)
+- 6/6 tasks built in `src/` (was empty): T01 router, T02 TOON (42%<JSON), T03 boundary guard, T04 overhead
+  report, T05 YAGNI fragment, T06 agent-comms mesh. All Node ESM zero-dep (D20); `node --test` 42/42, clean exit.
+- See S03-SUMMARY.md. Decisions D20–D22, KNOWLEDGE updated (node:test gate; net.Server closeAllConnections gotcha).
+- Deferred pilots (Steps 3.4 rtk / 3.5 CCE / 3.6 context-mode) — tools NOT installed (D21). T03 guard already
+  provides the Reference/Compressed seam they'd plug into. Revisit after tool install (user/infra decision).
+
+## REASSESS (2026-07-09): next slice needs environment setup
+- S04 (Memory) core = Mem0 (persistent Tier-2) which runs via Docker — Docker NOT installed. S03 pilots need
+  rtk/CCE. Both are env-setup/user decisions. Options for next session: (a) install Docker + Mem0 and do S04;
+  (b) install rtk/CCE and finish S03 pilots; (c) build pure-code S04 seams (boomerang/promotion filter) that
+  don't need Mem0 yet. Recommend confirming install scope with the user before committing to (a)/(b).
 
 ## S00 — CLOSED ✅ (GO to build)
 - T01 scaffold ✅ · T02 concurrency GO (10 sessions) ✅ · T03 baseline rig ✅ · T04 SKIPPED (D17 policy)
 - Key: D16 lean-worker cuts ~60% cost/call. Rig ready for per-class validation on demand.
 
-## S01 — Substrate + Frontier Plane (active)
-- T01 ✅ herdr 0.7.3 installed; headless socket API + orchestration loop proven (panes/herdr-orchestration.md). Server running bg this session.
-- T02 wrap claude pane — ⏳ NEXT — needs decision on integration hook (writes to ~/.claude) + design: lean `claude -p` worker vs interactive TUI pane
-- T02 wrap claude pane · T03 wrap codex pane · T04 claude-presence · T05 worktree-per-pane
-- pure-anthropic: no LiteLLM/Pi this slice.
+## S01 — CLOSED ✅ (substrate proven)
+- herdr 0.7.3: headless socket API + `pane run → wait output → pane read` dispatch (D18). claude+codex lean
+  workers, worktree-per-pane (D19), advisory locks. See panes/herdr-orchestration.md. Server runs bg.
 
-## Installed: git, node, npm, python3, claude 2.1.204, codex 0.143.0.  Missing: wezterm, herdr, pi, rtk, docker.
+## Installed: git, node v22.23, npm, python3 3.14 (no pip), claude 2.1.204, codex 0.143.0. Missing: wezterm, pi, rtk, docker.

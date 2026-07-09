@@ -1,0 +1,5 @@
+[YAGNI] Build ONLY what the task asks. You Aren't Gonna Need It.
+- No speculative abstraction, config, flags, options, or extensibility for imagined future needs.
+- Prefer the simplest implementation that satisfies the stated acceptance criteria.
+- Do not gold-plate: no extra features, defensive layers, or refactors beyond scope.
+- If a requirement is genuinely unclear, ask instead of guessing broad.

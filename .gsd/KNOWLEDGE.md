@@ -47,3 +47,15 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
 - T03 codex worker: `codex exec --json --skip-git-repo-check --sandbox read-only --ignore-user-config` → JSONL events; final answer = last item.completed agent_message; usage in turn.completed. Codex overhead ~12.5k tok (< Claude 44k). ChatGPT auth, separate quota. Wrapper scripts/lean-codex-worker.sh.
 - T05 worktree: `herdr worktree create --cwd REPO --branch B --base HEAD --path P --json` → linked worktree + own workspace/pane; `herdr worktree remove --workspace ID --force`. git worktree-per-pane = primary write-safety.
 - T04 lock: scripts/pane-lock.sh (flock) serializes shared-checkout writers (verified). claude-presence deferred.
+
+## 2026-07-09 — S03 Router + Context Tiering
+- Node's built-in `node --test` + `node:assert/strict` gives a real, CI-usable test gate with ZERO installs —
+  ideal for the self-bootstrapping cross-platform repo (no pip on this machine's python3 3.14). All S03
+  modules are zero-dep ESM; the whole suite is 42 tests, runs + exits clean via `node --test`.
+- GOTCHA: `net.Server` has NO `closeAllConnections()` (that's `http.Server` only) — calling it is a silent
+  no-op (undefined), leaving accepted sockets alive so `server.close()` hangs forever. Track accepted sockets
+  in a Set and `.destroy()` them before `close()`. This bit T06 until fixed; watch for it in any node:net code.
+- Token efficiency (measured): TOON task-specs are ~42% smaller than pretty JSON on the chars/4 proxy —
+  worth using for all cross-pane specs.
+- Router design that worked: key on WORK-TYPE (code/extract/plan/…), not business domain, so the pending
+  per-class GO table (D17) doesn't block routing; multi-pane fan-out stays opt-in per validated class.

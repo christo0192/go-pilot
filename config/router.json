@@ -1,0 +1,19 @@
+{
+  "pure-anthropic": {
+    "categories": {
+      "orchestrate": {"plane":"frontier","model":"opus"},
+      "plan":        {"plane":"frontier","model":"opus"},
+      "code":        {"plane":"frontier","model":"sonnet"},
+      "analyze":     {"plane":"frontier","model":"sonnet"},
+      "draft":       {"plane":"frontier","model":"sonnet"},
+      "extract":     {"plane":"frontier","model":"haiku"},
+      "classify":    {"plane":"frontier","model":"haiku"},
+      "summarize":   {"plane":"frontier","model":"haiku"},
+      "code-review": {"plane":"frontier","model":"codex"},
+      "lateral":     {"plane":"frontier","model":"codex"}
+    },
+    "default": "__judgment__"
+  },
+  "hybrid":     { "categories": {}, "default": "__judgment__" },
+  "open-first": { "categories": {}, "default": "__judgment__" }
+}

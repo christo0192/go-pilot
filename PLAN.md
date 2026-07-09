@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `28%`  ·  *(S00 ✅ · S01 ✅ COMPLETE — Herdr + claude/codex workers + worktrees + locks all proven. Next: S02 skipped (pure-anthropic) → S03 Router)*
+**Overall Progress:** `40%`  ·  *(S00 ✅ · S01 ✅ · S03 CORE ✅ — router/TOON/boundary/overhead/YAGNI/mesh, 42/42 tests, zero deps. Pilots 3.4-3.6 + S04 need env setup (rtk/CCE/Docker).)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -174,9 +174,9 @@ are shared across all profiles.
   - [ ] Verify schema-valid tool JSON is guaranteed for those providers
   - Done when: for a schema-mode-capable model, malformed tool JSON no longer occurs across a test batch.
 
-### Sprint 3 — Router + Context Tiering  ·  progress `0%`
+### Sprint 3 — Router + Context Tiering  ·  progress `67%`  ·  *(core 6/9 done; 3.4/3.5/3.6 deferred on tooling)*
 
-- [ ] **Step 3.1: Deterministic rule-based router** [Complex]
+- [x] **Step 3.1: Deterministic rule-based router** [Complex]  ✅ 2026-07-09
   - Depends on: Step 2.2, Step 1.2
   - Risk: High — central control logic
   - [ ] Implement router: task category → {plane, model} using GO classes from Step 0.4
@@ -184,28 +184,28 @@ are shared across all profiles.
   - [ ] Unit-test the mapping table against a fixture of tasks
   - Done when: a fixture set of tasks each route to the correct plane+model deterministically; ambiguous ones log a costed judgment call.
 
-- [ ] **Step 3.2: TOON task-spec format** [Medium]
+- [x] **Step 3.2: TOON task-spec format** [Medium]  ✅ 2026-07-09
   - Depends on: Step 3.1
   - Risk: Medium — new serialization for specs
   - [ ] Adopt TOON for plan/task-spec artifacts; helper to emit/parse
   - [ ] Verify a task spec round-trips and measures fewer tokens than the JSON equivalent
   - Done when: task specs are emitted as TOON and a token comparison vs JSON is recorded.
 
-- [ ] **Step 3.3: Reference > Compressed > Full boundary enforcement** [Complex]
+- [x] **Step 3.3: Reference > Compressed > Full boundary enforcement** [Complex]  ✅ 2026-07-09
   - Depends on: Step 3.1
   - Risk: High — the core token-efficiency invariant (#1)
   - [ ] Enforce that content crossing a pane boundary is a reference/pointer or summary, never raw full content by default
   - [ ] Add a guard that flags/blocks full-content passing unless explicitly justified
   - Done when: a test attempting to pass full content across a boundary is downgraded to reference/compressed or flagged.
 
-- [ ] **Step 3.4: rtk CLI-output compression proxy** [Medium]
+- [ ] **Step 3.4: rtk CLI-output compression proxy** [Medium]  ⏸️ DEFERRED (tool not installed — D21)
   - Depends on: Step 3.1
   - Risk: Medium — wrapping external tool output
   - [ ] Route git/test/lint output through rtk before it enters a pane's context
   - [ ] Verify compressed output preserves actionable signal on a real repo
   - Done when: a noisy command's output is materially smaller in-context with no loss of the failing detail.
 
-- [ ] **Step 3.5: CCE pilot + fallback chain** [Complex]
+- [ ] **Step 3.5: CCE pilot + fallback chain** [Complex]  ⏸️ DEFERRED (tool not installed — D21)
   - Depends on: Step 3.3
   - Risk: High — immature dependency, must degrade safely (#8)
   - [ ] Integrate CCE (Code Context Engine) as a Reference-tier retrieval source
@@ -213,28 +213,28 @@ are shared across all profiles.
   - [ ] Verify that disabling/breaking CCE silently falls back without routing to the expensive tier
   - Done when: with CCE forced to fail, retrieval still returns correct context via file-path/compressed fallback.
 
-- [ ] **Step 3.6: context-mode vs rtk+CCE consolidation pilot** [Spike Needed]
+- [ ] **Step 3.6: context-mode vs rtk+CCE consolidation pilot** [Spike Needed]  ⏸️ DEFERRED (tool not installed — D21)
   - Depends on: Step 3.4, Step 3.5
   - Risk: Medium — dependency-count decision
   - [ ] Spike (time-box): run context-mode head-to-head against rtk+CCE on the same tasks
   - [ ] Compare token reduction, correctness, and setup cost; record verdict in `docs/context-tooling-decision.md`
   - Done when: a documented decision states whether context-mode replaces rtk+CCE or not, with numbers.
 
-- [ ] **Step 3.7: agent-comms P2P mesh (exception routing)** [Medium]
+- [x] **Step 3.7: agent-comms P2P mesh (exception routing)** [Medium]  ✅ 2026-07-09
   - Depends on: Step 3.1
   - Risk: Medium — networking, but scoped to exceptions
   - [ ] Stand up agent-comms localhost TCP mesh bridging claude/codex/Pi panes
   - [ ] Restrict usage to lateral/exception clarification (chain-of-command is default, #4)
   - Done when: a blocked worker can request a specific fact from a peer pane, and default routing still goes through the parent.
 
-- [ ] **Step 3.8: Ponytail YAGNI prompt fragment** [Simple]
+- [x] **Step 3.8: Ponytail YAGNI prompt fragment** [Simple]  ✅ 2026-07-09
   - Depends on: Step 2.2
   - Risk: Low — prompt-only change
   - [ ] Apply the reduced Ponytail YAGNI fragment to worker system prompts
   - [ ] Verify no regression on a sample task
   - Done when: worker prompts include the fragment and a sample task still passes.
 
-- [ ] **Step 3.9: Router overhead instrumentation** [Medium]
+- [x] **Step 3.9: Router overhead instrumentation** [Medium]  ✅ 2026-07-09
   - Depends on: Step 3.1
   - Risk: Medium — measurement feeding acceptance (#10)
   - [ ] Log router LLM-judgment token cost as its own line item (never inside "savings")
