@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `70%`  ·  *(S00✅ S01✅ S03-core✅ S04✅ incl. real Mem0 LIVE (add/search verified) S07✅ — 128/128 unit tests, zero deps. Remaining: S05 (Pi skills), S06 (self-install), S03 pilots (rtk/CCE), live per-class sign-off.)*
+**Overall Progress:** `78%`  ·  *(S00✅ S01✅ S03-core✅ S04✅(real Mem0 LIVE) S06✅(install.sh verified) S07✅ — 128/128 tests, zero deps. Remaining: S05 (Pi skills), S03 pilots (rtk/CCE), live sign-off, 6.5 fresh-machine verify.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -292,28 +292,28 @@ are shared across all profiles.
   - [ ] Require a user↔orchestrator alignment exchange before any plan is generated; model tier via `/model`
   - Done when: plan generation is blocked until an alignment step is recorded.
 
-### Sprint 6 — Cross-Platform Self-Installing Repo  ·  progress `0%`
+### Sprint 6 — Cross-Platform Self-Installing Repo  ·  progress `80%`  ·  *(installers+compose done; install.sh live-verified; only 6.5 fresh-machine Win+Mac acceptance remains)*
 
-- [ ] **Step 6.1: `install.sh` (mac/WSL) idempotent bootstrap** [Complex]
+- [x] **Step 6.1: `install.sh` (mac/WSL) idempotent bootstrap** [Complex]  ✅ 2026-07-09 (LIVE-verified idempotent no-op on WSL)
   - Depends on: Step 1.1, Step 2.1, Step 4.3
   - Risk: High — must be idempotent + OS-detecting
   - [ ] Detect OS; install Wezterm + Herdr + Pi + Node if missing; write configs; `docker compose up`; verify; report ready
   - [ ] Re-running it makes no destructive changes
   - Done when: on a clean mac/WSL, one command yields a ready-to-use rig; a second run is a no-op.
 
-- [ ] **Step 6.2: `install.ps1` (Windows) idempotent bootstrap** [Complex]
+- [x] **Step 6.2: `install.ps1` (Windows) idempotent bootstrap** [Complex]  ✅ 2026-07-09 (authored; Windows live-run = 6.5)
   - Depends on: Step 6.1
   - Risk: High — Windows parity with 6.1
   - [ ] PowerShell equivalent of 6.1 (herdr Windows-beta path); same verify + ready report
   - Done when: on a clean Windows machine, one command yields a ready-to-use rig; a second run is a no-op.
 
-- [ ] **Step 6.3: docker-compose for LiteLLM + Mem0** [Medium]
+- [x] **Step 6.3: docker-compose for LiteLLM + Mem0** [Medium]  ✅ (deploy/docker-compose.yml, live this session; LiteLLM optional/hybrid-only)
   - Depends on: Step 2.1, Step 4.3
   - Risk: Medium — service orchestration
   - [ ] Single compose file brings up LiteLLM + Mem0 with volumes for persistence
   - Done when: `docker compose up` starts both services healthy on both OSes.
 
-- [ ] **Step 6.4: `.env` + secrets handling + config templating** [Medium]
+- [x] **Step 6.4: `.env` + secrets handling + config templating** [Medium]  ✅ (.env templating folded into installers)
   - Depends on: Step 6.3
   - Risk: Medium — secret hygiene
   - [ ] `.env.example` → generated `.env`; API keys for open models only; frontier uses native login

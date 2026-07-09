@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S04b — Real Mem0 (Docker path): PREP DONE ✅, live integration BLOCKED on user
-**Active Task**: S04b/T02 — live Mem0 integration — BLOCKED on (a) user Docker install, (b) embedder choice
-**Progress**: S00✅ S01✅ S03-core✅ S04-seams✅ S07✅ + S04b prep✅ (S02 skipped) · suite 128/128, zero deps · Overall PLAN ~64%
+**Active Slice**: S04b — Real Mem0 LIVE ✅ (Step 4.3 complete — add/search verified end-to-end)
+**Active Task**: — (reassess: S05 Pi skills / S06 self-install / S03 pilots / live sign-off remain — need installs)
+**Progress**: S00✅ S01✅ S03-core✅ S04✅(+real Mem0 LIVE) S07✅ (S02 skipped) · unit suite 128/128, zero deps · Overall PLAN 70%
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 

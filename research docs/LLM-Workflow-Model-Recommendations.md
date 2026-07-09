@@ -1,6 +1,6 @@
 # LLM Workflow Model Recommendations
 
-Prepared for: IKS AI Systems Review  
+Prepared for: IK AI Systems Review  
 Date: 2026-07-06  
 Source BRD reviewed: `BRD-Local-API-LLM-Offloading.docx`
 

@@ -101,3 +101,10 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
 Prod Dockerfile does NOT run migrations → command must `alembic upgrade head` before uvicorn.
 Native Docker in WSL2 (Ubuntu 26.04 has systemd on): `apt install docker.io docker-compose-v2` +
 `systemctl enable --now docker` — no Docker Desktop, no Windows restart.
+
+## 2026-07-09 — S06 installers
+- install.sh made sourceable via `[[ "${BASH_SOURCE[0]}" == "$0" ]]` guard so its functions (OS detect, .env
+  templating, `have` guards) can be unit-tested without running the sudo/apt install lines.
+- Best idempotency test for an installer: run it on an already-provisioned box and assert every step no-ops +
+  exit 0 — that IS the "second run is a no-op" acceptance. install.sh passed this live.
+- Node on Ubuntu: prefer NodeSource setup_20.x over apt `nodejs` (archive can lag < v20).

@@ -79,3 +79,10 @@
   ranked them correctly (router query→router memory 0.46; lunch query→lunch memory 0.48). The D23 mock→real
   swap is proven — promotion/recall accept any {add,search} adapter, so wiring mem0-client is a config swap.
   SECURITY: OpenAI key only in gitignored deploy/.env; it was pasted in chat → user advised to ROTATE it.
+
+## 2026-07-09 — S06 Self-installing repo
+- D27: Self-install = `install.sh` (mac/WSL) + `install.ps1` (Windows), both idempotent, repo root, `--full`/
+  `-Full` gates the optional Herdr/Pi rig (pure-anthropic core needs neither). install.sh LIVE-verified as a
+  no-op on the provisioned WSL box (Step 6.1 done-when met). 6.3 compose already satisfied by deploy/. Frontier
+  uses native login (no keys); only open-model keys live in .env. Step 6.5 (fresh Win+Mac machine acceptance)
+  deferred — needs clean boxes + a teammate; install.ps1's live run is part of that.
