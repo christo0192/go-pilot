@@ -38,3 +38,7 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
 - `herdr integration install claude` writes a hook to /mnt/c/Users/Admin/.claude/hooks/herdr-agent-state.sh (+ likely settings.json). User has a heavy existing hook setup → inspect + back up before installing (T02).
 - Server running in background this session (task bg7g5a10h). Full command reference: panes/herdr-orchestration.md.
 - DESIGN: worker one-shots = lean `claude -p` via `pane run` (deterministic, token-accounted, cheapest). Interactive orchestrator pane = `agent start -- claude` + integration for TUI state.
+
+## 2026-07-09 — S01/T02: full worker mechanic proven + real cost
+- Orchestrator → lean `claude -p` worker in a herdr pane → `wait output` (boomerang) → `pane read`+parse JSON. result='WORKER_OK', $0.0032, 24,265 tok — ~18x cheaper than default $0.058 (warm cache). No ~/.claude change.
+- GOTCHA: `herdr wait output --match` also matches the ECHOED command line. Never use a sentinel that appears literally in the dispatched command; match a result-only token (total_cost_usd / "result") or signal out-of-band.

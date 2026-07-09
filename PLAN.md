@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `16%`  ·  *(S00 CLOSED. S01: 1.1 ✅ Herdr installed + orchestration loop proven. Next: 1.2 wrap claude pane)*
+**Overall Progress:** `20%`  ·  *(S01: 1.1 ✅ Herdr + loop · 1.2 ✅ lean claude worker proven ($0.0032/call). Next: 1.3 wrap codex)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -107,13 +107,14 @@ are shared across all profiles.
   - [~] Wezterm GUI + Mac: deferred to Sprint 6 (visible-pane UX; headless orchestration works without it)
   - Done when: scripted call spawns layout + reads back pane state. ✅ (Win/WSL headless; GUI/Mac at S6)
 
-- [ ] **Step 1.2: Wrap official `claude` binary as frontier pane** [Medium]
+- [x] **Step 1.2: Wrap official `claude` binary as frontier pane** [Medium] ✅ 2026-07-09
   - Depends on: Step 1.1
-  - Risk: Medium — native login + socket steering, no OAuth piggybacking
-  - [ ] Spawn `claude` in a herdr pane via socket; complete native `/login` (Claude Max)
-  - [ ] Prove read (`read-screen`) and steer (`send`) of the claude pane from the orchestrator
-  - [ ] Document model selection via native `/model`
-  - Done when: orchestrator can task the claude pane and capture its reply via socket, using only the official binary + native login.
+  - Risk: Medium — native login + socket steering, no OAuth piggybacking → cleared
+  - [x] Lean `claude -p` worker dispatched into a herdr pane via socket (`pane run`); uses existing native auth
+  - [x] Proved read (`pane read`) + steer (`pane run`) + boomerang wait (`wait output`) from orchestrator
+  - [x] Model via native `--model`; result='WORKER_OK', $0.0032, ~18× cheaper than default (warm cache)
+  - [~] Interactive orchestrator TUI pane + claude integration hook = OPTIONAL polish (deferred; avoids touching heavy ~/.claude)
+  - Done when: orchestrator tasks the claude pane + captures reply via socket, official binary + native auth only. ✅
 
 - [ ] **Step 1.3: Wrap official `codex` binary as frontier pane** [Medium]
   - Depends on: Step 1.1

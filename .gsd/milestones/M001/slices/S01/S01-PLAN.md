@@ -12,7 +12,7 @@ Profile: pure-anthropic (claude + codex already installed; no LiteLLM/Pi this sl
   - Verify: `herdr --version`; start server, confirm detach/reattach.
   Done when: `herdr --version` works and a scripted socket call creates a workspace + reads it back.
 
-- [ ] **T02: Wrap official `claude` binary as frontier pane** `est:30min`
+- [x] **T02: Wrap official `claude` binary as frontier pane** `est:done` ✅ 2026-07-09 — lean claude worker dispatched into a herdr pane; boomerang wait + structured read proven (result='WORKER_OK', $0.0032, ~18× cheaper). No .claude modification. See T02-SUMMARY.md.
   Depends on: T01
   Instructions: spawn `claude` in a herdr pane via socket; native `/login`; prove read-screen + send from orchestrator. Orchestrator = full config; workers later run lean (D16).
   Done when: orchestrator tasks the claude pane and captures its reply via socket.
