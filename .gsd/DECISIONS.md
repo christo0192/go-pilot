@@ -50,3 +50,11 @@
   client implement one identical `{ add(memory), search(query, topK) }` contract — the only coupling point,
   so the real client is a drop-in (Step 4.3 deferred, not blocking). Two-tier pipeline: store(Tier-1) → gate →
   promotion(keepers only) → mem0-adapter(Tier-2) → recall(session-start). Directly targets #1 friction (407 handovers).
+
+## 2026-07-09 — S04b Real Mem0 (Docker path)
+- D24: User authorized the Docker→real-Mem0 path. Docker-independent prep built: `deploy/docker-compose.yml`
+  (mem0/mem0-api-server + postgres/pgvector) + `src/memory/mem0-client.mjs` implementing the D23 {add,search}
+  contract over the researched self-hosted REST API (`POST /memories`, `POST /search`), tested vs a node:http
+  fake server (128/128). Live integration (S04b/T02) BLOCKED on (a) user installing Docker Desktop + WSL
+  integration, and (b) choosing an EMBEDDING provider — Mem0 search needs embeddings even with infer:false, and
+  pure-anthropic has none. Client tolerates v1.0/v1.1 response shapes; 7 assumptions logged to re-verify live.
