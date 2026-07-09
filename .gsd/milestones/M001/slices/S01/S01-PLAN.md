@@ -1,0 +1,37 @@
+# S01: Substrate + Frontier Plane
+
+Profile: pure-anthropic (claude + codex already installed; no LiteLLM/Pi this slice).
+
+## Tasks
+- [ ] **T01: Install Wezterm + Herdr** `est:20min (user-run installs)`
+  Depends on: S00
+  Instructions: **User runs the installs** (auto-mode blocks remote-code execution — correct).
+  - Herdr (WSL, no sudo, installs to ~/.local/bin):
+    `curl -fsSL https://herdr.dev/install.sh | sh`  then ensure `~/.local/bin` on PATH.
+  - Wezterm: Windows GUI app — installer already in Downloads (`WezTerm-*-setup.exe`), or https://wezterm.org.
+  - Verify: `herdr --version`; start server, confirm detach/reattach.
+  Done when: `herdr --version` works and a scripted socket call creates a workspace + reads it back.
+
+- [ ] **T02: Wrap official `claude` binary as frontier pane** `est:30min`
+  Depends on: T01
+  Instructions: spawn `claude` in a herdr pane via socket; native `/login`; prove read-screen + send from orchestrator. Orchestrator = full config; workers later run lean (D16).
+  Done when: orchestrator tasks the claude pane and captures its reply via socket.
+
+- [ ] **T03: Wrap official `codex` binary as frontier pane** `est:20min`
+  Depends on: T01
+  Instructions: same pattern for `codex` (separate ChatGPT login/quota).
+  Done when: orchestrator tasks the codex pane and captures its reply.
+
+- [ ] **T04: claude-presence integration** `est:30min`
+  Depends on: T02
+  Instructions: presence registry + advisory locks so two panes can't edit the same file.
+  Done when: two panes on the same file are serialized by an advisory lock.
+
+- [ ] **T05: Git worktree-per-pane scaffolding** `est:30min`
+  Depends on: T01
+  Instructions: each executing pane gets its own worktree; planning pane owns merge-back.
+  Done when: concurrent edits in separate worktrees merge back with no lost changes.
+
+## Note
+T01 is a user-run install. Once `herdr` is on PATH, I can resume T01 verification (socket
+smoke test) and T02–T05 largely autonomously (T02/T03 need your one-time native /login).
