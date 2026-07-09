@@ -1,74 +1,61 @@
-# Go-pilot — self-hosted Mem0 (Tier-2 persistent memory).
+# Go-pilot — self-hosted Mem0 (Tier-2 persistent memory), BUILT FROM SOURCE.
 #
-# DO NOT `docker compose up` this yet: Docker is being installed in parallel.
-# This file is prepared so it is ready the moment the daemon is available.
+# WHY build from source: the prebuilt `mem0/mem0-api-server` image is arm64-ONLY
+# (verified 2026-07-09 via `docker manifest inspect` on this x86_64 box — no amd64
+# variant). So we build Mem0's OSS server from its repo, which we sparse-clone to
+# `deploy/mem0-src` (git-ignored; see below to (re)fetch).
 #
-# Runs the official Mem0 OSS REST API server (mem0ai/mem0 `server/`) plus the
-# Postgres+pgvector store it depends on. The API listens on container port 8000
-# and is published on host 8888 to match MEM0_BASE_URL=http://localhost:8888
-# in .env.example — the src/memory/mem0-client.mjs client talks to that URL.
+# Fetch the build context (once):
+#   cd deploy
+#   git clone --filter=blob:none --no-checkout --depth 1 https://github.com/mem0ai/mem0.git mem0-src
+#   cd mem0-src && git sparse-checkout set server && git checkout && cd ..
 #
-# Env comes from ../.env (see .env.example). Placeholders below are wired to
-# the variables our .env already documents. For the pure-anthropic profile,
-# Mem0 still needs an embedder + extraction LLM (Anthropic has no embeddings
-# API), so point MEM0 at a cheap provider you have access to (e.g. an OpenAI
-# key, or a local/OpenAI-compatible endpoint). Our client sends add requests
-# with infer:false, so the extraction LLM is only exercised on demand — but the
-# EMBEDDER is always needed for vector search. Fill these before `up`.
+# Config comes from deploy/.env (copy deploy/.env.example → deploy/.env and fill
+# OPENAI_API_KEY — Mem0 needs an EMBEDDER even with infer:false; pure-anthropic has
+# none, so an OpenAI key (text-embedding-3-small, ~free) is the simplest embedder).
 #
-# Sources for shapes/ports (see src/memory/mem0-client.README.md):
-#   https://docs.mem0.ai/open-source/features/rest-api
-#   https://github.com/mem0ai/mem0/blob/main/server/docker-compose.yaml
+# Bring up:  cd deploy && docker compose up -d --build
+# The client src/memory/mem0-client.mjs talks to http://localhost:8888 (MEM0_BASE_URL).
+#
+# Verified against the real server source (deploy/mem0-src/server/main.py, 2026-07-09):
+#   POST /memories {messages,user_id,metadata,infer} ; POST /search {query,user_id|filters,top_k}
+#   AUTH_DISABLED=true removes the JWT/api-key requirement for a local single-node store.
 
 services:
   mem0:
-    # Official OSS server image. Pin to a tag once verified against the daemon;
-    # `latest` is used here only because we cannot pull/test without Docker yet.
-    image: mem0/mem0-api-server:latest
+    build:
+      context: ./mem0-src/server        # fully-populated sparse checkout
+      dockerfile: Dockerfile            # prod Dockerfile (python:3.12-slim + uvicorn)
     ports:
-      - "8888:8000"          # host 8888 -> container 8000 (== MEM0_BASE_URL)
+      - "8888:8000"                     # host 8888 -> container 8000 (== MEM0_BASE_URL)
+    env_file:
+      - .env
     environment:
-      # --- Auth: keep it simple for a single-node local store. ---
-      # Disable JWT/API-key auth for the local dev store so the client needs no
-      # token. Set to false + provide JWT_SECRET to turn auth back on.
-      - AUTH_DISABLED=${MEM0_AUTH_DISABLED:-true}
-      - JWT_SECRET=${MEM0_JWT_SECRET:-change-me-only-if-auth-enabled}
-      - MEM0_TELEMETRY=false
-      # --- Vector store: point Mem0 at the pgvector service below. ---
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=${MEM0_PG_USER:-mem0}
-      - POSTGRES_PASSWORD=${MEM0_PG_PASSWORD:-mem0}
-      - POSTGRES_DB=${MEM0_PG_DB:-mem0}
-      # --- Extraction LLM + embedder (placeholders; fill in ../.env). ---
-      # Mem0's default provider is OpenAI. pure-anthropic has no embeddings API,
-      # so supply a cheap embedding/LLM key here (or an OpenAI-compatible base).
-      - OPENAI_API_KEY=${MEM0_LLM_KEY:-}
-      - MEM0_LLM_PROVIDER=${MEM0_LLM_PROVIDER:-}
+      - AUTH_DISABLED=${AUTH_DISABLED:-true}
+      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
+      - PYTHONUNBUFFERED=1
+    # Run DB migrations THEN serve (prod Dockerfile's CMD doesn't migrate; the app
+    # needs its tables). --reload dropped for a non-dev run.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn main:app --host 0.0.0.0 --port 8000"
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      # FastAPI serves /docs once the app is up; use python (present in the
-      # image) so we don't depend on curl/wget being installed.
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/docs').status==200 else sys.exit(1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 40s
     restart: unless-stopped
 
   postgres:
-    # pgvector-enabled Postgres — Mem0's default self-hosted vector store.
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg17        # matches Mem0's own server compose
+    shm_size: "128mb"
     environment:
-      - POSTGRES_USER=${MEM0_PG_USER:-mem0}
-      - POSTGRES_PASSWORD=${MEM0_PG_PASSWORD:-mem0}
-      - POSTGRES_DB=${MEM0_PG_DB:-mem0}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
     volumes:
       - mem0_pgdata:/var/lib/postgresql/data
+      - ./mem0-src/server/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh   # creates app db + pgvector ext
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${MEM0_PG_USER:-mem0} -d ${MEM0_PG_DB:-mem0}"]
+      test: ["CMD-SHELL", "pg_isready -q -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 12

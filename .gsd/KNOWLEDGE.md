@@ -80,3 +80,13 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
   run the FULL suite serially afterward. Eliminates the half-written-file false-flake seen in S04. 115/115 clean.
 - D17 residual made concrete: per-class sign-off DEFAULTS to revert-to-single when a class has no live data —
   the safe no-negative-return default. Live sign-off just needs baseline-rig runs fed into signoff().
+
+## 2026-07-09 — Self-hosting Mem0 (real integration)
+- The prebuilt `mem0/mem0-api-server` image is ARM64-ONLY — `docker manifest inspect` said "exists" but
+  `compose up` failed "no matching manifest for linux/amd64". Always check the image ARCH (not just existence)
+  before trusting a prebuilt image on x86_64; build from source when there's no amd64 variant.
+- Mem0 OSS server needs: pgvector Postgres + `alembic upgrade head` (prod Dockerfile does NOT migrate — add it
+  to the compose command) + an app DB via init-db.sh + a real EMBEDDER (OpenAI default). `AUTH_DISABLED=true`
+  removes JWT/api-key for local. Endpoints (verified in server/main.py): POST /memories, POST /search, no /v1/.
+- Blobless+sparse clone got just server/ fast after a full `git clone` timed out:
+  `git clone --filter=blob:none --no-checkout --depth 1 <repo> dst && cd dst && git sparse-checkout set server && git checkout`.

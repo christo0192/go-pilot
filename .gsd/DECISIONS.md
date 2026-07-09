@@ -58,3 +58,14 @@
   fake server (128/128). Live integration (S04b/T02) BLOCKED on (a) user installing Docker Desktop + WSL
   integration, and (b) choosing an EMBEDDING provider — Mem0 search needs embeddings even with infer:false, and
   pure-anthropic has none. Client tolerates v1.0/v1.1 response shapes; 7 assumptions logged to re-verify live.
+
+## 2026-07-09 — S04b live integration findings
+- D25: Real Mem0 self-host, corrected against ground truth (deploy/mem0-src/server, cloned 2026-07-09):
+  (1) Prebuilt `mem0/mem0-api-server` is **arm64-only** (no amd64) → we BUILD FROM SOURCE (prod Dockerfile,
+  context = sparse-cloned server/, git-ignored). (2) Our `src/memory/mem0-client.mjs` request/response shapes
+  are VALIDATED against the real `main.py`: `POST /memories {messages,user_id,metadata,infer}`,
+  `POST /search {query, user_id|filters, top_k}` → `{results:[...]}`; no `/v1/` prefix. (3) Server needs
+  alembic migrations + an app DB + init-db.sh + a real EMBEDDER (OpenAI text-embedding-3-small default) — even
+  with infer:false, since pure-anthropic has no embeddings. (4) `AUTH_DISABLED=true` opens the local single-node
+  store (no JWT/api-key). Compose rewritten to build-from-source; deploy/.env holds the OpenAI key (git-ignored).
+  Remaining to finish Step 4.3: user supplies OPENAI_API_KEY, then add/search round-trip via mem0-client.

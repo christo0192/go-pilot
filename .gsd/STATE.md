@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S07 — Instrumentation + Acceptance COMPLETE ✅ (built ahead of S05/S06, pure-code)
-**Active Task**: — (reassess: all remaining M001 work needs installs — see Reassess)
-**Progress**: S00✅ S01✅ S03-core✅ S04-seams✅ S07✅ (S02 skipped) · suite 115/115, zero deps · Overall PLAN 62%
+**Active Slice**: S04b — Real Mem0 (Docker path): PREP DONE ✅, live integration BLOCKED on user
+**Active Task**: S04b/T02 — live Mem0 integration — BLOCKED on (a) user Docker install, (b) embedder choice
+**Progress**: S00✅ S01✅ S03-core✅ S04-seams✅ S07✅ + S04b prep✅ (S02 skipped) · suite 128/128, zero deps · Overall PLAN ~64%
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
