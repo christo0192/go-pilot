@@ -8,14 +8,14 @@ import { createMockMem0 } from "./mem0-adapter.mjs";
 const okCheck = { name: "ok", run: () => true };
 const failCheck = { name: "fail", run: () => ({ ok: false, detail: "nope" }) };
 
-test("keeper-kind candidate that passes its gate IS added and reported as promoted", () => {
+test("keeper-kind candidate that passes its gate IS added and reported as promoted", async () => {
   const adapter = createMockMem0();
   const candidate = {
     memory: { text: "chose litellm as the router", kind: "decision" },
     checks: [okCheck],
   };
 
-  const report = promote([candidate], adapter);
+  const report = await promote([candidate], adapter);
 
   assert.equal(report.promoted.length, 1);
   assert.equal(report.skipped.length, 0);
@@ -28,14 +28,14 @@ test("keeper-kind candidate that passes its gate IS added and reported as promot
   assert.equal(hits[0].memory.text, "chose litellm as the router");
 });
 
-test("CORE: a candidate that FAILS a gate check is NOT added and is skipped as failed-gate", () => {
+test("CORE: a candidate that FAILS a gate check is NOT added and is skipped as failed-gate", async () => {
   const adapter = createMockMem0();
   const candidate = {
     memory: { text: "bad fact that failed validation", kind: "decision" },
     checks: [failCheck],
   };
 
-  const report = promote([candidate], adapter);
+  const report = await promote([candidate], adapter);
 
   assert.equal(report.promoted.length, 0);
   assert.equal(report.skipped.length, 1);
@@ -46,14 +46,14 @@ test("CORE: a candidate that FAILS a gate check is NOT added and is skipped as f
   assert.equal(adapter.search("bad fact").length, 0);
 });
 
-test("non-keeper kind is NOT added even when it passes the gate, skipped as non-keeper-kind", () => {
+test("non-keeper kind is NOT added even when it passes the gate, skipped as non-keeper-kind", async () => {
   const adapter = createMockMem0();
   const candidate = {
     memory: { text: "temporary scratch note about a stack trace", kind: "scratch" },
     checks: [okCheck],
   };
 
-  const report = promote([candidate], adapter);
+  const report = await promote([candidate], adapter);
 
   assert.equal(report.promoted.length, 0);
   assert.equal(report.skipped.length, 1);
@@ -61,9 +61,9 @@ test("non-keeper kind is NOT added even when it passes the gate, skipped as non-
   assert.equal(adapter.search("scratch note").length, 0);
 });
 
-test("a candidate with NO kind is treated as non-keeper (not promoted)", () => {
+test("a candidate with NO kind is treated as non-keeper (not promoted)", async () => {
   const adapter = createMockMem0();
-  const report = promote(
+  const report = await promote(
     [{ memory: { text: "kindless note" }, checks: [] }],
     adapter,
   );
@@ -73,7 +73,7 @@ test("a candidate with NO kind is treated as non-keeper (not promoted)", () => {
   assert.equal(report.skipped[0].reason, "non-keeper-kind");
 });
 
-test("MIXED batch: ONLY validated keepers end up in the adapter (exact set)", () => {
+test("MIXED batch: ONLY validated keepers end up in the adapter (exact set)", async () => {
   const adapter = createMockMem0();
 
   const keeperDecision = { memory: { text: "keeper decision alpha", kind: "decision" }, checks: [okCheck] };
@@ -82,7 +82,7 @@ test("MIXED batch: ONLY validated keepers end up in the adapter (exact set)", ()
   const keeperPref = { memory: { text: "keeper pref delta", kind: "pref" }, checks: [okCheck] };
   const keeperSummary = { memory: { text: "keeper summary echo", kind: "summary" }, checks: [] };
 
-  const report = promote(
+  const report = await promote(
     [keeperDecision, failedKeeper, nonKeeper, keeperPref, keeperSummary],
     adapter,
   );
@@ -108,14 +108,14 @@ test("MIXED batch: ONLY validated keepers end up in the adapter (exact set)", ()
   assert.equal(adapter.search("charlie").length, 0);
 });
 
-test("opts.keeperKinds override changes which kinds are promoted", () => {
+test("opts.keeperKinds override changes which kinds are promoted", async () => {
   const adapter = createMockMem0();
 
   const noteKind = { memory: { text: "note kind item", kind: "note" }, checks: [okCheck] };
   const decisionKind = { memory: { text: "decision kind item", kind: "decision" }, checks: [okCheck] };
 
   // Only "note" is a keeper now; the default "decision" is NOT.
-  const report = promote([noteKind, decisionKind], adapter, { keeperKinds: ["note"] });
+  const report = await promote([noteKind, decisionKind], adapter, { keeperKinds: ["note"] });
 
   assert.deepEqual(report.promoted.map((m) => m.text), ["note kind item"]);
   assert.equal(report.skipped.length, 1);
@@ -127,7 +127,7 @@ test("default keeper kinds are decision | summary | pref", () => {
   assert.deepEqual(DEFAULT_KEEPER_KINDS, ["decision", "summary", "pref"]);
 });
 
-test("inputs are NOT mutated", () => {
+test("inputs are NOT mutated", async () => {
   const adapter = createMockMem0();
   const memory = { text: "immutable decision", kind: "decision", tags: ["a"] };
   const candidate = { memory, checks: [okCheck] };
@@ -135,7 +135,7 @@ test("inputs are NOT mutated", () => {
   const memorySnapshot = JSON.parse(JSON.stringify(memory));
 
   const before = { memoryRef: candidate.memory, checksRef: candidate.checks, tagsRef: memory.tags };
-  promote([candidate], adapter);
+  await promote([candidate], adapter);
 
   // The candidate's memory is byte-for-byte unchanged and identity-stable.
   assert.deepEqual(memory, memorySnapshot);

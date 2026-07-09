@@ -86,3 +86,10 @@
   no-op on the provisioned WSL box (Step 6.1 done-when met). 6.3 compose already satisfied by deploy/. Frontier
   uses native login (no keys); only open-model keys live in .env. Step 6.5 (fresh Win+Mac machine acceptance)
   deferred — needs clean boxes + a teammate; install.ps1's live run is part of that.
+
+## 2026-07-09 — S04b Tier-2 wiring
+- D28: `src/memory/tier2.mjs` `createTier2Adapter({mode})` selects mock vs real mem0-client (auto→real when a
+  baseUrl is configured). `promote`/`recall` are now async and await adapter calls, so they work with BOTH the
+  sync mock and the async real Mem0 client (await on a non-Promise is a no-op — mock behavior unchanged). Real
+  Mem0 is the default Tier-2 when MEM0_BASE_URL is set; a live self-skipping integration test proves the full
+  gate→promote→mem0→recall path (keeper retrieved, gated item excluded). Callers must await promote/recall.

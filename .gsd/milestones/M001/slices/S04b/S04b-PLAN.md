@@ -22,3 +22,8 @@ Split into Docker-INDEPENDENT prep (buildable now) and integration (needs the us
 1. Response `{results:[...]}` (v1.1) vs bare array (v1.0) — client tolerates both. 2. `infer:false` stores verbatim.
 3. `top_k` vs older `limit`. 4. `score` present + comparably ranged. 5. **Embedder required for search** (see BLOCKER).
 6. Compose `:latest` — pin after first pull. 7. `AUTH_DISABLED=true` for local dev, else pass `apiKey`.
+
+## Follow-on (2026-07-09): real Mem0 wired as default Tier-2
+- [x] T03 tier2 factory (mock|mem0|auto) + live integration test — real add→promote→recall verified.
+- [x] T04 made promote/recall async → work with the async real client (mock unchanged). Suite 135/135.
+- Real Mem0 is now the default Tier-2 when MEM0_BASE_URL is set; pipeline functions consume it. Callers await.

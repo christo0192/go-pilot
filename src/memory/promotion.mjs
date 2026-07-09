@@ -24,11 +24,13 @@ export const DEFAULT_KEEPER_KINDS = ["decision", "summary", "pref"];
  *   `checks` (as consumed by `mustPass`).
  * @param {{add: function, search: function}} adapter - a Mem0 adapter (e.g. `createMockMem0()`).
  * @param {{keeperKinds?: string[]}} [opts]
- * @returns {{promoted: Array<Object>, skipped: Array<{memory: Object, reason: string}>}}
- *   `promoted` lists the memories returned by `adapter.add` (with ids). `skipped`
- *   lists each rejected candidate with `reason` ∈ "failed-gate" | "non-keeper-kind".
+ * @returns {Promise<{promoted: Array<Object>, skipped: Array<{memory: Object, reason: string}>}>}
+ *   Resolves to an object where `promoted` lists the memories returned by
+ *   `adapter.add` (with ids), fully resolved for both the sync mock and the
+ *   async HTTP adapter. `skipped` lists each rejected candidate with `reason` ∈
+ *   "failed-gate" | "non-keeper-kind".
  */
-export function promote(candidates, adapter, opts = {}) {
+export async function promote(candidates, adapter, opts = {}) {
   const list = Array.isArray(candidates) ? candidates : [];
   const keeperKinds = new Set(opts.keeperKinds ?? DEFAULT_KEEPER_KINDS);
 
@@ -54,7 +56,7 @@ export function promote(candidates, adapter, opts = {}) {
 
     // Both gates cleared — persist to Tier-2. `adapter.add` returns the stored
     // memory (with its assigned id); that is what we report as promoted.
-    promoted.push(adapter.add(memory));
+    promoted.push(await adapter.add(memory));
   }
 
   return { promoted, skipped };

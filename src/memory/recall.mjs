@@ -74,17 +74,19 @@ function truncatedFirst(memory, maxTokens) {
  * @param {{ search: (query: string, topK?: number) => Array<{ memory: object, score: number }> }} adapter
  * @param {string | string[] | { query?: string }} context  Current session focus.
  * @param {{ topK?: number, maxTokens?: number }} [opts]
- * @returns {{ text: string, used: object[], tokens: number }}
- *   `text` is the injection string (or "" when nothing recalled), `used` are the
- *   memories actually included (rank order), `tokens` = tokensOf(text) <= maxTokens.
+ * @returns {Promise<{ text: string, used: object[], tokens: number }>}
+ *   Resolves to `{ text, used, tokens }` — `text` is the injection string (or ""
+ *   when nothing recalled), `used` are the memories actually included (rank
+ *   order), `tokens` = tokensOf(text) <= maxTokens. Awaiting `adapter.search`
+ *   supports both the sync mock and the async HTTP adapter.
  */
-export function recall(adapter, context, opts = {}) {
+export async function recall(adapter, context, opts = {}) {
   const topK = opts.topK ?? 5;
   const maxTokens = opts.maxTokens ?? 300;
   const maxLen = maxTokens * 4;
 
   const query = deriveQuery(context);
-  const hits = query.trim() === "" ? [] : adapter.search(query, topK);
+  const hits = query.trim() === "" ? [] : await adapter.search(query, topK);
   if (!hits || hits.length === 0) {
     return { text: "", used: [], tokens: 0 };
   }

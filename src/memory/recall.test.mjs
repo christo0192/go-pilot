@@ -18,9 +18,9 @@ function seeded() {
   return m;
 }
 
-test("focused context recalls the relevant memory and ranks it first", () => {
+test("focused context recalls the relevant memory and ranks it first", async () => {
   const m = seeded();
-  const result = recall(m, "toon encoding compresses token payloads", {});
+  const result = await recall(m, "toon encoding compresses token payloads", {});
 
   assert.ok(result.text.includes("toon encoding compresses token payloads"),
     "the relevant memory text should appear in the injection");
@@ -31,9 +31,9 @@ test("focused context recalls the relevant memory and ranks it first", () => {
   assert.ok(firstBulletLine.includes("toon encoding"));
 });
 
-test("header + bullet format is present and bullets are in rank order", () => {
+test("header + bullet format is present and bullets are in rank order", async () => {
   const m = seeded();
-  const result = recall(m, "deterministic mem0 adapter search overlap", {});
+  const result = await recall(m, "deterministic mem0 adapter search overlap", {});
 
   const lines = result.text.split("\n");
   assert.equal(lines[0], "## Recalled context", "header first");
@@ -47,42 +47,42 @@ test("header + bullet format is present and bullets are in rank order", () => {
   assert.deepEqual(bulletTexts, usedTexts, "bullets follow used[] rank order");
 });
 
-test("token budget is always respected; a tiny budget drops later bullets", () => {
+test("token budget is always respected; a tiny budget drops later bullets", async () => {
   const m = seeded();
   // Query that matches multiple memories so several would be returned.
   const query = "decision summary token search context continuity adapter";
-  const full = recall(m, query, { topK: 5, maxTokens: 1000 });
+  const full = await recall(m, query, { topK: 5, maxTokens: 1000 });
   assert.ok(full.used.length >= 2, "baseline recalls multiple memories");
 
-  const tight = recall(m, query, { topK: 5, maxTokens: 12 });
+  const tight = await recall(m, query, { topK: 5, maxTokens: 12 });
   assert.ok(tight.tokens <= 12, `tokens ${tight.tokens} within budget`);
   assert.ok(tight.used.length < full.used.length,
     "a tight budget includes fewer memories than a generous one");
   assert.ok(tight.used.length >= 1, "still includes at least the top hit");
 });
 
-test("no matches / empty context returns an empty result", () => {
+test("no matches / empty context returns an empty result", async () => {
   const m = seeded();
-  assert.deepEqual(recall(m, "zzz nonexistent quux", {}), { text: "", used: [], tokens: 0 });
-  assert.deepEqual(recall(m, "", {}), { text: "", used: [], tokens: 0 });
-  assert.deepEqual(recall(m, "   ", {}), { text: "", used: [], tokens: 0 });
-  assert.deepEqual(recall(m, null, {}), { text: "", used: [], tokens: 0 });
+  assert.deepEqual(await recall(m, "zzz nonexistent quux", {}), { text: "", used: [], tokens: 0 });
+  assert.deepEqual(await recall(m, "", {}), { text: "", used: [], tokens: 0 });
+  assert.deepEqual(await recall(m, "   ", {}), { text: "", used: [], tokens: 0 });
+  assert.deepEqual(await recall(m, null, {}), { text: "", used: [], tokens: 0 });
 });
 
-test("returned tokens equal the Math.ceil(len/4) proxy of result.text", () => {
+test("returned tokens equal the Math.ceil(len/4) proxy of result.text", async () => {
   const m = seeded();
-  const result = recall(m, "router frontier workhorse api plane", {});
+  const result = await recall(m, "router frontier workhorse api plane", {});
   assert.equal(result.tokens, proxy(result.text));
   assert.equal(result.tokens, Math.ceil(result.text.length / 4));
 });
 
-test("very long single memory + tiny budget truncates the first bullet with an ellipsis", () => {
+test("very long single memory + tiny budget truncates the first bullet with an ellipsis", async () => {
   const m = createMockMem0();
   const longText = "supernova " + "context ".repeat(200) + "tail";
   m.add({ id: "big", text: longText.trim(), kind: "summary" });
 
   const maxTokens = 20;
-  const result = recall(m, "supernova context tail", { maxTokens });
+  const result = await recall(m, "supernova context tail", { maxTokens });
 
   assert.ok(result.tokens <= maxTokens, `tokens ${result.tokens} within budget`);
   assert.ok(result.text.includes("…"), "truncated bullet ends with an ellipsis");
@@ -91,10 +91,10 @@ test("very long single memory + tiny budget truncates the first bullet with an e
   assert.ok(result.text.length < longText.length, "text was actually truncated");
 });
 
-test("array and { query } context forms both derive a working query", () => {
+test("array and { query } context forms both derive a working query", async () => {
   const m = seeded();
-  const fromArray = recall(m, ["toon", "encoding", "token"], {});
-  const fromObj = recall(m, { query: "toon encoding token" }, {});
+  const fromArray = await recall(m, ["toon", "encoding", "token"], {});
+  const fromObj = await recall(m, { query: "toon encoding token" }, {});
   assert.ok(fromArray.used.some((mem) => mem.id === "b"));
   assert.ok(fromObj.used.some((mem) => mem.id === "b"));
 });
