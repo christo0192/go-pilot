@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `40%`  ·  *(S00 ✅ · S01 ✅ · S03 CORE ✅ — router/TOON/boundary/overhead/YAGNI/mesh, 42/42 tests, zero deps. Pilots 3.4-3.6 + S04 need env setup (rtk/CCE/Docker).)*
+**Overall Progress:** `46%`  ·  *(S00✅ S01✅ S03-core✅ + S04 Tier-1 store+gate✅ — 55/55 tests, zero deps. Next: S04 mock Mem0 adapter → promotion → recall. Deferred on env: rtk/CCE, Docker/Mem0.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -240,23 +240,23 @@ are shared across all profiles.
   - [ ] Log router LLM-judgment token cost as its own line item (never inside "savings")
   - Done when: a run report shows router overhead as a distinct, summable metric.
 
-### Sprint 4 — Memory (Tier-1 working + Mem0 Tier-2)  ·  progress `0%`
+### Sprint 4 — Memory (Tier-1 working + Mem0 Tier-2)  ·  progress `40%`  ·  *(pure-code seams: 4.1/4.2 done; 4.3 real-Mem0 deferred to mock; 4.4/4.5 next)*
 
-- [ ] **Step 4.1: Boomerang + shared task store (Tier-1)** [Medium]
+- [x] **Step 4.1: Boomerang + shared task store (Tier-1)** [Medium]  ✅ 2026-07-09
   - Depends on: Step 3.1
   - Risk: Medium — file-locked shared state
   - [ ] Implement pi-tasks-style file-locked shared store (claim/complete/cascade)
   - [ ] Workers collapse their exchange into a short summary before reporting up (boomerang)
   - Done when: an orchestrator run shows workers reporting summaries only, with the store coordinating claims atomically.
 
-- [ ] **Step 4.2: Validation gate before compression** [Complex]
+- [x] **Step 4.2: Validation gate before compression** [Complex]  ✅ 2026-07-09
   - Depends on: Step 4.1
   - Risk: High — correctness of what gets remembered (#6)
   - [ ] A result must pass a deterministic check (tests/lint/scope-match) before it may be summarized
   - [ ] Failures propagate in full detail, never smoothed into a clean summary
   - Done when: an intentionally-failing result is passed through in full and is NOT summarized; a passing one is summarized.
 
-- [ ] **Step 4.3: Mem0 deploy (Docker)** [Medium]
+- [ ] **Step 4.3: Mem0 deploy (Docker)** [Medium]  ⏸️ DEFERRED (needs Docker — user 2026-07-09; mock adapter used meanwhile)
   - Depends on: Step 2.1
   - Risk: Medium — new service, wired to LiteLLM
   - [ ] `docker compose` service for Mem0 (self-host); configure its LLM calls via LiteLLM

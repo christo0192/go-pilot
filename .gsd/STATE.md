@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S03 — Router + Context Tiering (CORE COMPLETE ✅ · 3 pilots deferred on tooling)
-**Active Task**: S04/T01 — Memory (Mem0) — BLOCKED pending Docker + Mem0 decision (see Reassess)
-**Progress**: 3/8 slices core-done (S00✅ S01✅ S03-core✅; S02 skipped) · S03 6/6 tasks, suite 42/42, zero deps
+**Active Slice**: S04 — Memory (SCOPED to pure-code seams; real Mem0/Docker deferred by user 2026-07-09)
+**Active Task**: S04/T03 — Mem0 adapter interface + in-memory mock (next, fresh session)
+**Progress**: S03-core✅ + S04 2/5 seams (T01 store✅ T02 gate✅); suite 55/55, zero deps. S04 remaining: T03 mock adapter → T04 promotion filter → T05 recall seam
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
