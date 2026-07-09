@@ -17,7 +17,10 @@ Hard gate — no router/harness code until T04 records a GO/NO-GO per task class
   Instructions: Build a rig (scripts/baseline-rig/) that runs a task (a) single-agent and (b) multi-pane, capturing total tokens + a quality score (rubric in metrics/quality-rubric.md). Verify on one trivial task class.
   Done when: rig outputs {tokens_single, tokens_multi, quality_single, quality_multi} reproducibly.
 
-- [ ] **T04: Task-class go/no-go decision record** `est:0.5 day`
+- [~] **T04: Task-class go/no-go decision record** `SKIPPED by user 2026-07-09`
+  Policy (D17): rig (scripts/baseline-rig) is built and ready; any task class defaults to
+  **single-agent** until validated with the rig before relying on multi-pane for it. This
+  preserves the no-negative-return principle without running the measurement now.
   Depends on: T02, T03
   Instructions: Run rig on top 5 task classes (ads analysis, MIS reporting, transcript analysis, deck drafting, coding). Mark GO only if multi-pane ≥20% token cut at ≤5% quality loss. Write docs/task-class-decisions.md.
   Done when: every candidate task class has a recorded GO/NO-GO with numbers.

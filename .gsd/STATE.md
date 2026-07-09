@@ -2,26 +2,19 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S00 — Validation Gates
-**Active Task**: T04 (T01, T02, T03 complete)
-**Progress**: 0/8 slices complete · S00: 3/4 tasks complete
-**Model Profile (target for build)**: pure-anthropic (start) → hybrid later
-**Last Updated**: 2026-07-08
+**Active Slice**: S01 — Substrate + Frontier Plane
+**Active Task**: T01 (S01/T01 — install Wezterm + Herdr)
+**Progress**: 1/8 slices complete (S00 ✅) · S01: 0/5 tasks
+**Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
+**Last Updated**: 2026-07-09
 
-## Position
-- S00/T01 scaffold+env — ✅
-- S00/T02 concurrency — ✅ GO (10 concurrent claude sessions; need ~4–5)
-- S00/T03 baseline rig — ✅ built + verified; ⭐ found ~44k/call system-prompt overhead (D15)
-- S00/T04 task-class go/no-go — ⏳ NEXT — **needs builder's REAL task data + small measurement quota; run WITH user**
+## S00 — CLOSED ✅ (GO to build)
+- T01 scaffold ✅ · T02 concurrency GO (10 sessions) ✅ · T03 baseline rig ✅ · T04 SKIPPED (D17 policy)
+- Key: D16 lean-worker cuts ~60% cost/call. Rig ready for per-class validation on demand.
 
-## ⭐ Pivotal finding (D15 / KNOWLEDGE)
-Each Claude Code `-p` call re-pays ~44k tokens of system-prompt overhead. Multi-pane fan-out
-has a high fixed cost per pane → worker panes MUST run lean (skills+MCP disabled), and fan-out
-only pays off when per-subtask real work >> 44k. T04 measures which real task classes flip to GO.
+## S01 — Substrate + Frontier Plane (active)
+- T01 install Wezterm + Herdr — ⏳ NEXT (herdr = WSL CLI, may attempt install; Wezterm = Windows GUI, user installs)
+- T02 wrap claude pane · T03 wrap codex pane · T04 claude-presence · T05 worktree-per-pane
+- pure-anthropic: no LiteLLM/Pi this slice.
 
-## How to run T04
-For each class (ads/MIS/transcript/deck/coding): build a fixture in scripts/baseline-rig/tasks/
-with REAL representative input, then `python3 scripts/baseline-rig/run.py run tasks/<class>.json`,
-score quality via metrics/quality-rubric.md, record verdict in docs/task-class-decisions.md.
-
-## Not yet installed: Wezterm, Herdr, Pi, rtk, Docker. Installed: git, node, npm, python3, claude, codex.
+## Installed: git, node, npm, python3, claude 2.1.204, codex 0.143.0.  Missing: wezterm, herdr, pi, rtk, docker.

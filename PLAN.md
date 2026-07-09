@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `9%`  ·  *(S00: 0.1 ✅ scaffold · 0.2 ✅ concurrency GO · 0.3 ✅ rig built + baseline-paradox shown · 0.4 ⏳ needs real task data)*
+**Overall Progress:** `12%`  ·  *(S00 CLOSED — 0.1 ✅ · 0.2 ✅ GO · 0.3 ✅ · 0.4 ⏭️ skipped→D17 policy. Next: S01 substrate + frontier plane)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -88,13 +88,13 @@ are shared across all profiles.
   - [x] ⭐ Finding D15: ~44k per-call system-prompt overhead → worker panes must run lean
   - Done when: rig outputs {tokens_single, tokens_multi, cost} reproducibly. ✅ (quality scored separately per rubric)
 
-- [ ] **Step 0.4: Task-class go/no-go decision record** [Medium]
+- [~] **Step 0.4: Task-class go/no-go decision record** [Medium] — ⏭️ SKIPPED by user 2026-07-09
   - Depends on: Step 0.2, Step 0.3
-  - Risk: High — decides what is even worth building (#12)
-  - [ ] Run the rig on your top 5 task classes (ads analysis, MIS reporting, transcript analysis, deck drafting, coding)
-  - [ ] Mark each class GO only if multi-pane ≥20% token cut at ≤5% quality loss; else NO-GO (single-agent)
-  - [ ] Write `docs/task-class-decisions.md` with the verdict + numbers per class
-  - Done when: every candidate task class has a recorded GO/NO-GO with supporting numbers.
+  - Risk: High — decides what is even worth building (#12). **Skipped → mitigated by D17 policy.**
+  - **Policy (D17):** rig is built + ready; each task class defaults to **single-agent** until
+    validated with the rig before relying on multi-pane for it. Run per-class later, cheaply.
+  - Residual risk accepted: proceeding to build without empirical per-class GO/NO-GO. The lean-worker
+    finding (D16, ~60% cheaper workers) and concurrency GO (D14) give strong prior confidence.
 
 ### Sprint 1 — Substrate + Frontier Plane  ·  progress `0%`
 
