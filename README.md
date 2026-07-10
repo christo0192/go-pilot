@@ -1,51 +1,135 @@
 # Go-pilot
 
-A cross-platform, token-efficient **multi-agent terminal orchestration rig**. A switchable
-orchestrator assigns work by task category to workhorse models across two planes, with
-persistent cross-session memory so you never hand-write a context handover again.
+A token-efficient, multi-agent **terminal-orchestration rig**. A switchable orchestrator
+assigns work by task category to worker models across **two planes**, with persistent
+cross-session memory so you never hand-write a context handover again.
 
-> **Status:** Sprint 0 (validation gates) in progress. Not yet usable end-to-end.
-> Build proceeds sprint-by-sprint per [`PLAN.md`](PLAN.md) (the source of truth).
+Go-pilot is **profile-agnostic** — the architecture is identical whether you run it
+`pure-anthropic` (Claude/Codex only), `hybrid` (Claude judgment + cheap open-model
+fan-out), or `open-first` (open models end-to-end). Only *which model fills which tier*
+changes; it's a config value.
 
-## What it is
+Zero runtime dependencies: the harness is plain **Node.js ESM**, tested with `node --test`
+(172 passing). The only services are two optional local Docker containers (Mem0 + LiteLLM).
 
-- **Terminal substrate:** Wezterm + Herdr (visible, steerable agent panes; cross-platform).
-- **Frontier plane:** official `claude` / `codex` binaries via your subscription login.
-- **Workhorse plane (optional):** Pi → LiteLLM → open models (Kimi/GLM/DeepSeek/MiniMax).
-- **Memory:** Mem0 (persistent) + boomerang/shared-store (working).
-- **Context tiering:** Reference > Compressed > Full; TOON specs; rtk/CCE compression.
+> **Source of truth:** [`PLAN.md`](PLAN.md) tracks the full sprint-by-sprint build and
+> live status. This README is the onboarding front door.
+
+---
+
+## What it is (one paragraph)
+
+Two planes joined by **[Herdr](panes/herdr-orchestration.md)** (a headless, socket-driven
+terminal-pane orchestrator). The **frontier plane** runs the official `claude` and `codex`
+binaries on *your* subscription login — high-stakes judgment, spawned as in-session
+subagents so they carry no per-pane config-reload tax (decision **D32**). The **workhorse
+plane** runs bulk/background work on cheap open models via **Pi → LiteLLM → Kimi/GLM/DeepSeek/
+Qwen/MiniMax**, carrying **zero Claude Code overhead**. A deterministic **router**
+(`config/router.json`) maps each task category to a `{plane, model}`; **context tiering**
+(Reference > Compressed > Full, plus `rtk`/CCE output compression and TOON task-specs) keeps
+tokens small across every pane boundary. **Two-tier memory** — a file-locked Tier-1 working
+store with a validation gate + promotion filter, feeding a real **Mem0** Tier-2 for
+persistent, cross-session, semantic recall — replaces the manual handover ritual. An
+acceptance harness measures the whole thing against numeric targets (#10: ≥20% token
+reduction, ≤5% quality tolerance, tracked retries, router overhead as its own line item).
+
+---
+
+## Quickstart
+
+```bash
+./install.sh                       # idempotent bootstrap (macOS/WSL); Windows: install.ps1
+# → ensures Node + Docker, templates deploy/.env, fetches the Mem0 build context
+
+# then edit deploy/.env:
+#   OPENAI_API_KEY=...       # Mem0's embedder (pure-anthropic has no embeddings API; ~free)
+#   OPENROUTER_API_KEY=...   # activates the LiteLLM workhorse — one key reaches every open model
+#                            #   (leave blank for pure-anthropic — the gateway still boots)
+
+docker compose -f deploy/docker-compose.yml up -d   # Mem0 (+ LiteLLM for hybrid/open-first)
+node --test                                          # 172 pass
+node scripts/verify-litellm.mjs                      # probes each workhorse model (SKIP if no key)
+```
+
+The installer is **activate-by-key** (D31): a workhorse model is usable only if its provider
+key is present; blank keys just leave that model inactive — one config serves every profile.
+Frontier `claude`/`codex` use **native subscription login** and never touch `deploy/.env`.
+Full details, idempotency, and uninstall: [`docs/INSTALL.md`](docs/INSTALL.md).
+
+---
+
+## How to run
+
+| You want to… | Do this |
+|---|---|
+| Run the Pi workhorse terminal (skills + extensions loaded) | `./scripts/pi-gopilot.sh` |
+| Orchestrate panes (frontier + workhorse) | `herdr server` then `herdr` — see [`panes/herdr-orchestration.md`](panes/herdr-orchestration.md) |
+| Dispatch a lean frontier worker | `scripts/lean-worker.sh` (claude) · `scripts/lean-codex-worker.sh` (codex) |
+| Run the tests | `node --test` → **172 pass** |
+| Verify the workhorse gateway | `node scripts/verify-litellm.mjs` |
+
+The core orchestration loop is `herdr pane run` → `herdr wait output --match <marker>` →
+`herdr pane read` (boomerang-style block-until-output; no polling). The interactive frontier
+pane is `herdr agent start -- claude` / `herdr agent start -- codex`.
+
+---
 
 ## Model profiles (pick per project)
 
 | Profile | Orchestrator | Workers | Needs |
 |---|---|---|---|
-| **`pure-anthropic`** *(recommended start)* | Opus (claude) | Sonnet/Haiku (claude) + GPT (codex) | Claude Max + ChatGPT subs only |
-| `hybrid` | Claude/Opus | open models via Pi/LiteLLM | + Docker, API keys |
-| `open-first` | GLM/Kimi | open models | API keys (most portable) |
+| **`pure-anthropic`** *(recommended start)* | Opus (claude) | Sonnet/Haiku subagents + Codex/GPT lateral | Claude Max + ChatGPT subs only — **no workhorse plane** |
+| `hybrid` | Claude/Opus | open models via Pi/LiteLLM for cheap parallel fan-out | + Docker, OpenRouter (or vendor) key |
+| `open-first` | GLM/Kimi | open models end-to-end | API keys only (most portable) |
 
-## Quick start (once Sprint 0 passes)
+`pure-anthropic` skips Sprint 2 entirely (no LiteLLM/open-model plane); its savings are
+quota/rate-limit relief since everything is flat-rate. `GOPILOT_PROFILE` lives in `deploy/.env`.
 
-```bash
-cp .env.example .env      # set GOPILOT_PROFILE; add keys only for hybrid/open-first
-./scripts/install.sh      # (Sprint 6) idempotent bootstrap — mac/WSL
-# Windows: ./scripts/install.ps1
-```
+---
 
-## Repo layout
+## Repo map
 
 ```
-PLAN.md            # source-of-truth build plan (8 sprints)
-.gsd/              # GSD autonomous-execution state (M001 tracks PLAN.md)
-research docs/     # BRD, model strategy, sources & decisions
-config/            # litellm.yaml, tool-profiles.yaml, router rules
-scripts/           # install + spike + rig scripts
-panes/             # herdr pane/workspace layout
-metrics/           # quality rubric + run metrics
-docs/              # environment inventory, spike reports, decisions
-src/               # harness code (Pi extensions, router)
+PLAN.md              # source-of-truth build plan (8 sprints) + live status
+README.md            # this file — teammate onboarding
+src/                 # the harness (zero-dep Node ESM, node --test)
+  router/            #   deterministic task-category → {plane, model} + tool-profile selection
+  toon/              #   TOON task-spec serialization (fewer tokens than JSON)
+  boundary/          #   Reference > Compressed > Full boundary enforcement (#1 invariant)
+  prompts/           #   worker system-prompt fragments (Ponytail YAGNI, etc.)
+  comms/             #   agent-comms P2P mesh (lateral/exception routing only)
+  memory/            #   Tier-1 store + validation gate + promotion filter (Mem0 adapter)
+  metrics/           #   per-run metrics + #10 acceptance report
+  toolcall/          #   open-model tool-call validator + repair loop
+deploy/              # docker-compose (Mem0 + LiteLLM), litellm.yaml, .env(.example)
+.pi/                 # Pi worker surface
+  skills/            #   brainstorm → explore → plan → execute → auto + phase-0 alignment gate
+  extensions/        #   tool-call-repair.ts (Pi wrapper over src/toolcall)
+config/              # router.json, tool-profiles.json, toolcall-schemas.json, prompts/
+scripts/             # install-time + rig scripts (pi-gopilot, lean workers, baseline-rig)
+panes/               # herdr pane/workspace layout + orchestration reference
+docs/                # INSTALL, environments, concurrency + task-class + context-tooling reports
+metrics/             # quality rubric + run metrics
+.gsd/                # GSD autonomous-execution state (M001 tracks PLAN.md) + DECISIONS.md
+research docs/       # BRD, model-strategy docs, sources & decisions
 ```
 
-## Current toolchain (this machine)
+---
 
-See [`docs/environments.md`](docs/environments.md). Installed: git, node, python3, **claude, codex**.
-Pending: wezterm, herdr, pi, rtk, docker.
+## Status
+
+Track everything in [`PLAN.md`](PLAN.md) (currently ~94%). Snapshot:
+
+- **Live / proven:** herdr substrate + both frontier CLIs (claude, codex) + write-safety +
+  worktree-per-pane (Sprint 1 ✅); router + context tiering incl. `rtk`/CCE (Sprint 3 ✅);
+  two-tier memory with **real Mem0** (Sprint 4 ✅); Pi workflow skills (Sprint 5 ✅);
+  installers + compose, `install.sh` live-verified idempotent (Sprint 6, 80%); metrics +
+  acceptance harness (Sprint 7 ✅). 172/172 tests, zero deps.
+- **Pending (needs a live provider key or a fresh machine):** the **live Pi workhorse worker**
+  through LiteLLM + tool-call reliability *measurement* (Sprint 2 — gateway/config/repair are
+  built and tested; the before/after numbers wait on `OPENROUTER_API_KEY`); **per-task-class
+  live sign-off** against the #10 targets (D17 — rig ready, needs baseline runs); and the
+  **fresh-machine Windows + Mac acceptance** (Step 6.5).
+
+Frontier work was proven headlessly on WSL; the Wezterm GUI / visible-pane UX and Mac parity
+are deferred to the Sprint 6 fresh-machine verify.

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Go-pilot Windows bootstrap — idempotent parity of install.sh.
@@ -24,16 +24,26 @@
     Also install the optional full rig (global npm agents such as
     @earendil-works/pi-coding-agent). Off by default.
 
+.PARAMETER Tools
+    Also install the trader doc-toolkit (yazi, glow, visidata, pandoc,
+    weasyprint) via winget/scoop/uv where available, plus the aesthetic Herdr
+    theme. User-local where possible; anything that can't auto-install is
+    documented as a manual step. Off by default. See docs/trader-workflow.md.
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\install.ps1 -Full
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Tools
 #>
 
 [CmdletBinding()]
 param(
-    [switch]$Full
+    [switch]$Full,
+    [switch]$Tools
 )
 
 $ErrorActionPreference = 'Stop'
@@ -198,6 +208,138 @@ if ($Full) {
 }
 
 # ---------------------------------------------------------------------------
+# 3c. Optional trader doc-toolkit  (-Tools)
+# ---------------------------------------------------------------------------
+# Mirror of install.sh's --tools. On Windows we prefer winget/scoop for the
+# native binaries and uv for the Python tools. Anything that can't be
+# auto-installed is reported as a manual step (never fatal). Idempotent:
+# each install is guarded by Test-Command.
+
+$script:ToolTodos = @()
+
+function Install-DocTool {
+    param(
+        [Parameter(Mandatory)][string]$Cmd,          # command to probe on PATH
+        [Parameter(Mandatory)][string]$DisplayName,
+        [string]$WingetId,
+        [string]$ScoopId,
+        [string]$ChocoId,
+        [string]$Manual                              # manual-install hint
+    )
+    if (Test-Command $Cmd) {
+        Write-Ok "$DisplayName already installed ($Cmd on PATH)."
+        return
+    }
+    if ($WingetId -and (Test-Command 'winget')) {
+        Write-Info "Installing $DisplayName via winget ($WingetId)..."
+        winget install --id $WingetId --exact --silent `
+            --accept-package-agreements --accept-source-agreements
+    }
+    elseif ($ScoopId -and (Test-Command 'scoop')) {
+        Write-Info "Installing $DisplayName via scoop ($ScoopId)..."
+        scoop install $ScoopId
+    }
+    elseif ($ChocoId -and (Test-Command 'choco')) {
+        Write-Info "Installing $DisplayName via choco ($ChocoId)..."
+        choco install $ChocoId -y
+    }
+    else {
+        Write-Warn "Cannot auto-install $DisplayName — $Manual"
+        $script:ToolTodos += "$DisplayName : $Manual"
+        return
+    }
+    if (Test-Command $Cmd) { Write-Ok "$DisplayName installed." }
+    else {
+        Write-Warn "$DisplayName installed but not yet on PATH — open a new shell."
+        $script:ToolTodos += "$DisplayName : open a new shell so it lands on PATH."
+    }
+}
+
+if ($Tools) {
+    Write-Section '3c/7  Trader doc-toolkit (-Tools)'
+
+    # Native binaries (winget preferred, scoop fallback).
+    Install-DocTool -Cmd 'yazi'  -DisplayName 'yazi (file manager)' `
+        -WingetId 'sxyazi.yazi' -ScoopId 'yazi' `
+        -Manual 'download from https://github.com/sxyazi/yazi/releases'
+    Install-DocTool -Cmd 'glow'  -DisplayName 'glow (markdown viewer)' `
+        -WingetId 'charmbracelet.glow' -ScoopId 'glow' `
+        -Manual 'download from https://github.com/charmbracelet/glow/releases'
+    Install-DocTool -Cmd 'pandoc' -DisplayName 'pandoc (md->docx/html/pdf)' `
+        -WingetId 'JohnMacFarlane.Pandoc' -ScoopId 'pandoc' -ChocoId 'pandoc' `
+        -Manual 'download from https://github.com/jgm/pandoc/releases'
+
+    # Python tools via uv (if present) — user-local, no admin.
+    if (Test-Command 'uv') {
+        foreach ($t in @(
+            @{ Cmd = 'vd';         Pkg = 'visidata';   Name = 'visidata (CSV/XLSX viewer)' },
+            @{ Cmd = 'weasyprint'; Pkg = 'weasyprint'; Name = 'weasyprint (PDF engine)' }
+        )) {
+            if (Test-Command $t.Cmd) {
+                Write-Ok "$($t.Name) already installed."
+            } else {
+                Write-Info "Installing $($t.Name) via uv (uv tool install $($t.Pkg))..."
+                uv tool install $t.Pkg
+                if (Test-Command $t.Cmd) { Write-Ok "$($t.Name) installed." }
+                else { $script:ToolTodos += "$($t.Name) : uv tool install $($t.Pkg) (then reopen shell)" }
+            }
+        }
+    } else {
+        Write-Warn 'uv not found — skipping visidata + weasyprint.'
+        $script:ToolTodos += 'visidata + weasyprint : install uv (https://docs.astral.sh/uv/) then `uv tool install visidata weasyprint`.'
+    }
+
+    # weasyprint on Windows needs the GTK/Pango runtime to render true PDFs.
+    Write-Info 'md->PDF note: weasyprint on Windows needs the GTK3 runtime for true PDFs.'
+    Write-Info '  If PDF rendering fails, use `pandoc file.md -o file.docx` (native, always works)'
+    Write-Info '  or `pandoc file.md -s -o file.html` then Ctrl+P -> Save as PDF in the browser.'
+    Write-Info 'See docs/trader-workflow.md for the full pipeline.'
+} else {
+    Write-Info 'Skipping doc-toolkit (pass -Tools to install yazi/glow/visidata/pandoc + Herdr theme).'
+}
+
+# ---------------------------------------------------------------------------
+# 3d. Aesthetic Herdr theme  (always; idempotent, never clobbers)
+# ---------------------------------------------------------------------------
+# Go-pilot's Herdr runs inside WSL, so its config lives at the WSL home's
+# ~/.config/herdr/config.toml. We install there via `wsl` when available, only
+# if the user has no config yet (never overwrites). If WSL isn't present we
+# print the manual copy step.
+
+Write-Section '3d/7  Aesthetic Herdr theme'
+
+$herdrSrc = Join-Path $RepoRoot 'config\herdr-config.toml'
+if (-not (Test-Path $herdrSrc)) {
+    Write-Warn "config\herdr-config.toml missing in repo — skipping Herdr theme."
+}
+elseif (Test-Command 'wsl') {
+    # Translate this repo's Windows path to a WSL path and copy inside WSL,
+    # guarding on the absence of an existing config (idempotent, no clobber).
+    $wslSrc = (wsl wslpath -a "$herdrSrc") 2>$null
+    if ($wslSrc) {
+        $wslSrc = $wslSrc.Trim()
+        # Run the guard+copy inside WSL. The bash script is a single-quoted
+        # PowerShell string (so $ passes through untouched); the source path is
+        # handed to bash as a positional arg ($1) rather than embedded, which
+        # avoids all cross-boundary quoting issues even with spaces in the path.
+        $bashScript = 'dst="$HOME/.config/herdr/config.toml"; if [ -f "$dst" ]; then echo EXISTS; else mkdir -p "$(dirname "$dst")" && cp "$1" "$dst" && echo INSTALLED; fi'
+        $installed = wsl bash -lc $bashScript bash "$wslSrc" 2>$null
+        if (-not $installed) { $installed = '' }
+        switch ($installed.Trim()) {
+            'INSTALLED' { Write-Ok 'Installed Herdr theme to WSL ~/.config/herdr/config.toml (Catppuccin, mauve accent).' }
+            'EXISTS'    { Write-Ok 'WSL Herdr config already present — left untouched (never clobbered).' }
+            default     { Write-Warn 'Could not copy Herdr theme into WSL — copy config\herdr-config.toml to ~/.config/herdr/config.toml manually.' }
+        }
+    } else {
+        Write-Warn 'wslpath translation failed — copy config\herdr-config.toml to WSL ~/.config/herdr/config.toml manually.'
+    }
+}
+else {
+    Write-Info 'WSL not detected. Herdr runs under WSL/macOS; copy the theme there manually:'
+    Write-Info '  cp config/herdr-config.toml ~/.config/herdr/config.toml   (only if you have none)'
+}
+
+# ---------------------------------------------------------------------------
 # 4. Config templating  (idempotent)
 # ---------------------------------------------------------------------------
 
@@ -332,12 +474,14 @@ Write-Host  "  Mem0 URL       : $Mem0Url  (docs: $Mem0Docs)"
 Write-Host  "  node --test    : $(if ($testsPassed) { 'passed' } else { 'FAILING / not run' })"
 Write-Host  "  Mem0           : $(if ($mem0Ready) { 'up (HTTP 200)' } else { 'NOT reachable' })"
 Write-Host  "  Full rig (-Full): $(if ($Full) { 'enabled' } else { 'skipped' })"
+Write-Host  "  Doc-toolkit (-Tools): $(if ($Tools) { 'enabled' } else { 'skipped' })"
 Write-Host ''
 
 $todos = @()
 if (-not $envHasKey) { $todos += 'Set OPENAI_API_KEY in deploy/.env (Mem0 embedder).' }
 if (-not $mem0Ready) { $todos += "Check Docker Desktop is running; review: docker compose -f deploy/docker-compose.yml logs mem0" }
 if (-not $testsPassed) { $todos += 'Investigate failing node --test output.' }
+if ($Tools -and $script:ToolTodos.Count -gt 0) { $todos += $script:ToolTodos }
 
 if ($todos.Count -gt 0) {
     Write-Host '  TODO:' -ForegroundColor Yellow

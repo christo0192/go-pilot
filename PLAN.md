@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `94%`  ·  *(S00✅ S01✅ S03✅(+rtk/CCE) S04✅(real Mem0) S05✅ S06✅ S07✅ — 145/145 tests, zero deps. Remaining: live per-class sign-off (baseline runs), S06/6.5 fresh-machine verify.)*
+**Overall Progress:** `92%`  ·  *(S00✅ S01✅ S03✅ S04✅(real Mem0) S05✅ S07✅ · S02 60% (workhorse gateway+tools built; live worker/2.5/measurement need OpenRouter key) · S06 installers+toolkit done, 6.5 fresh-machine pending · 172/172 tests. Remaining: finish S02 live, per-class sign-off, fresh-machine verify.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -96,7 +96,7 @@ are shared across all profiles.
   - Residual risk accepted: proceeding to build without empirical per-class GO/NO-GO. The lean-worker
     finding (D16, ~60% cheaper workers) and concurrency GO (D14) give strong prior confidence.
 
-### Sprint 1 — Substrate + Frontier Plane  ·  progress `0%`
+### Sprint 1 — Substrate + Frontier Plane  ·  progress `100%`  ·  *(substrate + both frontier CLIs (claude 1.2, codex 1.3) + write-safety + worktree-per-pane all proven headlessly on WSL; Wezterm GUI + Mac visible-pane UX deferred to S06)*
 
 - [x] **Step 1.1: Wezterm + Herdr install & pane layout** [Medium] ✅ 2026-07-09
   - Depends on: Step 0.4
@@ -116,12 +116,13 @@ are shared across all profiles.
   - [~] Interactive orchestrator TUI pane + claude integration hook = OPTIONAL polish (deferred; avoids touching heavy ~/.claude)
   - Done when: orchestrator tasks the claude pane + captures reply via socket, official binary + native auth only. ✅
 
-- [ ] **Step 1.3: Wrap official `codex` binary as frontier pane** [Medium]
+- [x] **Step 1.3: Wrap official `codex` binary as frontier pane** [Medium] ✅ 2026-07-10
   - Depends on: Step 1.1
-  - Risk: Medium — same pattern as 1.2 for a different CLI
-  - [ ] Spawn `codex` in a herdr pane; native ChatGPT login
-  - [ ] Prove read + steer from orchestrator
-  - Done when: orchestrator can task the codex pane and capture its reply via socket.
+  - Risk: Medium — same pattern as 1.2 for a different CLI → cleared
+  - [x] Lean codex (GPT) worker proven S01/T03: `scripts/lean-codex-worker.sh` dispatches a headless `codex exec --json` worker via herdr `pane run`; native ChatGPT login, `--ignore-user-config` keeps it lean (~12.5k vs Claude's ~44k overhead)
+  - [x] Read + steer from orchestrator proven via the same socket loop as 1.2 (`pane run` → `wait output` → `pane read`); JSONL final answer is the last `item.completed` agent_message
+  - [~] Interactive frontier pane = `herdr agent start -- codex` (+ `integration install codex` for TUI idle/working/done state); optional polish, same as the 1.2 orchestrator-pane deferral
+  - Done when: orchestrator can task the codex pane and capture its reply via socket. ✅ (lean worker + pane path proven S01/T03)
 
 - [x] **Step 1.4: write-safety (advisory lock; claude-presence deferred)** [Medium] ✅ 2026-07-09
   - Depends on: Step 1.2

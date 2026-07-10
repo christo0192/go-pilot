@@ -19,7 +19,33 @@ embeddings API (`text-embedding-3-small` is ~free).
 ```bash
 ./install.sh            # idempotent bootstrap
 ./install.sh --full     # also install the optional full rig (pi-coding-agent etc.)
+./install.sh --tools    # also install the trader doc-toolkit (user-local, no sudo)
 ```
+
+### `--tools` — trader doc-toolkit + aesthetic (opt-in)
+
+`--tools` (or `GOPILOT_TOOLS=1`) installs a terminal document toolkit entirely
+under `~/.local/bin` — **no sudo, no system packages**:
+
+| Tool | Purpose |
+|---|---|
+| **yazi** | file manager + previews (the in-terminal "sidebar") |
+| **glow** | render Markdown in the terminal |
+| **visidata** (`vd`) | explore CSV / XLSX / JSON |
+| **pandoc** | convert Markdown → docx / html / pdf |
+| **weasyprint** | PDF engine for `pandoc` (true md→PDF) |
+
+Plus two zero-dep wrappers: `scripts/md2pdf.sh` (pandoc + weasyprint, with an
+HTML/browser-print fallback) and `scripts/md2docx.sh` (native pandoc, always
+works). The full workflow — VSCode Remote-WSL, Herdr in the integrated
+terminal, recommended trader extensions, and the Windows Terminal look — is in
+[`trader-workflow.md`](trader-workflow.md).
+
+The **aesthetic Herdr theme** (`config/herdr-config.toml` — Catppuccin, auto
+light/dark, mauve `#cba6f7` accent) is installed to `~/.config/herdr/config.toml`
+on **every** run, but **only if you don't already have one** (it never clobbers).
+Add `~/.local/bin` (and `~/.npm-global/bin`) to your `PATH` so the toolkit is
+callable.
 
 What it does:
 
@@ -56,6 +82,20 @@ Optional full rig (global npm agents such as `@earendil-works/pi-coding-agent`):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1 -Full
 ```
+
+Optional trader doc-toolkit + aesthetic (`-Tools`): installs yazi / glow /
+pandoc via winget/scoop and visidata / weasyprint via uv where available
+(anything that can't auto-install is reported as a manual step), then copies the
+aesthetic Herdr theme into your **WSL** home (`~/.config/herdr/config.toml`, only
+if absent — Herdr runs under WSL). See [`trader-workflow.md`](trader-workflow.md).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Tools
+```
+
+> **md→PDF on Windows:** weasyprint needs the GTK3 runtime for true PDFs. If it
+> isn't present, use `pandoc file.md -o file.docx` (native) or `pandoc file.md -s
+> -o file.html` then Ctrl+P → Save as PDF in the browser.
 
 What it does:
 

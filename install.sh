@@ -20,7 +20,15 @@
 # Usage:
 #   ./install.sh              # core install (recommended)
 #   ./install.sh --full       # also install the optional workhorse rig (Herdr + Pi)
+#   ./install.sh --tools      # also install the trader doc-toolkit (user-local, no sudo)
 #   GOPILOT_FULL=1 ./install.sh
+#   GOPILOT_TOOLS=1 ./install.sh
+#
+# The doc-toolkit (yazi, glow, visidata, pandoc, weasyprint) installs entirely
+# under ~/.local/bin — NO sudo, NO system packages. See docs/trader-workflow.md.
+# The aesthetic Herdr theme (config/herdr-config.toml) is always installed to
+# ~/.config/herdr/config.toml, but ONLY if you don't already have one (never
+# clobbers; an existing config is backed up before any replace).
 #
 # NOTE (WSL/Ubuntu): installing Docker adds you to the 'docker' group. That grant
 # only applies to NEW shells — open a fresh terminal (or run `newgrp docker`) before
@@ -40,13 +48,16 @@ MEM0_SRC="deploy/mem0-src"
 
 # --full flag OR GOPILOT_FULL=1 enables the optional workhorse rig.
 FULL="${GOPILOT_FULL:-0}"
+# --tools flag OR GOPILOT_TOOLS=1 enables the trader doc-toolkit (user-local).
+TOOLS="${GOPILOT_TOOLS:-0}"
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
+    --tools) TOOLS=1 ;;
     -h|--help)
       grep -E '^#( |$)' "$0" | sed -E 's/^# ?//'
       exit 0 ;;
-    *) echo "Unknown argument: $arg (use --full or --help)" >&2; exit 2 ;;
+    *) echo "Unknown argument: $arg (use --full, --tools or --help)" >&2; exit 2 ;;
   esac
 done
 
@@ -216,6 +227,170 @@ ensure_full_rig() {
 }
 
 # ===========================================================================
+# SECTION 2b — Trader doc-toolkit (user-local, no sudo), gated behind --tools.
+# ===========================================================================
+#
+# Everything here lands under ~/.local/bin (binaries) or uv's tool dir. Nothing
+# needs root. Each install is guarded so a re-run is a no-op and a single
+# failure never aborts the installer (all wrapped, warnings not fatal).
+
+TOOLS_BIN="$HOME/.local/bin"
+
+# Pinned versions (verified working). Bump deliberately.
+YAZI_VER="v26.5.6"
+GLOW_VER="v2.1.2"
+PANDOC_VER="3.10"
+
+# Fetch a github release tarball and extract one binary into ~/.local/bin.
+#   _fetch_binary <name> <url> <tar-relative-path-to-binary>
+_fetch_binary() {
+  local name="$1" url="$2" inner="$3" tmp
+  tmp="$(mktemp -d)"
+  if curl -fsSL "$url" -o "$tmp/dl.tgz" 2>/dev/null \
+     && tar xzf "$tmp/dl.tgz" -C "$tmp" 2>/dev/null \
+     && [[ -f "$tmp/$inner" ]]; then
+    install -m 0755 "$tmp/$inner" "$TOOLS_BIN/$name"
+    rm -rf "$tmp"
+    return 0
+  fi
+  rm -rf "$tmp"
+  return 1
+}
+
+ensure_tools() {
+  [[ "$TOOLS" == "1" ]] || { info "doc-toolkit skipped (pass --tools or GOPILOT_TOOLS=1 to include)"; return 0; }
+
+  log "Trader doc-toolkit (user-local → $TOOLS_BIN, no sudo)"
+  mkdir -p "$TOOLS_BIN"
+
+  case ":$PATH:" in
+    *":$TOOLS_BIN:"*) : ;;
+    *) warn "$TOOLS_BIN is not on your PATH — add it to your shell rc:"
+       info 'export PATH="$HOME/.local/bin:$PATH"'
+       add_todo "Add ~/.local/bin (and ~/.npm-global/bin) to PATH so the doc-toolkit is callable." ;;
+  esac
+
+  have curl || { warn "curl not found — cannot download toolkit binaries. Skipping."; return 0; }
+
+  # --- glow (markdown viewer) ------------------------------------------------
+  if have glow; then
+    info "glow present ($(glow --version 2>/dev/null | head -1)), skipping"
+  elif _fetch_binary glow \
+        "https://github.com/charmbracelet/glow/releases/download/${GLOW_VER}/glow_${GLOW_VER#v}_Linux_x86_64.tar.gz" \
+        "glow_${GLOW_VER#v}_Linux_x86_64/glow"; then
+    info "installed glow $($TOOLS_BIN/glow --version 2>/dev/null | head -1)"
+  else
+    warn "glow download failed."; add_todo "Install glow manually: https://github.com/charmbracelet/glow/releases"
+  fi
+
+  # --- pandoc (md → docx/html/pdf) ------------------------------------------
+  if have pandoc; then
+    info "pandoc present ($(pandoc --version 2>/dev/null | head -1)), skipping"
+  elif _fetch_binary pandoc \
+        "https://github.com/jgm/pandoc/releases/download/${PANDOC_VER}/pandoc-${PANDOC_VER}-linux-amd64.tar.gz" \
+        "pandoc-${PANDOC_VER}/bin/pandoc"; then
+    info "installed $($TOOLS_BIN/pandoc --version 2>/dev/null | head -1)"
+  else
+    warn "pandoc download failed."; add_todo "Install pandoc manually: https://github.com/jgm/pandoc/releases"
+  fi
+
+  # --- yazi (file manager + previews) ---------------------------------------
+  # Ships as a .zip; extract with unzip if present, else python3's zipfile.
+  if have yazi; then
+    info "yazi present ($(yazi --version 2>/dev/null)), skipping"
+  else
+    local ytmp yzip yinner
+    ytmp="$(mktemp -d)"
+    yzip="$ytmp/yazi.zip"
+    if curl -fsSL "https://github.com/sxyazi/yazi/releases/download/${YAZI_VER}/yazi-x86_64-unknown-linux-musl.zip" -o "$yzip" 2>/dev/null; then
+      if have unzip; then
+        unzip -o -q "$yzip" -d "$ytmp" 2>/dev/null || true
+      elif have python3; then
+        python3 -c "import zipfile,sys; zipfile.ZipFile('$yzip').extractall('$ytmp')" 2>/dev/null || true
+      else
+        warn "neither unzip nor python3 available — cannot extract yazi."
+      fi
+      yinner="$(find "$ytmp" -maxdepth 2 -type f -name yazi 2>/dev/null | head -1)"
+      if [[ -n "$yinner" ]]; then
+        install -m 0755 "$yinner" "$TOOLS_BIN/yazi"
+        # 'ya' is yazi's companion CLI (plugin/keymap helper) — install if bundled.
+        local yahelper
+        yahelper="$(find "$ytmp" -maxdepth 2 -type f -name ya 2>/dev/null | head -1)"
+        [[ -n "$yahelper" ]] && install -m 0755 "$yahelper" "$TOOLS_BIN/ya"
+        info "installed yazi $($TOOLS_BIN/yazi --version 2>/dev/null)"
+      else
+        warn "yazi archive did not contain the binary."; add_todo "Install yazi manually: https://github.com/sxyazi/yazi/releases"
+      fi
+    else
+      warn "yazi download failed."; add_todo "Install yazi manually: https://github.com/sxyazi/yazi/releases"
+    fi
+    rm -rf "$ytmp"
+  fi
+
+  # --- visidata (CSV/XLSX/JSON viewer) via uv --------------------------------
+  if have vd; then
+    info "visidata present ($(vd --version 2>/dev/null)), skipping"
+  elif have uv; then
+    info "installing visidata via uv…"
+    uv tool install visidata >/dev/null 2>&1 \
+      && info "installed visidata ($($TOOLS_BIN/vd --version 2>/dev/null))" \
+      || { warn "uv tool install visidata failed."; add_todo "Install visidata: uv tool install visidata"; }
+  else
+    warn "uv not found — skipping visidata."; add_todo "Install visidata: uv tool install visidata (needs uv)"
+  fi
+
+  # --- weasyprint (PDF engine for pandoc) via uv -----------------------------
+  # Note: weasyprint renders true PDFs if pango/cairo system libs are present
+  # (they usually are on desktop distros). If not, md2pdf.sh falls back to the
+  # HTML/browser-print path and md2docx.sh (native pandoc) always works.
+  if have weasyprint; then
+    info "weasyprint present ($(weasyprint --version 2>/dev/null | head -1)), skipping"
+  elif have uv; then
+    info "installing weasyprint via uv (PDF engine)…"
+    uv tool install weasyprint >/dev/null 2>&1 \
+      && info "installed weasyprint ($($TOOLS_BIN/weasyprint --version 2>/dev/null | head -1))" \
+      || { warn "weasyprint install failed — md2pdf.sh will fall back to HTML/browser-print or md2docx.sh.";
+           add_todo "Optional: uv tool install weasyprint (true md→PDF). Otherwise use md2docx.sh / browser-print."; }
+  else
+    warn "uv not found — skipping weasyprint (md2pdf.sh falls back to HTML/docx)."
+  fi
+
+  info "doc-toolkit done — see docs/trader-workflow.md for usage."
+}
+
+# ===========================================================================
+# SECTION 2c — Aesthetic Herdr theme (idempotent — never clobbers).
+# ===========================================================================
+#
+# Always runs. Copies config/herdr-config.toml → ~/.config/herdr/config.toml
+# ONLY if no config exists there. If one exists we leave it untouched (a diff
+# is offered via a .bak only when the user explicitly re-copies by hand).
+
+ensure_herdr_config() {
+  log "Aesthetic Herdr theme (~/.config/herdr/config.toml)"
+  local src="config/herdr-config.toml"
+  local dst="$HOME/.config/herdr/config.toml"
+
+  [[ -f "$src" ]] || { warn "$src missing in repo — skipping herdr theme."; return 0; }
+
+  if [[ -f "$dst" ]]; then
+    info "existing herdr config found — leaving it untouched (never clobbered)."
+    info "to adopt the shipped theme: cp $src $dst  (back up your own first)."
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$dst")"
+  # Defensive: if a non-regular file somehow sits at $dst, back it up not clobber.
+  if [[ -e "$dst" && ! -f "$dst" ]]; then
+    mv "$dst" "$dst.bak.$(date +%s)"
+    warn "backed up a pre-existing non-file at $dst"
+  fi
+  cp "$src" "$dst"
+  info "installed aesthetic theme → $dst (Catppuccin, auto light/dark, mauve accent)."
+  info "reload live with: herdr server reload-config"
+}
+
+# ===========================================================================
 # SECTION 3 — Config templating (idempotent — never overwrites).
 # ===========================================================================
 
@@ -332,6 +507,7 @@ final_report() {
   printf '  Mem0 URL        : %s  (%s)\n' "$MEM0_URL" "$MEM0_STATUS"
   printf '  node --test     : %s\n' "$TEST_RESULT"
   printf '  Full rig (--full): %s\n' "$([[ "$FULL" == "1" ]] && echo enabled || echo skipped)"
+  printf '  Doc-toolkit (--tools): %s\n' "$([[ "$TOOLS" == "1" ]] && echo enabled || echo skipped)"
 
   if [[ ${#TODOS[@]} -gt 0 ]]; then
     printf '\n\033[1;33m  TODO:\033[0m\n'
@@ -354,6 +530,8 @@ main() {
   ensure_docker
   ensure_compose
   ensure_full_rig
+  ensure_tools
+  ensure_herdr_config
 
   ensure_env
   ensure_mem0_src

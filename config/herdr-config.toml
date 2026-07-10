@@ -1,0 +1,22 @@
+# installed to ~/.config/herdr/config.toml by install.sh
+#
+# herdr configuration — Go-pilot aesthetic theme
+# Reload live with:  herdr server reload-config   (or prefix+shift+r inside herdr)
+
+[theme]
+# Catppuccin — soft, modern, high-legibility palette.
+name = "catppuccin"
+# Follow the host terminal's light/dark and swap automatically.
+auto_switch = true
+dark_name = "catppuccin"
+light_name = "catppuccin-latte"
+
+# A few tasteful token overrides on top of the base theme.
+[theme.custom]
+accent = "#cba6f7"      # mauve — sidebar highlights / active pane accent
+green = "#a6e3a1"        # agent "idle/done" states
+red = "#f38ba8"          # agent "blocked/error" states
+
+[terminal]
+# New panes open in the source pane/workspace directory.
+new_cwd = "follow"
