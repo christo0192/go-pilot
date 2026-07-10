@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `92%`  ·  *(S00✅ S01✅ S03✅ S04✅(real Mem0) S05✅ S07✅ · S02 60% (workhorse gateway+tools built; live worker/2.5/measurement need OpenRouter key) · S06 installers+toolkit done, 6.5 fresh-machine pending · 172/172 tests. Remaining: finish S02 live, per-class sign-off, fresh-machine verify.)*
+**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) 0%`  ·  *(S00–S07 build done, 174/174 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -349,6 +349,96 @@ are shared across all profiles.
 
 ---
 
+### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `0%`
+
+> Source: independent production-readiness review in `docs/GPT-FINDINGS.md` (2026-07-10) + Claude's assessment.
+> Decision (D33): the review is accepted; approach is **phased** — **Phase A (adoptable)** builds the missing
+> *enforced run path* + measurement + cheap reproducibility so the rig is a credible teammate-adoptable tool
+> now; **Phase B (production)** hardens for shared/hosted use and is DEFERRED/tracked. Core premise (build the
+> coordinator, then prove the token claim) — not more features. Existing S00–S07 modules become internal libraries.
+
+#### Phase A — Adoptable (build now)
+
+- [ ] **Step 8.1: Run coordinator + `gopilot run` CLI (dry-run first)** [Complex]
+  - Depends on: Step 3.1, Step 3.3, Step 4.2, Step 4.4, Step 7.1 (existing modules as libraries)
+  - Risk: High — becomes the single enforced execution path; central control logic
+  - [ ] `src/coordinator/run.mjs` composing: profile+config validation → task classify/accept → per-class sign-off gate → deterministic router → context-budget/boundary → dispatcher adapter → tool-profile select → result validation → memory promotion → metrics/verdict persist
+  - [ ] `--dry-run` prints route, model, tools, context tier, expected dispatch WITHOUT invoking a model
+  - [ ] Treat lower-level modules as internal libraries; shells/herdr commands remain diagnostics only
+  - Done when: `gopilot run --dry-run "<task>"` prints the full governed plan; a run cannot skip a policy stage.
+
+- [ ] **Step 8.2: Portable fake-provider + fake-dispatcher end-to-end test** [Complex]
+  - Depends on: Step 8.1
+  - Risk: Medium — must prove policy invocation without network/ports/CLIs
+  - [ ] In-process fake model provider + fake dispatcher; drive a full run through the coordinator
+  - [ ] Assert every stage fired (route chosen, boundary applied, gate ran, promotion filtered, metrics persisted)
+  - Done when: one hermetic test drives an end-to-end governed run with no sockets/CLIs and asserts each policy invoked.
+
+- [ ] **Step 8.3: Split test suites (unit / integration / live)** [Medium]
+  - Depends on: Independent
+  - Risk: Medium — reorganizes test invocation; must keep 174 green
+  - [ ] `test:unit` = hermetic (no localhost listeners/CLIs); move mesh + mem0-client fake-server + rtk/cce live tests to `test:integration`/`test:live`
+  - [ ] Live tests explicitly skip-with-reason when a dep (port bind, tool, service) is unavailable
+  - Done when: `npm run test:unit` passes on a locked-down runner (no port binds); integration/live self-skip cleanly.
+
+- [ ] **Step 8.4: Correct metrics & acceptance accounting** [Medium]
+  - Depends on: Step 7.1 (metrics), Step 3.9 (overhead)
+  - Risk: Medium — changes how acceptance passes/fails; must not mask regressions
+  - [ ] Portfolio token reduction from aggregate totals `(Σsingle − Σmulti)/Σsingle`, not equal-weighted per-run %
+  - [ ] Retain per-run/per-class distributions; report median, p90, stdev/CI, sample count
+  - [ ] Replace the fixed 1,500-token judgment estimate with ACTUAL router usage; include repair/retry/context/memory/summarization tokens in totals
+  - Done when: acceptance reconciles to provider/CLI usage totals and cannot pass via unweighted-average distortion.
+
+- [ ] **Step 8.5: Cheap deployment reproducibility hardening** [Medium]
+  - Depends on: Step 2.1, Step 4.3
+  - Risk: Medium — deploy-config change; must keep local dev frictionless
+  - [ ] Pin LiteLLM image by digest; pin the Mem0 source revision; build a reproducible Mem0 image (deps at build time, no pip-install on every startup)
+  - [ ] Bind Mem0/LiteLLM to `127.0.0.1`; add a prod compose override that FAILS startup on missing secrets (no dev defaults in prod)
+  - [ ] Split dev vs prod compose; add real readiness checks (deps, not just process liveness)
+  - Done when: a pinned prod compose boots without dev-default secrets and a second run is byte-reproducible.
+
+- [ ] **Step 8.6: Task-store state machine + leases** [Complex]
+  - Depends on: Step 4.1 (store)
+  - Risk: High — concurrency/correctness of shared state and recovery
+  - [ ] Enforce `pending → claimed → validating → done|failed`; claim only when deps complete; require claim-token/owner to complete
+  - [ ] Atomic writes (temp+rename); claim lease + heartbeat + expiry + stale-claim recovery; explicit failure/retry state
+  - Done when: invalid transitions are rejected and a crash-recovery test shows no task is permanently stranded.
+
+- [ ] **Step 8.7: Token-aware boundary + structured failure preservation** [Medium]
+  - Depends on: Step 3.3 (boundary)
+  - Risk: Medium — changes truncation; must not drop diagnostics
+  - [ ] Enforce limits in estimated/provider-reported TOKENS (not chars) for the selected model
+  - [ ] Preserve command/exit-code/failing-test/file/line/first+final error; head-and-tail truncation for logs; store full output as an artifact + pass a reference
+  - Done when: boundary stays within the model's token budget while preserving the actionable failure signal (assert via a failing-command fixture).
+
+- [ ] **Step 8.8: Finish live workhorse path (Pi → LiteLLM)** [Complex]  ·  *(= S02 Steps 2.2/2.5 + 2.4 measurement)*
+  - Depends on: Step 8.1, provider key (OpenRouter) in `deploy/.env`
+  - Risk: High — the hybrid profile's primary cost path; live provider integration
+  - [ ] Pi defaults to `LITELLM_BASE_URL`/`LITELLM_MASTER_KEY` for hybrid/open-first; resolve routed alias dynamically (no hard-coded model); fail-closed on inactive/uncredentialed model
+  - [ ] Provider capability checks (tools, JSON-schema, context, streaming); complete constrained decoding where supported
+  - [ ] Measure tool-call validity before/after repair on a real workhorse model
+  - Done when: a real task completes through Pi → LiteLLM → provider → tool-validation → repair → metrics.
+
+- [ ] **Step 8.9: Prove the token-efficiency claim (per-class benchmark campaign)** [Spike Needed]
+  - Depends on: Step 8.1, Step 8.4, Step 8.8; task fixtures + Max/provider quota
+  - Risk: High — validates the entire product hypothesis; consumes quota
+  - [ ] Spike (time-boxed): stable benchmark suite per task class (small/med/large from real repos), fixtures under `scripts/baseline-rig/tasks/`
+  - [ ] Compare single-frontier vs pure-anthropic-multi vs hybrid-multi (+open-first where applicable), repeated trials; record all token/latency/cost/quality; publish break-even thresholds
+  - [ ] Sign off only classes that pass ≥20% token / ≤5% quality; keep the rest single-agent (fill `docs/task-class-decisions.md`)
+  - Done when: every enabled multi-agent class meets the targets on repeated representative trials, reconciled to real usage.
+
+#### Phase B — Production hardening (DEFERRED / tracked — hosted/shared-use bar)
+
+- [ ] **Step 8.10: Hardened IPC (agent-comms)** [Complex] — Depends on Step 3.7 · Risk: Med — Unix sockets or per-run auth tokens, message-size/connection/concurrency limits, schema validation, correlation IDs, bounded sanitized errors. Done when: unauthorized peers + oversized messages are rejected in automated tests. **DEFERRED.**
+- [ ] **Step 8.11: Reliability & recovery** [Complex] — Depends on Step 8.1, 8.6 · Risk: High — durable run/task IDs, persisted lifecycle events, idempotent dispatch/complete, cancellation+timeouts, finally/cleanup for panes+worktrees, startup reconciliation, backoff+jitter, circuit breakers. Done when: killing the orchestrator at each stage recovers with no lost/duplicated work. **DEFERRED.**
+- [ ] **Step 8.12: Production observability** [Complex] — Depends on Step 8.1 · Risk: Med — structured JSON events per run/task/route/call/retry/validation/memory; tokens/cost/latency/TTFT/success/retry/repair/queue/compression by class+profile+model+provider+prompt-version; redaction; alerts; run-inspection command. Done when: a failed/expensive run is diagnosable from its run ID. **DEFERRED.**
+- [ ] **Step 8.13: Config & model governance** [Medium] — Depends on Step 3.1 · Risk: Med — typed config schema validated at startup, alias existence/active checks, capability metadata, model-version pinning, `config doctor` command, resolved model/provider recorded per run. Done when: invalid/incomplete profiles fail before dispatch. **DEFERRED.**
+- [ ] **Step 8.14: Production security & data hardening** [Complex] — Depends on Step 8.5 · Risk: High — enable Mem0 auth in prod, no default secrets, container+dependency vuln scanning, backup/restore + migration rollback procedures. Done when: a pinned deployment passes a security checklist and can be backed up/restored/upgraded/rolled back. **DEFERRED.**
+- [ ] **Step 8.15: Cross-platform clean-machine acceptance** [Complex] — Depends on Step 6.1, 6.2, 8.5 · Risk: High — clean Win/WSL2/macOS-Intel/macOS-AS install+upgrade+uninstall+compose+herdr+pi+claude+codex+cce+rtk+worktrees+locks; per-OS smoke scripts; record supported versions. Done when: the documented quickstart succeeds unmodified on every claimed platform. **DEFERRED (needs machines/teammate — supersedes Step 6.5).**
+- [ ] **Step 8.16: Controlled pilot + go-live** [Spike Needed] — Depends on all Phase A + B · Risk: High — freeze/version the first supported config, publish benchmark+acceptance results, incident-response/rollback/retention/privacy docs, run a limited real-project pilot for a defined observation period. Done when: a trusted pilot meets defined reliability/quality/token/cost/latency targets. **DEFERRED.**
+
+---
+
 ## Rollback Plan
 
 - **What to revert:** feature is additive and self-contained in the private repo. Revert = stop the rig; nothing is embedded in your existing projects.
@@ -369,6 +459,12 @@ are shared across all profiles.
 - [ ] No debug artifacts/TODOs in committed code; lint + any tests pass
 - [ ] Reviewed via `/review`
 - [ ] Memory files + `README.md` updated for teammate onboarding
+
+- [ ] **(Sprint 8)** A single `gopilot run` command enforces the full workflow; a dry-run prints the governed plan
+- [ ] **(Sprint 8)** Portable `test:unit` suite is hermetic (passes with no localhost listeners); integration/live self-skip
+- [ ] **(Sprint 8)** Acceptance metrics use workload-weighted totals + distributions and reconcile to real provider/CLI usage
+- [ ] **(Sprint 8)** Hybrid Pi → LiteLLM → provider path is live and measured; every enabled multi-agent class has passing evidence
+- [ ] **(Sprint 8, Phase B — deferred)** IPC auth, reliability/recovery, observability, prod secrets/pinning, cross-platform acceptance
 
 ## Future Considerations (out of scope for this plan)
 

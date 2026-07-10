@@ -138,3 +138,16 @@
   prefer in-session subagents (anthropic) or open-model workers (hybrid). This substantially SHRINKS the
   baseline-paradox penalty (the multi-pane cost the D17 sign-off was worried about is largely a separate-process
   artifact, not intrinsic). Router/dispatch should pick the spawn mechanism BY PROFILE, not always spawn panes.
+
+## 2026-07-10 — GPT production-readiness review adopted
+- D33: The independent production-readiness review (docs/GPT-FINDINGS.md, 2026-07-10) is ACCEPTED — it's accurate
+  and cross-validates our remaining work. Its central point is correct: we built the primitives but lack the
+  single ENFORCED run path that composes them (+ representative evidence the whole system saves tokens). Added as
+  PLAN.md **Sprint 8**, PHASED: Phase A (adoptable) = run coordinator + `gopilot run` (dry-run) + portable
+  fake-provider e2e + weighted metrics accounting + test split + cheap reproducibility hardening + task-store state
+  machine + token-aware boundary + finish live workhorse + per-class benchmark campaign — buildable now (8.8/8.9
+  need the OpenRouter key + fixtures/quota). Phase B (production hardening: IPC auth, reliability/recovery,
+  observability, prod secrets/pinning, cross-platform acceptance, pilot) = DEFERRED/tracked, calibrated for the
+  hosted/shared-use bar rather than the current teammate-local goal. Calibration notes: the "172/172 not
+  reproducible" was an env artifact (GPT's sandbox blocks localhost listeners → mesh/mem0 fake-server tests fail
+  instead of skip) — 172/172 is real on WSL, but the split-portable-tests fix (8.3) is warranted. Next step = 8.1.
