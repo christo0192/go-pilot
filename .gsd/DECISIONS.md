@@ -101,3 +101,12 @@
   explore, plan, execute, auto (chains the rest). Verified via Pi RPC get_commands (all 6, project scope) + a
   gpt-4o-mini smoke (phase-0 asks the 4 alignment Qs before planning). Serves Pi-orchestrated profiles; pure-anthropic
   keeps Claude/GSD skills — identical workflow regardless of switched-in orchestrator (D5). Sprint 5 complete.
+
+## 2026-07-10 — S03 context-tooling pilots (rtk/CCE)
+- D30: rtk (rtk-ai/rtk, prebuilt musl binary, user-local) ADOPTED as the real "Compressed" tier backend —
+  measured 81–99.6% output reduction on this repo (git log/--stat, node --test). CCE (elara-labs
+  code-context-engine, `uv tool install code-context-engine[local]`, local bge embeddings) RETAINED as
+  provisional Reference-tier retrieval (proven: router.mjs #1 hit). Verdict (docs/context-tooling-decision.md):
+  KEEP BOTH — rtk=live command output, CCE=static code; orthogonal axes of the D7 ladder behind the boundary
+  guard seam. Both degrade-safe: src/boundary/{rtk-compress,cce-retrieve}.mjs fall back (raw+truncate / file-path)
+  and never throw; live tests self-skip when the tool is absent. Zero npm deps. Sprint 3 now fully complete.

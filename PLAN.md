@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `88%`  ·  *(S00✅ S01✅ S03-core✅ S04✅(real Mem0) S05✅(Pi skills) S06✅ S07✅ — 135/135 tests, zero deps. Remaining: S03 pilots (rtk/CCE), live per-class sign-off, S06/6.5 fresh-machine verify.)*
+**Overall Progress:** `94%`  ·  *(S00✅ S01✅ S03✅(+rtk/CCE) S04✅(real Mem0) S05✅ S06✅ S07✅ — 145/145 tests, zero deps. Remaining: live per-class sign-off (baseline runs), S06/6.5 fresh-machine verify.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -174,7 +174,7 @@ are shared across all profiles.
   - [ ] Verify schema-valid tool JSON is guaranteed for those providers
   - Done when: for a schema-mode-capable model, malformed tool JSON no longer occurs across a test batch.
 
-### Sprint 3 — Router + Context Tiering  ·  progress `67%`  ·  *(core 6/9 done; 3.4/3.5/3.6 deferred on tooling)*
+### Sprint 3 — Router + Context Tiering  ·  progress `100%`  ·  *(core + rtk/CCE pilots done; verdict = keep both)*
 
 - [x] **Step 3.1: Deterministic rule-based router** [Complex]  ✅ 2026-07-09
   - Depends on: Step 2.2, Step 1.2
@@ -198,14 +198,14 @@ are shared across all profiles.
   - [ ] Add a guard that flags/blocks full-content passing unless explicitly justified
   - Done when: a test attempting to pass full content across a boundary is downgraded to reference/compressed or flagged.
 
-- [ ] **Step 3.4: rtk CLI-output compression proxy** [Medium]  ⏸️ DEFERRED (tool not installed — D21)
+- [x] **Step 3.4: rtk CLI-output compression proxy** [Medium]  ✅ 2026-07-10 (rtk 0.43.0 ADOPTED — 81–99.6% compression)
   - Depends on: Step 3.1
   - Risk: Medium — wrapping external tool output
   - [ ] Route git/test/lint output through rtk before it enters a pane's context
   - [ ] Verify compressed output preserves actionable signal on a real repo
   - Done when: a noisy command's output is materially smaller in-context with no loss of the failing detail.
 
-- [ ] **Step 3.5: CCE pilot + fallback chain** [Complex]  ⏸️ DEFERRED (tool not installed — D21)
+- [x] **Step 3.5: CCE pilot + fallback chain** [Complex]  ✅ 2026-07-10 (CCE 0.4.25 retained (provisional))
   - Depends on: Step 3.3
   - Risk: High — immature dependency, must degrade safely (#8)
   - [ ] Integrate CCE (Code Context Engine) as a Reference-tier retrieval source
@@ -213,7 +213,7 @@ are shared across all profiles.
   - [ ] Verify that disabling/breaking CCE silently falls back without routing to the expensive tier
   - Done when: with CCE forced to fail, retrieval still returns correct context via file-path/compressed fallback.
 
-- [ ] **Step 3.6: context-mode vs rtk+CCE consolidation pilot** [Spike Needed]  ⏸️ DEFERRED (tool not installed — D21)
+- [x] **Step 3.6: context-mode vs rtk+CCE consolidation pilot** [Spike Needed]  ✅ 2026-07-10 (KEEP BOTH — docs/context-tooling-decision.md)
   - Depends on: Step 3.4, Step 3.5
   - Risk: Medium — dependency-count decision
   - [ ] Spike (time-box): run context-mode head-to-head against rtk+CCE on the same tasks
