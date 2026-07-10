@@ -2,9 +2,10 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S02 — Workhorse Plane (LiteLLM + Pi workers + tool-call repair) — UN-SKIPPED per D31
-**Active Task**: S02/T01 — LiteLLM gateway (Docker) + provider-agnostic routing config (Step 2.1)
-**Progress**: S00✅ S01✅ S03✅ S04✅(real Mem0) S05✅(Pi) S06✅ S07✅ · S02 NOW IN SCOPE (was mis-marked skipped) · unit 145/145 · Overall ~82% · HEAD c2ee233
+**Active Slice**: S02 Workhorse Plane 60% (gateway+tools built; live worker needs OpenRouter key) + polish/review done
+**Active Task**: — next substantive step = finish S02 live (2.2/2.5/2.4-measurement) → needs OPENROUTER_API_KEY in deploy/.env
+**Progress**: S00✅ S01✅ S03✅ S04✅(real Mem0) S05✅(Pi) S06✅ S07✅ · S02 60% · code-review gate done (2 Major fixed) · README/.vscode/trader-toolkit done · unit 174/174, zero deps · Overall 92% · HEAD 03a9d88
+**Remaining (all need user/others)**: (A) OpenRouter key → finish S02 live + repair measurement; (B) per-class sign-off (fixtures+Max quota, D17); (C) 6.5 fresh-machine Win+Mac verify (teammate). SECURITY: rotate exposed OpenAI key.
 **SCOPE (D31)**: hybrid is first-class — rig must serve anthropic-only / codex-only / hybrid / open-first users. S02 builds the workhorse plane (also fixes the per-worker 44k Claude Code overhead — Pi/open-model panes carry none).
 **Installed this session**: Docker (native WSL2), Pi 0.80.6, rtk 0.43.0, CCE 0.4.25, uv. Mem0 LIVE. NEEDS: ≥1 open-model key (OpenRouter recommended) for LiteLLM.
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
