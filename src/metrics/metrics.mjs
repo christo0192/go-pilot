@@ -81,8 +81,8 @@ export function validateRecord(record) {
   if (record.quality === null || typeof record.quality !== "object") {
     errors.push("quality must be an object with single and multi");
   } else {
-    if (!isNumber(record.quality.single)) {
-      errors.push("quality.single must be a number");
+    if (!isNumber(record.quality.single) || record.quality.single <= 0) {
+      errors.push("quality.single must be a number > 0");
     }
     if (!isNumber(record.quality.multi)) {
       errors.push("quality.multi must be a number");

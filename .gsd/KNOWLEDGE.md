@@ -108,3 +108,18 @@ Native Docker in WSL2 (Ubuntu 26.04 has systemd on): `apt install docker.io dock
 - Best idempotency test for an installer: run it on an already-provisioned box and assert every step no-ops +
   exit 0 — that IS the "second run is a no-op" acceptance. install.sh passed this live.
 - Node on Ubuntu: prefer NodeSource setup_20.x over apt `nodejs` (archive can lag < v20).
+
+## 2026-07-10 — Code review quality gate (DoD /review)
+Full Code-Reviewer pass on all src/ modules: 0 Critical, 2 Major (FIXED), 6 Minor, 5 Nits. Verdict: core clean
+(real purity boundaries, prototype-pollution guards, honest degrade chains, leak-free sockets).
+FIXED + tested (174/174):
+- cce-retrieve.mjs ranking matched the ABSOLUTE path (incl. cwd) → a query token appearing in the cwd (e.g.
+  "pilot") inflated every file's score. Now matches basename(f).
+- promotion.mjs had no per-item isolation once async: one failed adapter.add aborted the whole batch + hid which
+  keepers already landed. Now try/catch per item → skipped {reason:"add-failed: ..."}.
+- metrics.mjs validateRecord now requires quality.single > 0 (was only isNumber) → avoids Infinity/NaN drop%.
+DEFERRED (Minor/Nit, tracked, non-blocking): toon.parse throws bare TypeError (not SyntaxError) on truncated
+array-of-objects input; mem0-client id/score contract tolerance vs mock (undefined id when server+caller give
+none; scores unbounded); store.mjs claim marker has no TTL/heartbeat (crash between claim+complete = stuck task);
+cce-retrieve cwd not shell-escaped in `sh -c` (process-controlled, low risk — prefer argv to grep); tool-profiles
+doesn't validate names against PI_BUILTIN_TOOLS. Revisit if these surface at scale.

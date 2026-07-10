@@ -1,0 +1,11 @@
+{
+  "// Go-pilot recommended extensions": "Trader doc-viewing + WSL. VSCode suggests these when the repo is opened.",
+  "recommendations": [
+    "ms-vscode-remote.remote-wsl",
+    "tomoki1207.pdf",
+    "mechatroner.rainbow-csv",
+    "GrapeCity.gc-excelviewer",
+    "shd101wyy.markdown-preview-enhanced",
+    "yzane.markdown-pdf"
+  ]
+}

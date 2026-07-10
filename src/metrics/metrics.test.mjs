@@ -196,3 +196,14 @@ test("withRouterOverhead fills routerOverheadTokens from a seeded overhead JSONL
   assert.equal(filled.runId, base.runId);
   assert.deepEqual(filled.tokens, base.tokens);
 });
+
+test("validateRecord rejects quality.single <= 0 (review fix — avoids Infinity/NaN drop%)", () => {
+  const base = {
+    runId: "r", tokens: { single: 100, multi: 70 },
+    quality: { single: 0, multi: 90 }, retries: { count: 0, attempts: 1 },
+    routerOverheadTokens: 0,
+  };
+  const v = validateRecord(base);
+  assert.equal(v.valid, false);
+  assert.ok(v.errors.some((e) => e.includes("quality.single")), "flags quality.single > 0");
+});

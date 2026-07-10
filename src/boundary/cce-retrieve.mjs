@@ -18,7 +18,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { homedir } from "node:os";
 import { compressOrFallback } from "./rtk-compress.mjs";
 
@@ -107,10 +107,11 @@ function defaultFileFinder(query, cwd) {
     }
     if (r.status === 0 && r.stdout) {
       for (const f of r.stdout.split("\n").filter(Boolean)) {
-        // Content hit = +1; a token in the file PATH (e.g. router.mjs for
-        // "router") is a much stronger signal = +3, so source files named for
-        // the query outrank prose docs that merely mention the words.
-        const bump = f.toLowerCase().includes(tok) ? 4 : 1;
+        // Content hit = +1; a token in the file BASENAME (e.g. router.mjs for
+        // "router") is a much stronger signal = +4, so source files named for
+        // the query outrank prose docs that merely mention the words. Match the
+        // basename (not the absolute path) so the cwd prefix never inflates it.
+        const bump = basename(f).toLowerCase().includes(tok) ? 4 : 1;
         scores.set(f, (scores.get(f) || 0) + bump);
       }
     }

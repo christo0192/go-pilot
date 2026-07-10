@@ -1,0 +1,16 @@
+{
+  "// Go-pilot workspace settings": "Nerd-font terminal + WSL default so `Ctrl+\\`` opens bash for herdr/pi.",
+  "terminal.integrated.fontFamily": "JetBrainsMono NL Nerd Font Mono, Cascadia Code, monospace",
+  "terminal.integrated.fontSize": 13,
+  "terminal.integrated.defaultProfile.windows": "Ubuntu (WSL)",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "files.eol": "\n",
+  "[markdown]": {
+    "editor.wordWrap": "on"
+  },
+  "search.exclude": {
+    "**/deploy/mem0-src": true,
+    "**/node_modules": true,
+    "**/metrics/runs": true
+  }
+}

@@ -144,3 +144,26 @@ test("inputs are NOT mutated", async () => {
   assert.equal(candidate.checks, before.checksRef, "candidate.checks not reassigned");
   assert.equal(memory.tags, before.tagsRef, "tags array not replaced");
 });
+
+test("a failing adapter.add isolates that item (add-failed) without aborting the batch (review fix)", async () => {
+  // Adapter whose add throws on a specific memory but succeeds otherwise.
+  const stored = [];
+  const flaky = {
+    add: async (m) => {
+      if (m.text.includes("boom")) throw new Error("network down");
+      stored.push(m);
+      return { ...m, id: `id-${stored.length}` };
+    },
+    search: async () => [],
+  };
+  const cands = [
+    { memory: { text: "good one", kind: "decision" }, checks: [okCheck] },
+    { memory: { text: "boom fails", kind: "decision" }, checks: [okCheck] },
+    { memory: { text: "good two", kind: "decision" }, checks: [okCheck] },
+  ];
+  const report = await promote(cands, flaky);
+  assert.equal(report.promoted.length, 2, "both good keepers still promoted");
+  const failed = report.skipped.find((s) => s.reason.startsWith("add-failed"));
+  assert.ok(failed, "the throwing add is captured as add-failed, not thrown");
+  assert.match(failed.reason, /network down/);
+});

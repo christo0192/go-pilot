@@ -55,8 +55,14 @@ export async function promote(candidates, adapter, opts = {}) {
     }
 
     // Both gates cleared — persist to Tier-2. `adapter.add` returns the stored
-    // memory (with its assigned id); that is what we report as promoted.
-    promoted.push(await adapter.add(memory));
+    // memory (with its assigned id); that is what we report as promoted. Isolate
+    // per item: a failed add (transient network / invalid record) must not abort
+    // the batch or hide which keepers already landed in Tier-2.
+    try {
+      promoted.push(await adapter.add(memory));
+    } catch (err) {
+      skipped.push({ memory, reason: `add-failed: ${err.message}` });
+    }
   }
 
   return { promoted, skipped };
