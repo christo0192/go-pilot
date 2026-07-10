@@ -93,3 +93,11 @@
   sync mock and the async real Mem0 client (await on a non-Promise is a no-op — mock behavior unchanged). Real
   Mem0 is the default Tier-2 when MEM0_BASE_URL is set; a live self-skipping integration test proves the full
   gate→promote→mem0→recall path (keeper retrieved, gated item excluded). Callers must await promote/recall.
+
+## 2026-07-10 — S05 Pi workflow skills
+- D29: Pi 0.80.6 installed (npm -g, user-writable prefix ~/.npm-global, NO sudo). Workflow authored as Pi SKILLS
+  (dir + SKILL.md, project-discoverable under `.pi/skills/`) not prompt-templates — richer/model-invocable/chainable.
+  6 skills: phase-0-align (5.2 gate: records alignment artifact, hard-blocks plan/auto until aligned), brainstorm,
+  explore, plan, execute, auto (chains the rest). Verified via Pi RPC get_commands (all 6, project scope) + a
+  gpt-4o-mini smoke (phase-0 asks the 4 alignment Qs before planning). Serves Pi-orchestrated profiles; pure-anthropic
+  keeps Claude/GSD skills — identical workflow regardless of switched-in orchestrator (D5). Sprint 5 complete.

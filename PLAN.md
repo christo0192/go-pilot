@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `78%`  ·  *(S00✅ S01✅ S03-core✅ S04✅(real Mem0 LIVE) S06✅(install.sh verified) S07✅ — 128/128 tests, zero deps. Remaining: S05 (Pi skills), S03 pilots (rtk/CCE), live sign-off, 6.5 fresh-machine verify.)*
+**Overall Progress:** `88%`  ·  *(S00✅ S01✅ S03-core✅ S04✅(real Mem0) S05✅(Pi skills) S06✅ S07✅ — 135/135 tests, zero deps. Remaining: S03 pilots (rtk/CCE), live per-class sign-off, S06/6.5 fresh-machine verify.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -277,16 +277,16 @@ are shared across all profiles.
   - [ ] Compare a resumed session's context quality vs the old manual handover
   - Done when: a fresh session auto-recalls prior relevant context (few-hundred-token injection) without a manual handover doc.
 
-### Sprint 5 — Workflow Skills + Generalization  ·  progress `0%`
+### Sprint 5 — Workflow Skills + Generalization  ·  progress `100%`  ·  *(Pi skills brainstorm→…→auto + Phase-0 gate authored + discovery-verified)*
 
-- [ ] **Step 5.1: Pi skills mirroring brainstorm→explore→plan→execute→auto** [Complex]
+- [x] **Step 5.1: Pi skills mirroring brainstorm→explore→plan→execute→auto** [Complex]  ✅ 2026-07-10 (Pi skills under .pi/skills/; discovery+smoke verified)
   - Depends on: Step 3.1, Step 4.5
   - Risk: Medium — UX/workflow surface for the team
   - [ ] Author Pi skills/prompt-templates for each stage matching current muscle memory
   - [ ] Verify each skill runs and chains to the next
   - Done when: a user can run brainstorm→explore→plan→execute→auto through Pi skills end-to-end.
 
-- [ ] **Step 5.2: Phase-0 conversational alignment gate** [Medium]
+- [x] **Step 5.2: Phase-0 conversational alignment gate** [Medium]  ✅ 2026-07-10 (Pi skills under .pi/skills/; discovery+smoke verified)
   - Depends on: Step 5.1
   - Risk: Medium — process gate (#5)
   - [ ] Require a user↔orchestrator alignment exchange before any plan is generated; model tier via `/model`
