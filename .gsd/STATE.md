@@ -2,10 +2,11 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: — M001 functionally COMPLETE at 94% (all buildable + installable work done)
-**Active Task**: — (only 2 user-gated items remain — see Reassess)
-**Progress**: S00✅ S01✅ S03✅(+rtk/CCE) S04✅(real Mem0 default Tier-2) S05✅(Pi) S06✅ S07✅ (S02 skipped) · unit 145/145, zero deps · Overall PLAN 94% · HEAD c2ee233
-**Installed this session**: Docker (native WSL2), Pi 0.80.6, rtk 0.43.0, CCE 0.4.25, uv. Mem0 LIVE in Docker.
+**Active Slice**: S02 — Workhorse Plane (LiteLLM + Pi workers + tool-call repair) — UN-SKIPPED per D31
+**Active Task**: S02/T01 — LiteLLM gateway (Docker) + provider-agnostic routing config (Step 2.1)
+**Progress**: S00✅ S01✅ S03✅ S04✅(real Mem0) S05✅(Pi) S06✅ S07✅ · S02 NOW IN SCOPE (was mis-marked skipped) · unit 145/145 · Overall ~82% · HEAD c2ee233
+**SCOPE (D31)**: hybrid is first-class — rig must serve anthropic-only / codex-only / hybrid / open-first users. S02 builds the workhorse plane (also fixes the per-worker 44k Claude Code overhead — Pi/open-model panes carry none).
+**Installed this session**: Docker (native WSL2), Pi 0.80.6, rtk 0.43.0, CCE 0.4.25, uv. Mem0 LIVE. NEEDS: ≥1 open-model key (OpenRouter recommended) for LiteLLM.
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 

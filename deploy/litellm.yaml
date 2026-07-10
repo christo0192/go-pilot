@@ -1,0 +1,142 @@
+# Go-pilot — LiteLLM workhorse gateway config.
+# =============================================================================
+# WHAT THIS IS
+#   The WORKHORSE plane's single OpenAI-compatible gateway. Pi workers talk
+#   OpenAI protocol to http://localhost:4000 (LITELLM_BASE_URL); LiteLLM fans
+#   out to open models (Kimi / GLM / DeepSeek / Qwen / MiniMax). Worker panes
+#   therefore carry ZERO Claude Code overhead.
+#
+# DESIGN PRINCIPLE — ACTIVATE BY KEY PRESENCE (D31)
+#   One config serves every user. A model is ONLY usable if its provider key is
+#   set in the environment (passed through from deploy/.env). A model whose key
+#   is blank is simply inactive — nothing to comment out, nothing to delete.
+#   `os.environ/VARNAME` below is LiteLLM's "read this from the environment"
+#   syntax; a missing/blank var means that deployment cannot authenticate.
+#
+# TWO WAYS EACH MODEL IS REACHED (activate whichever key you have)
+#   1. DIRECT vendor API   — needs that vendor's dedicated key
+#                            (MOONSHOT_API_KEY / ZAI_API_KEY / DEEPSEEK_API_KEY /
+#                             MINIMAX_API_KEY).
+#   2. OpenRouter (universal) — ONE key (OPENROUTER_API_KEY) reaches ALL models.
+#   Roles that have BOTH list the direct deployment first and the OpenRouter
+#   deployment second under the SAME `model_name`. LiteLLM treats same-named
+#   entries as one routing group: if the first has no key and errors, `num_retries`
+#   (see router_settings) fails over to the sibling. Net effect: whichever key
+#   you set wins, with no config edits.
+#
+# ADD / REMOVE A PROVIDER
+#   - Add a model: append a `- model_name: <role>` block with `litellm_params`
+#     (`model:` uses `<provider>/<model-id>`, `api_key:` uses os.environ/...).
+#   - Remove a provider: delete its block (or just never set its key — it stays
+#     inactive). The clean `model_name` aliases are the stable contract the
+#     Go-pilot router (config/router.json, plane "workhorse") calls.
+#
+# MODEL IDs: taken from research docs/LLM-Workflow-Model-Recommendations.md
+#   (OpenRouter slugs are the doc's cited source URLs). Direct-API model ids may
+#   need bumping to the vendor's current catalog name when you add a real key —
+#   noted inline where relevant.
+# =============================================================================
+
+model_list:
+
+  # ---- glm : GLM 5.2 — flagship general reasoning / coding / agents ---------
+  # Research role: orchestrate, analyze (long-context doc analysis), heavy code.
+  - model_name: glm
+    litellm_params:
+      # DIRECT (Z.ai / Zhipu) — OpenAI-compatible endpoint. ZAI_API_KEY activates.
+      # NOTE: bump `glm-4.6` -> `glm-5.2` once your Z.ai account exposes it.
+      model: openai/glm-4.6
+      api_base: https://api.z.ai/api/paas/v4
+      api_key: os.environ/ZAI_API_KEY
+  - model_name: glm
+    litellm_params:
+      # UNIVERSAL (OpenRouter). OPENROUTER_API_KEY activates.
+      model: openrouter/z-ai/glm-5.2
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- glm-flash : GLM 4.7 Flash — cheap planning / classify / routing ------
+  - model_name: glm-flash
+    litellm_params:
+      model: openrouter/z-ai/glm-4.7-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+    # DIRECT (Z.ai) alternative — uncomment + set the flash model id your account
+    # exposes, reading ZAI_API_KEY:
+    # model: openai/glm-4.5-flash
+    # api_base: https://api.z.ai/api/paas/v4
+    # api_key: os.environ/ZAI_API_KEY
+
+  # ---- kimi : Kimi K2.6 — creative / draft / lateral / agentic --------------
+  - model_name: kimi
+    litellm_params:
+      # DIRECT (Moonshot). MOONSHOT_API_KEY activates. LiteLLM's `moonshot/`
+      # provider reads MOONSHOT_API_KEY automatically.
+      model: moonshot/kimi-k2.6
+      api_key: os.environ/MOONSHOT_API_KEY
+  - model_name: kimi
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.6
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- kimi-lite : Kimi K2 0905 — cheaper Kimi (drafts, coding plans) -------
+  - model_name: kimi-lite
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2-0905
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- deepseek : DeepSeek V3.2 — reasoning / summarize / review / triage ---
+  - model_name: deepseek
+    litellm_params:
+      # DIRECT (DeepSeek). DEEPSEEK_API_KEY activates. The direct API exposes
+      # `deepseek-chat` (V3.x) rather than a versioned slug.
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: deepseek
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v3.2
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- deepseek-flash : DeepSeek V4 Flash — very cheap high-volume extract --
+  - model_name: deepseek-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- qwen-coder : Qwen3-Coder 480B — repo-scale coding / PRs / tool use ----
+  - model_name: qwen-coder
+    litellm_params:
+      model: openrouter/qwen/qwen3-coder
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- qwen : Qwen3-235B Instruct — cheap structured extraction / labeling --
+  - model_name: qwen
+    litellm_params:
+      model: openrouter/qwen/qwen3-235b-a22b-instruct
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # ---- minimax : MiniMax — long-context general / creative -------------------
+  - model_name: minimax
+    litellm_params:
+      # DIRECT (MiniMax) — OpenAI-compatible endpoint. MINIMAX_API_KEY activates.
+      # NOTE: confirm the model id + base your MiniMax account uses (intl vs cn).
+      model: openai/MiniMax-Text-01
+      api_base: https://api.minimaxi.chat/v1
+      api_key: os.environ/MINIMAX_API_KEY
+  - model_name: minimax
+    litellm_params:
+      model: openrouter/minimax/minimax-01
+      api_key: os.environ/OPENROUTER_API_KEY
+
+# -----------------------------------------------------------------------------
+router_settings:
+  # When a role has a direct + an OpenRouter deployment, a keyless one errors and
+  # LiteLLM retries the sibling in the same group — so whichever key is set wins.
+  num_retries: 2
+
+litellm_settings:
+  # Open models vary in which OpenAI params they accept; silently drop unknown
+  # ones instead of erroring so one caller shape fits every model.
+  drop_params: true
+
+general_settings:
+  # Proxy admin / virtual-key auth. Callers must send this as the Bearer token.
+  master_key: os.environ/LITELLM_MASTER_KEY

@@ -22,6 +22,40 @@
 #   AUTH_DISABLED=true removes the JWT/api-key requirement for a local single-node store.
 
 services:
+  # ---------------------------------------------------------------------------
+  # LiteLLM — WORKHORSE plane gateway (independent of the mem0/postgres stack).
+  # OpenAI-compatible proxy in front of the open models. Pi workers hit
+  # http://localhost:4000 (== LITELLM_BASE_URL). Config + design notes live in
+  # deploy/litellm.yaml. ACTIVATE-BY-KEY: only providers whose key is set below
+  # are usable; with NO provider keys the proxy still boots and serves health
+  # (0 working models is fine). Env comes from deploy/.env (same file mem0 uses).
+  # ---------------------------------------------------------------------------
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable   # amd64+arm64 (verified via docker manifest inspect)
+    ports:
+      - "4000:4000"                     # host 4000 -> container 4000 (== LITELLM_BASE_URL)
+    volumes:
+      - ./litellm.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      # Proxy master key (Bearer token callers must send). Dev default keeps the
+      # gateway usable out-of-the-box; override in deploy/.env for anything shared.
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-gopilot-dev}
+      # Provider keys — ALL OPTIONAL. A blank key = that provider is inactive.
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}   # universal: one key -> all models
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}       # Kimi (direct)
+      - ZAI_API_KEY=${ZAI_API_KEY:-}                 # GLM / Zhipu (direct)
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}       # DeepSeek (direct)
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}         # MiniMax (direct)
+    healthcheck:
+      # LiteLLM's liveness endpoint — up even with 0 working models.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
   mem0:
     build:
       context: ./mem0-src/server        # fully-populated sparse checkout

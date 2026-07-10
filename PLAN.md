@@ -135,9 +135,9 @@ are shared across all profiles.
   - [x] Planner (main worktree) owns merge-back
   - Done when: concurrent edits in separate worktrees merge back with no lost changes. ✅ (isolation verified; merge-back flow in S03)
 
-### Sprint 2 — Workhorse Plane  ·  progress `0%`
+### Sprint 2 — Workhorse Plane  ·  progress `20%`  ·  *(UN-SKIPPED per D31 — hybrid is first-class; 2.1 LiteLLM gateway live+provider-agnostic; 2.2–2.5 need a provider key)*
 
-- [ ] **Step 2.1: LiteLLM gateway (Docker) + model routing config** [Medium]
+- [x] **Step 2.1: LiteLLM gateway (Docker) + model routing config** [Medium]  ✅ 2026-07-10 (gateway boots+health+9 aliases; live routing awaits a key)
   - Depends on: Step 0.4
   - Risk: Medium — multi-provider keys + config
   - [ ] `docker compose` service for LiteLLM; add Kimi/GLM/DeepSeek/MiniMax via API keys in `.env`

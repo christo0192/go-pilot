@@ -110,3 +110,31 @@
   KEEP BOTH — rtk=live command output, CCE=static code; orthogonal axes of the D7 ladder behind the boundary
   guard seam. Both degrade-safe: src/boundary/{rtk-compress,cce-retrieve}.mjs fall back (raw+truncate / file-path)
   and never throw; live tests self-skip when the tool is absent. Zero npm deps. Sprint 3 now fully complete.
+
+## 2026-07-10 — SCOPE CORRECTION (user directive)
+- D31: **Hybrid is a FIRST-CLASS goal, not a deferred option. Sprint 2 (workhorse plane) is IN scope.** The
+  earlier "pure-anthropic, S02 skipped" (D5 framing / STATE) was a starting-profile shortcut and MISREAD the
+  intent. Correct requirement: Go-pilot must be **profile-agnostic for broad adoption** — any user can run it
+  anthropic-only, codex-only, or mixed/hybrid, and it must be eligible for all of them. Consequences:
+  (1) Build Sprint 2: LiteLLM gateway (Docker) + Pi workhorse workers → open models + per-worker tool subsets +
+  tool-call validate/repair Pi extension + constrained decoding. (2) This is ALSO the real fix for the per-worker
+  ~44k Claude Code overhead the user asked about: Pi/open-model worker panes carry ZERO Claude Code harness — the
+  frontier vs workhorse split (D2/D4) exists precisely for this. (3) All four profiles (pure-anthropic, codex-only,
+  hybrid, open-first) become first-class in config/router.json + installers; activate providers by key presence in
+  .env (no key → that model simply inactive), so one codebase serves every user preference. (4) LiteLLM needs ≥1
+  open-model key; OpenRouter (one key → many models) is the recommended universal default for adoption.
+
+## 2026-07-10 — Worker-spawn strategy (user insight) — reframes the 44k-overhead worry
+- D32: The per-worker ~44k Claude Code overhead (D15/D16) is AVOIDED BY DESIGN in both target profiles, so it is
+  NOT a blocker:
+  • **anthropic-only** → spawn workers as Claude Code's **in-session subagents** (native Task/subagent feature):
+    they run inside the SAME session and inherit the already-loaded context — they do NOT cold-start a separate
+    `claude -p` process per pane, so the global CLAUDE.md / skills / MCP are NOT re-loaded per worker. (Subagents
+    still cost tokens for their own work, but skip the per-pane config-reload tax.)
+  • **hybrid / open-first** → workers are NON-anthropic (open models via LiteLLM/Pi), which carry NO Claude Code
+    harness at all — zero CLAUDE.md tokens.
+  ⇒ The separate lean-`claude -p`-per-pane model (D18) + its 44k tax that the baseline-rig measures is really only
+  for cases needing TRUE OS-level pane/worktree isolation (e.g. parallel writes to one repo). For ordinary fan-out,
+  prefer in-session subagents (anthropic) or open-model workers (hybrid). This substantially SHRINKS the
+  baseline-paradox penalty (the multi-pane cost the D17 sign-off was worried about is largely a separate-process
+  artifact, not intrinsic). Router/dispatch should pick the spawn mechanism BY PROFILE, not always spawn panes.

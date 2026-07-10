@@ -14,6 +14,34 @@
     },
     "default": "__judgment__"
   },
-  "hybrid":     { "categories": {}, "default": "__judgment__" },
-  "open-first": { "categories": {}, "default": "__judgment__" }
+  "hybrid": {
+    "categories": {
+      "orchestrate": {"plane":"frontier","model":"opus"},
+      "plan":        {"plane":"frontier","model":"opus"},
+      "code":        {"plane":"workhorse","model":"qwen-coder"},
+      "analyze":     {"plane":"workhorse","model":"glm"},
+      "draft":       {"plane":"workhorse","model":"kimi"},
+      "extract":     {"plane":"workhorse","model":"qwen"},
+      "classify":    {"plane":"workhorse","model":"glm-flash"},
+      "summarize":   {"plane":"workhorse","model":"deepseek"},
+      "code-review": {"plane":"frontier","model":"codex"},
+      "lateral":     {"plane":"frontier","model":"codex"}
+    },
+    "default": "__judgment__"
+  },
+  "open-first": {
+    "categories": {
+      "orchestrate": {"plane":"workhorse","model":"glm"},
+      "plan":        {"plane":"workhorse","model":"glm-flash"},
+      "code":        {"plane":"workhorse","model":"qwen-coder"},
+      "analyze":     {"plane":"workhorse","model":"glm"},
+      "draft":       {"plane":"workhorse","model":"kimi"},
+      "extract":     {"plane":"workhorse","model":"qwen"},
+      "classify":    {"plane":"workhorse","model":"glm-flash"},
+      "summarize":   {"plane":"workhorse","model":"deepseek"},
+      "code-review": {"plane":"workhorse","model":"deepseek"},
+      "lateral":     {"plane":"workhorse","model":"kimi"}
+    },
+    "default": "__judgment__"
+  }
 }
