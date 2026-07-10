@@ -2,9 +2,10 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S04b — real Mem0 WIRED as default Tier-2 ✅ (memory story fully complete)
-**Active Task**: — (reassess: everything left is install-gated / other-machine — see Reassess)
-**Progress**: S00✅ S01✅ S03-core✅ S04✅(real Mem0 default Tier-2) S06✅(install.sh verified) S07✅ (S02 skipped) · unit 135/135, zero deps · Overall PLAN ~80% · HEAD 1d2f1c3
+**Active Slice**: — M001 functionally COMPLETE at 94% (all buildable + installable work done)
+**Active Task**: — (only 2 user-gated items remain — see Reassess)
+**Progress**: S00✅ S01✅ S03✅(+rtk/CCE) S04✅(real Mem0 default Tier-2) S05✅(Pi) S06✅ S07✅ (S02 skipped) · unit 145/145, zero deps · Overall PLAN 94% · HEAD c2ee233
+**Installed this session**: Docker (native WSL2), Pi 0.80.6, rtk 0.43.0, CCE 0.4.25, uv. Mem0 LIVE in Docker.
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
 **Last Updated**: 2026-07-09
 
@@ -29,6 +30,17 @@
 - install.sh (mac/WSL) LIVE-verified idempotent no-op (exit 0, Mem0 200) — Step 6.1 done-when met. install.ps1
   authored (Windows parity; live run = 6.5). docs/INSTALL.md both OSes + revert. 6.3 compose ✅, 6.4 templating ✅.
 - Remaining S06: only 6.5 fresh-machine Win+Mac acceptance (needs clean boxes + teammate). Decisions D27.
+
+## M001 near-complete (94%) — final 2 items are USER-GATED (2026-07-10)
+- **Live per-class sign-off (D17)**: harness READY (scripts/baseline-rig/run.py, herdr 0.7.3 running,
+  metrics/quality-rubric.md, src/metrics/signoff.mjs). BUT needs: real per-class task fixtures (only
+  tasks/trivial-smoke.json exists), real Claude/Codex runs (Max quota), and subjective quality scoring. This is
+  exactly the T04 the user DEFERRED (D17). To finish: add fixtures for the 5 classes → run run.py single vs
+  multi → score per rubric → feed records to signoff(). User decision (quota + fixtures + judging).
+- **S06/6.5 fresh-machine verify**: run install.ps1 on a clean Windows box + install.sh on a clean mac (teammate
+  acceptance). Can't be done from this WSL box.
+- Everything else (S00–S07 core, real Mem0 live, Pi skills, installers, rtk/CCE) is DONE + committed.
+- SECURITY still open: rotate the OpenAI key pasted in chat (gitignored deploy/.env; safe from git).
 
 ## S04b Tier-2 wiring COMPLETE ✅ 2026-07-09 (the "no-install win" — now done)
 - src/memory/tier2.mjs createTier2Adapter({mode:auto|mock|mem0}); promote/recall made async → work with the
