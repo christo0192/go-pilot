@@ -135,7 +135,7 @@ are shared across all profiles.
   - [x] Planner (main worktree) owns merge-back
   - Done when: concurrent edits in separate worktrees merge back with no lost changes. ✅ (isolation verified; merge-back flow in S03)
 
-### Sprint 2 — Workhorse Plane  ·  progress `20%`  ·  *(UN-SKIPPED per D31 — hybrid is first-class; 2.1 LiteLLM gateway live+provider-agnostic; 2.2–2.5 need a provider key)*
+### Sprint 2 — Workhorse Plane  ·  progress `60%`  ·  *(2.1 gateway✅ 2.3 tool-subsets✅ 2.4 repair✅; 2.2 live Pi worker + 2.5 constrained-decoding + 2.4 measurement need a provider key)*
 
 - [x] **Step 2.1: LiteLLM gateway (Docker) + model routing config** [Medium]  ✅ 2026-07-10 (gateway boots+health+9 aliases; live routing awaits a key)
   - Depends on: Step 0.4
@@ -152,14 +152,14 @@ are shared across all profiles.
   - [ ] Spawn a Pi worker in a herdr pane; run a trivial task on a cheap model
   - Done when: a Pi worker completes a trivial task via LiteLLM inside a herdr pane, readable from the orchestrator.
 
-- [ ] **Step 2.3: Per-worker tool subsets** [Medium]
+- [x] **Step 2.3: Per-worker tool subsets** [Medium]  ✅ 2026-07-10 (tool-profiles.json; extract≠code verified; live check folds into 2.2)
   - Depends on: Step 2.2
   - Risk: Medium — tool-scoping per task category
   - [ ] Define tool profiles per category (e.g., extraction worker = Read/Write/3 tools, not 30) in `config/tool-profiles.yaml`
   - [ ] Verify a worker only exposes its profile's tools
   - Done when: two workers of different categories start with different, correct tool sets.
 
-- [ ] **Step 2.4: Tool-call schema + validator + repair Pi extension** [Complex]
+- [x] **Step 2.4: Tool-call schema + validator + repair Pi extension** [Complex]  ✅ 2026-07-10 (validator+repair loop tested; Pi ext loads; measurement needs key)
   - Depends on: Step 2.2
   - Risk: High — core reliability logic for weak open-model tool-calling
   - [ ] Build a Pi TypeScript extension: validate every tool call against a schema (Zod/Pydantic-equivalent)

@@ -1,0 +1,73 @@
+{
+  "_notes": [
+    "Per-worker tool subsets (Step 2.3). Each router work-category (config/router.json)",
+    "maps to a MINIMAL allowlist of Pi built-in tool names, tuned to the work so a",
+    "worker starts with only the tools it needs (least privilege) instead of all 7.",
+    "",
+    "Pi's built-in tool set is exactly 7 names (confirmed from the pi-coding-agent",
+    "source: createAllTools) — there is NO 'glob' tool; file-finding is 'find':",
+    "  read  - read a file",
+    "  write - create/overwrite a file",
+    "  edit  - in-place edit of an existing file",
+    "  bash  - run a shell command",
+    "  grep  - search file CONTENTS (ripgrep)",
+    "  find  - find FILES by name/glob (the glob-equivalent)",
+    "  ls    - list a directory",
+    "Pi's own groupings for reference: read-only = [read,grep,find,ls];",
+    "coding = [read,bash,edit,write]; all = the 7 above.",
+    "",
+    "piToolArgs() turns a category's 'tools' array into Pi CLI flags:",
+    "  non-empty -> ['--tools','read,grep,find']  (allowlist)",
+    "  empty []  -> ['--no-tools']                (disable everything)",
+    "Unknown / missing category falls back to 'default' (a safe read-only set).",
+    "JSON (not YAML) is used deliberately: the repo is zero-dep and already stores",
+    "config as JSON (config/router.json), so no YAML parser is needed. The plan named",
+    "tool-profiles.yaml; JSON is the zero-dep-consistent deviation."
+  ],
+  "categories": {
+    "orchestrate": {
+      "tools": ["read", "write", "grep", "find"],
+      "rationale": "Coordinator: reads specs/state, maintains state & task/lock files (write), navigates the repo (grep/find). No code edits, no shell — it delegates work, it does not run it."
+    },
+    "plan": {
+      "tools": ["read", "grep", "find"],
+      "rationale": "Planner: reads code and specs to produce a plan. The plan is its RETURNED output (a message), not a file it mutates — so read-only navigation is enough. No write/edit/bash."
+    },
+    "code": {
+      "tools": ["read", "edit", "write", "bash", "grep", "find"],
+      "rationale": "Implementer: the fullest set. Reads, edits and writes source, runs builds/tests (bash), and searches the tree (grep/find). ls omitted — find/grep cover navigation."
+    },
+    "analyze": {
+      "tools": ["read", "bash", "grep", "find"],
+      "rationale": "Analyst: reads code/data and may run read-only commands to compute or inspect (bash), but its deliverable is findings, not file changes — so NO edit/write."
+    },
+    "draft": {
+      "tools": ["read", "write", "grep", "find"],
+      "rationale": "Content drafter: reads references and writes the draft (write). No bash/edit — it authors new prose/content rather than surgically patching existing files or running commands."
+    },
+    "extract": {
+      "tools": ["read", "grep", "find"],
+      "rationale": "Extraction: pulls structured facts FROM sources it locates (find) and reads (read/grep). Output is returned as data, not written to disk — so read-only, NO bash/edit/write."
+    },
+    "classify": {
+      "tools": ["read", "grep"],
+      "rationale": "Classifier: reads the item and (optionally) greps for signals, then returns a label. The most minimal set — no file discovery, mutation, or shell needed."
+    },
+    "summarize": {
+      "tools": ["read", "grep"],
+      "rationale": "Summarizer: reads the content (and greps within it) and returns a summary. Read-only and minimal — no find/write/edit/bash."
+    },
+    "code-review": {
+      "tools": ["read", "bash", "grep", "find"],
+      "rationale": "Reviewer: reads the diff/code, searches the tree (grep/find), and may run tests/linters (bash) — but must NOT mutate the code it reviews, so NO edit/write. Its output is comments."
+    },
+    "lateral": {
+      "tools": ["read", "grep", "find"],
+      "rationale": "Lateral/alternative-idea explorer: surveys the codebase read-only (read/grep/find) to propose different approaches. No mutation or shell — it ideates, it does not execute."
+    }
+  },
+  "default": {
+    "tools": ["read", "grep", "find", "ls"],
+    "rationale": "Safe fallback for any unknown/unmapped category: Pi's read-only group. Least privilege — an unrecognised worker can inspect but never mutate the repo or run shell."
+  }
+}

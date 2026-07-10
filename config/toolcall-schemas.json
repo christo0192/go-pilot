@@ -1,0 +1,21 @@
+{
+  "_comment": "Tool-name → minimal JSON-Schema-ish spec consumed by .pi/extensions/tool-call-repair.ts (validated by src/toolcall/repair.mjs). Keys are tool names; each value is { required?, properties?: {field:{type}}, additionalProperties? }. Example tools below are illustrative — add entries for the flaky-model tools you actually want to guard. Do NOT over-constrain Pi built-ins (read/write/bash/edit) unless the schema matches their real signature, or valid calls will be blocked. Keys starting with _ are ignored by the loader as documentation.",
+  "search_docs": {
+    "required": ["query"],
+    "properties": {
+      "query": { "type": "string" },
+      "limit": { "type": "number" },
+      "include_archived": { "type": "boolean" }
+    },
+    "additionalProperties": false
+  },
+  "create_task": {
+    "required": ["title", "assignee"],
+    "properties": {
+      "title": { "type": "string" },
+      "assignee": { "type": "string" },
+      "tags": { "type": "array" },
+      "metadata": { "type": "object" }
+    }
+  }
+}
