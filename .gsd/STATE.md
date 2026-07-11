@@ -2,10 +2,11 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S02 Workhorse Plane 60% (gateway+tools built; live worker needs OpenRouter key) + polish/review done
-**Active Task**: — next substantive step = finish S02 live (2.2/2.5/2.4-measurement) → needs OPENROUTER_API_KEY in deploy/.env
-**Progress**: S00✅ S01✅ S03✅ S04✅(real Mem0) S05✅(Pi) S06✅ S07✅ · S02 60% · code-review gate done (2 Major fixed) · README/.vscode/trader-toolkit done · unit 174/174, zero deps · Overall 92% · HEAD 03a9d88
-**Remaining (all need user/others)**: (A) OpenRouter key → finish S02 live + repair measurement; (B) per-class sign-off (fixtures+Max quota, D17); (C) 6.5 fresh-machine Win+Mac verify (teammate). SECURITY: rotate exposed OpenAI key.
+**Active Slice**: S08 Production Readiness — Phase A 4/9 done (integrated control plane building out)
+**Active Task**: — remaining Phase A = 8.3 test-split, 8.6 store state-machine, 8.7 token-aware boundary (all buildable now)
+**Progress**: S00–S07 build✅ · S08 Phase A: 8.1 coordinator✅ 8.2 e2e✅ 8.4 metrics-accounting✅ 8.5 deploy-hardening✅ · unit 198/198, zero deps · HEAD eaa80f7
+**Workhorse gateway = Ikey (D34)**: user's own hosted LiteLLM (https://ikey-gateway.fly.dev), one key, no OpenRouter markup. Live worker (8.8) needs the Ikey key + credits topped up (Ikey-side). Local LiteLLM now behind a compose profile.
+**Remaining**: Phase A 8.3/8.6/8.7 (buildable now) · 8.8 live workhorse (Ikey key+credits) · 8.9 benchmark (fixtures+quota) · Phase B 8.10–8.16 deferred · SECURITY: rotate exposed OpenAI key.
 **SCOPE (D31)**: hybrid is first-class — rig must serve anthropic-only / codex-only / hybrid / open-first users. S02 builds the workhorse plane (also fixes the per-worker 44k Claude Code overhead — Pi/open-model panes carry none).
 **Installed this session**: Docker (native WSL2), Pi 0.80.6, rtk 0.43.0, CCE 0.4.25, uv. Mem0 LIVE. NEEDS: ≥1 open-model key (OpenRouter recommended) for LiteLLM.
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
