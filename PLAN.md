@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) Phase A 5/9`  ·  *(S00–S07 build done, 198/198 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
+**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) Phase A 6/9`  ·  *(S00–S07 build done, 210/210 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -349,7 +349,7 @@ are shared across all profiles.
 
 ---
 
-### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 5/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.3 test split, 8.4 metrics accounting, 8.5 deploy hardening ✅ — 198/198; remaining Phase A: 8.6/8.7)*
+### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 6/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.3 test split, 8.4 metrics accounting, 8.5 deploy hardening, 8.6 store state-machine ✅ — 210/210; remaining Phase A: 8.7)*
 
 > Source: independent production-readiness review in `docs/GPT-FINDINGS.md` (2026-07-10) + Claude's assessment.
 > Decision (D33): the review is accepted; approach is **phased** — **Phase A (adoptable)** builds the missing
@@ -397,12 +397,13 @@ are shared across all profiles.
   - [ ] Split dev vs prod compose; add real readiness checks (deps, not just process liveness)
   - Done when: a pinned prod compose boots without dev-default secrets and a second run is byte-reproducible.
 
-- [ ] **Step 8.6: Task-store state machine + leases** [Complex]
+- [x] **Step 8.6: Task-store state machine + leases** [Complex] ✅ 2026-07-11 (state machine + leases + crash recovery; code-reviewed, 1 crash-safety blocker fixed)
   - Depends on: Step 4.1 (store)
   - Risk: High — concurrency/correctness of shared state and recovery
-  - [ ] Enforce `pending → claimed → validating → done|failed`; claim only when deps complete; require claim-token/owner to complete
-  - [ ] Atomic writes (temp+rename); claim lease + heartbeat + expiry + stale-claim recovery; explicit failure/retry state
-  - Done when: invalid transitions are rejected and a crash-recovery test shows no task is permanently stranded.
+  - [x] Enforce `pending → claimed → validating → done|failed`; claim refused until deps `done`; claim-token/owner required to advance/complete
+  - [x] Atomic writes (temp+rename); claim lease + heartbeat + expiry + stale-claim recovery; explicit `failed` state + reason
+  - [x] Code review found a crash-mid-claim orphan-marker gap (task stranded `pending`); fixed via `recoverStale` orphan-marker reconciliation + marker drop on complete/fail; regression test added
+  - Done when: invalid transitions are rejected and a crash-recovery test shows no task is permanently stranded. → **store 18/18 (incl. orphan-marker + zombie-token regression), no flakes over 5 runs.**
 
 - [ ] **Step 8.7: Token-aware boundary + structured failure preservation** [Medium]
   - Depends on: Step 3.3 (boundary)
