@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S08 Production Readiness — Phase A 7/9 (buildable-now complete) + Phase B underway (8.10, 8.13 done)
-**Active Task**: Phase B in progress (user chose Phase B). Next buildable-now: 8.11 reliability/recovery, 8.12 observability. (8.14 partial; 8.15/8.16 need machines/pilot; 8.8/8.9 still user/infra-gated.) Follow-on: wire resolveModel() into run.mjs (record provider/version per run).
-**Progress**: S00–S07 build✅ · S08 Phase A: 8.1–8.7✅ · Phase B: 8.10 hardened-IPC✅ 8.13 config-governance✅ · 240/240 (unit 217 + integration 20 + live 3), zero deps · HEAD (8.13 commit)
+**Active Slice**: S09 COMPLETE — Phase B buildable-now DONE. Phase A 7/9 + Phase B core (8.10/8.11/8.12/8.13) complete.
+**Active Task**: — none buildable-now. ALL remaining Sprint 8 work is user/infra/machine-gated: 8.8 (Ikey key+credits), 8.9 (fixtures+quota), 8.14 (Mem0 services + vuln scan + backup verify), 8.15 (clean Win/mac boxes + teammate), 8.16 (pilot). Plus 2 herdr-gated follow-ons (wire reliability into run.mjs live; live alert sink). Ask user which / whether to source the gated inputs.
+**Progress**: S00–S07 build✅ · S08 Phase A 8.1–8.7✅ · Phase B 8.10 IPC✅ 8.11 reliability-core✅ 8.12 observability✅ 8.13 config-governance✅ (+resolveModel→run.mjs) · 293/293 (unit 270 + integration 20 + live 3), zero deps · HEAD (S09 commit)
 **Workhorse gateway = Ikey (D34)**: user's own hosted LiteLLM (https://ikey-gateway.fly.dev), one key, no OpenRouter markup. Live worker (8.8) needs the Ikey key + credits topped up (Ikey-side). Local LiteLLM now behind a compose profile.
 **Remaining**: Phase A 8.6/8.7 (buildable now) · 8.8 live workhorse (Ikey key+credits) · 8.9 benchmark (fixtures+quota) · Phase B 8.10–8.16 deferred · SECURITY: rotate exposed OpenAI key.
 **Test buckets (8.3)**: `npm run test:unit` (hermetic, no ports/tools) · `test:integration` (loopback fakes: mesh, mem0-client) · `test:live` (needs real cce/rtk/Mem0, self-skips). Bucketer = `scripts/run-tests.mjs`, filename-suffix convention `.integration.test.mjs`/`.live.test.mjs`.

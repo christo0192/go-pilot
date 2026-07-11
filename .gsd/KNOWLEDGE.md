@@ -123,3 +123,18 @@ array-of-objects input; mem0-client id/score contract tolerance vs mock (undefin
 none; scores unbounded); store.mjs claim marker has no TTL/heartbeat (crash between claim+complete = stuck task);
 cce-retrieve cwd not shell-escaped in `sh -c` (process-controlled, low risk — prefer argv to grep); tool-profiles
 doesn't validate names against PI_BUILTIN_TOOLS. Revisit if these surface at scale.
+
+## S09 (Phase B) — reliability + observability + governance (2026-07-11)
+- Parallel fresh-agent build works well for INDEPENDENT new modules in NEW dirs
+  (src/reliability/, src/observability/) that don't touch shared files (run.mjs).
+  Brief each agent with: zero-dep + node:test + .mjs, INJECTABLE clock/rng/sleep
+  for hermetic determinism, "test your OWN file only", and a house-style ref file
+  (store.mjs / guard.mjs). Hold the full `node --test` until all agents finish to
+  avoid the half-written-file race; then integrate + review + commit each.
+- Reliability primitives pattern: computeBackoff (pure, cap-before-jitter,
+  overflow-safe via min), withRetry (AbortSignal pre+mid-backoff), circuit
+  breaker (time-derived virtual half-open). Journal: crash-tolerant JSONL read
+  (skip torn tail), dispatchOnce idempotency, reconcile for in-flight recovery.
+- Interface-stable additive change: added plan.provider/plan.version to the
+  coordinator via resolveModel() best-effort (try/catch → null) so config drift
+  never crashes a run; field-specific test assertions meant no consumer broke.

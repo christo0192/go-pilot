@@ -161,3 +161,22 @@
   hosted LiteLLM). Router aliases in config/litellm.yaml + config/router.json must be reconciled to Ikey's actual
   model names (GET /v1/models on Ikey). "No amounts added" = an IKEY-SIDE credit/budget issue (upstream provider
   balance and/or the LiteLLM virtual-key budget), NOT a Go-pilot code fix — diagnose via verify-litellm.mjs error.
+
+## D35 — Reliability layer complements the store (2026-07-11, S09/8.11)
+The task-store (8.6) provides mutual exclusion (who runs a task); the journal
+(`src/reliability/journal.mjs`) provides exactly-once + recovery ON TOP of it.
+dispatchOnce uses AT-LEAST-ONCE semantics: a crash in the narrow window between
+fn() succeeding and the `done` record persisting re-runs fn on recovery. That's
+acceptable because (a) reconcile() guarantees no LOST work and (b) the store's
+claim+result layer dedups at the task level. Do NOT try to make the journal
+alone exactly-once across a crash — that needs a 2-phase commit we deliberately
+avoid at zero-dep. Retry/backoff/breaker keep clock+rng+sleep INJECTABLE so
+tests stay hermetic (no real timers).
+
+## D36 — Observability redaction is KEY-based (2026-07-11, S09/8.12)
+`redact()` in `src/observability/events.mjs` matches sensitive KEY names by
+word-part (so `token` is redacted but the `tokens` metric survives). It does NOT
+scan free-text VALUES. Consequence: callers MUST place secrets in clearly-named
+fields, never inside a free-text `note`/`message` value, or they will not be
+redacted. Chosen over value-scanning to avoid false positives + cost on every
+event. Config trust is separately enforced by `config doctor` (8.13).
