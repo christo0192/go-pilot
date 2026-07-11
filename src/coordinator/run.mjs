@@ -30,6 +30,7 @@
 import { route, loadConfig } from "../router/router.mjs";
 import { piToolArgs, loadToolProfiles } from "../router/tool-profiles.mjs";
 import { guardBoundary } from "../boundary/guard.mjs";
+import { resolveModel } from "../config/governance.mjs";
 import { mustPass } from "../memory/gate.mjs";
 import { promote } from "../memory/promotion.mjs";
 import { recall } from "../memory/recall.mjs";
@@ -206,11 +207,30 @@ export async function runTask(task = {}, opts = {}) {
     ? `${safeInjection}\n\n${workerBody}`
     : workerBody;
 
+  // Record the RESOLVED provider + pinned version for this run (Step 8.13
+  // follow-on) so a run is traceable to the exact model behind an alias. Best
+  // effort: registry drift must not crash a run — `gopilot config doctor` is
+  // the hard gate — so an unresolvable/inactive alias degrades to nulls here.
+  let provider = null;
+  let version = null;
+  if (!needsJudgment && model) {
+    try {
+      const resolved = resolveModel(model, { registryPath: opts.registryPath });
+      provider = resolved.provider;
+      version = resolved.version;
+    } catch {
+      provider = null;
+      version = null;
+    }
+  }
+
   const plan = {
     profile,
     category: category ?? null,
     plane,
     model,
+    provider,
+    version,
     tools,
     contextTier,
     signedOff,

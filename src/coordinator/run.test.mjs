@@ -86,6 +86,9 @@ test("full lifecycle fires: route -> tools -> recall -> boundary -> dispatch -> 
   assert.equal(res.plan.plane, "frontier");
   assert.equal(res.plan.model, "sonnet");
   assert.equal(res.plan.category, "code");
+  // 4b. The resolved provider + pinned version are recorded (8.13 follow-on).
+  assert.equal(res.plan.provider, "anthropic-subscription");
+  assert.equal(typeof res.plan.version, "string");
 
   // 5. TOOL PROFILE was set from the category.
   const expectedTools = piToolArgs("code", { profiles: loadToolProfiles() });
