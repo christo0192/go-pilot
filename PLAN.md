@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) Phase A 6/9`  ·  *(S00–S07 build done, 210/210 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
+**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) Phase A 7/9`  ·  *(S00–S07 build done, 218/218 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -349,7 +349,7 @@ are shared across all profiles.
 
 ---
 
-### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 6/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.3 test split, 8.4 metrics accounting, 8.5 deploy hardening, 8.6 store state-machine ✅ — 210/210; remaining Phase A: 8.7)*
+### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 7/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.3 test split, 8.4 metrics, 8.5 deploy, 8.6 store state-machine, 8.7 token-aware boundary ✅ — 218/218; ALL buildable-now Phase A done. Remaining 8.8/8.9 are user/infra-gated)*
 
 > Source: independent production-readiness review in `docs/GPT-FINDINGS.md` (2026-07-10) + Claude's assessment.
 > Decision (D33): the review is accepted; approach is **phased** — **Phase A (adoptable)** builds the missing
@@ -405,12 +405,13 @@ are shared across all profiles.
   - [x] Code review found a crash-mid-claim orphan-marker gap (task stranded `pending`); fixed via `recoverStale` orphan-marker reconciliation + marker drop on complete/fail; regression test added
   - Done when: invalid transitions are rejected and a crash-recovery test shows no task is permanently stranded. → **store 18/18 (incl. orphan-marker + zombie-token regression), no flakes over 5 runs.**
 
-- [ ] **Step 8.7: Token-aware boundary + structured failure preservation** [Medium]
+- [x] **Step 8.7: Token-aware boundary + structured failure preservation** [Medium] ✅ 2026-07-11 (token budgets + head+tail signal-preserving truncation + artifact; code-reviewed, invariant-violation blocker fixed)
   - Depends on: Step 3.3 (boundary)
   - Risk: Medium — changes truncation; must not drop diagnostics
-  - [ ] Enforce limits in estimated/provider-reported TOKENS (not chars) for the selected model
-  - [ ] Preserve command/exit-code/failing-test/file/line/first+final error; head-and-tail truncation for logs; store full output as an artifact + pass a reference
-  - Done when: boundary stays within the model's token budget while preserving the actionable failure signal (assert via a failing-command fixture).
+  - [x] Budgets in estimated TOKENS (~chars/4, `estimateTokens`) not chars; `guardBoundary` interface preserved (coordinator/rtk-compress consume it unchanged)
+  - [x] Preserve command/exit-code/failing-test/file:line/first+final error via SIGNAL_PATTERNS; head-AND-tail truncation with gap markers; full output kept as a content-hashed artifact + ref
+  - [x] Code review caught (a) truncation could emit MORE than raw input on signal-dense tiny inputs — fixed with a hard "never exceed input" postcondition; (b) signal regex missed lowercase `failed`/`✕` glyphs — fixed; both regression-tested
+  - Done when: boundary stays within the model's token budget while preserving the actionable failure signal (asserted via a failing-`npm test` fixture). → **guard 20/20, coordinator+rtk interface green, 218/218 overall.**
 
 - [ ] **Step 8.8: Finish live workhorse path (Pi → LiteLLM)** [Complex]  ·  *(= S02 Steps 2.2/2.5 + 2.4 measurement)*
   - Depends on: Step 8.1, provider key (OpenRouter) in `deploy/.env`

@@ -2,9 +2,9 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S08 Production Readiness — Phase A 6/9 done (integrated control plane building out)
-**Active Task**: — remaining Phase A = 8.7 token-aware boundary (buildable now; MUST preserve guardBoundary interface — coordinator depends on it)
-**Progress**: S00–S07 build✅ · S08 Phase A: 8.1 coordinator✅ 8.2 e2e✅ 8.3 test-split✅ 8.4 metrics-accounting✅ 8.5 deploy-hardening✅ 8.6 store-state-machine✅ · 210/210 (unit 196 + integration 11 + live 3), zero deps · HEAD (8.6 commit)
+**Active Slice**: S08 Production Readiness — Phase A 7/9 done; ALL buildable-now Phase A complete (8.8/8.9 are user/infra-gated)
+**Active Task**: — none buildable-now. Next = 8.8 live workhorse (BLOCKED on Ikey key+credits) OR 8.9 benchmark (fixtures+quota) OR Phase B 8.10–8.16 (deferred). Ask user which.
+**Progress**: S00–S07 build✅ · S08 Phase A: 8.1 coordinator✅ 8.2 e2e✅ 8.3 test-split✅ 8.4 metrics-accounting✅ 8.5 deploy-hardening✅ 8.6 store-state-machine✅ 8.7 token-aware-boundary✅ · 218/218 (unit 204 + integration 11 + live 3), zero deps · HEAD (8.7 commit)
 **Workhorse gateway = Ikey (D34)**: user's own hosted LiteLLM (https://ikey-gateway.fly.dev), one key, no OpenRouter markup. Live worker (8.8) needs the Ikey key + credits topped up (Ikey-side). Local LiteLLM now behind a compose profile.
 **Remaining**: Phase A 8.6/8.7 (buildable now) · 8.8 live workhorse (Ikey key+credits) · 8.9 benchmark (fixtures+quota) · Phase B 8.10–8.16 deferred · SECURITY: rotate exposed OpenAI key.
 **Test buckets (8.3)**: `npm run test:unit` (hermetic, no ports/tools) · `test:integration` (loopback fakes: mesh, mem0-client) · `test:live` (needs real cce/rtk/Mem0, self-skips). Bucketer = `scripts/run-tests.mjs`, filename-suffix convention `.integration.test.mjs`/`.live.test.mjs`.

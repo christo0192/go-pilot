@@ -29,7 +29,7 @@ test("compressOrFallback: rtk absent -> degrades to truncate stub, long output",
   assert.equal(res.source, "truncate-fallback", "used the fallback, not rtk");
   assert.equal(res.tier, "compressed", "long output was compressed");
   assert.equal(res.flagged, true, "guard flagged the downgrade");
-  assert.match(res.text, /chars elided/, "carries the elision marker");
+  assert.match(res.text, /elided/, "carries the elision marker");
   assert.ok(res.text.length < 5000, "output is shorter than the raw 5000 chars");
 });
 
