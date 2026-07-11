@@ -133,6 +133,28 @@ However, the repository does not yet contain a complete production control plane
 
 **Done when:** Reports reconcile to provider/CLI usage totals and cannot pass through unweighted percentage distortion.
 
+**Resolution (Step 8.4 — partial):** Aggregation is now portfolio-weighted, not
+equal-average, in both the acceptance gate and per-class sign-off.
+
+- `src/metrics/acceptance.mjs::evaluate` computes the headline
+  `tokenReductionPct` from aggregate totals `(Σ single − Σ multi) / Σ single`,
+  and a size-weighted quality drop (weight = each run's single-agent tokens).
+  This portfolio number is the pass/fail gate; the equal-weight mean is retained
+  under `aggregate.mean*` for transparency only. Fixes rec. #1.
+- `src/metrics/stats.mjs` adds pure `median` / `p90` / `stdev` / `weightedMean`
+  helpers, and `evaluate` now returns a `distribution` (median, p90, stdev,
+  sampleCount) for both metrics; `formatReport` renders it and labels the gate.
+  `signoff.mjs` uses the same weighting. Fixes rec. #2–#3.
+- Router judgment cost can now carry **actual** tokens:
+  `src/router/judgment-log.mjs::logJudgment` accepts `actualTokens` and records
+  it with a `tokenSource` label (`actual` → `estimate` → `fallback-estimate`);
+  the 1,500 constant survives only as the labeled `FALLBACK_ESTIMATED_TOKENS`.
+  `src/router/overhead-report.mjs::summarizeOverhead` sums actuals when present
+  (`totalActualTokens` / `actualCount`) and prefers them over the estimate.
+  Partially addresses rec. #4.
+- Still open: recs. #5–#7 (full-usage capture incl. repair/retrieval/memory,
+  latency + monetary targets, benchmark/prompt versioning).
+
 ### P0 — Add Full End-to-End Tests
 
 **Finding:** The current suite primarily tests isolated modules. The memory integration test does not cover the complete orchestration pipeline.

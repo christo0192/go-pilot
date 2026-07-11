@@ -14,26 +14,28 @@
 // { tokenReductionPct, qualityDropPct, retries, routerOverheadTokens }.
 
 import { computeRun } from "./metrics.mjs";
+import { weightedMean } from "./stats.mjs";
 
 /** Same numeric targets as acceptance #10. Overridable via the `targets` arg. */
 export const DEFAULT_TARGETS = { tokenReductionPct: 20, qualityDropPct: 5 };
 
 const REASON_NO_DATA = "no data (pending live runs — D17)";
 
-function average(nums) {
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
-}
-
 /**
  * Sign off (or revert) ONE task class from its metrics records.
  *
- * Aggregation: tokenReductionPct and qualityDropPct are AVERAGED across the
- * class's runs (these two drive the gate); retries.count/attempts and
- * routerOverheadTokens are SUMMED as class totals (informational).
+ * Aggregation (PORTFOLIO-WEIGHTED, Step 8.4 — matches acceptance.mjs, so a
+ * tiny run can't swing a class's verdict):
+ *   - tokenReductionPct = (Σ single − Σ multi) / Σ single × 100  (aggregate
+ *     totals, NOT the equal-weight mean of per-run percentages).
+ *   - qualityDropPct    = per-run drops weighted by each run's single-agent
+ *     token size.
+ *   - retries.count/attempts and routerOverheadTokens are SUMMED as class
+ *     totals (informational; overhead is never netted).
  *
  * GO rule: verdict is "sign-off" IFF
- *   avg(tokenReductionPct) >= targets.tokenReductionPct  AND
- *   avg(qualityDropPct)    <= targets.qualityDropPct
+ *   portfolio tokenReductionPct >= targets.tokenReductionPct  AND
+ *   weighted  qualityDropPct    <= targets.qualityDropPct
  * else "revert-to-single". An empty record set => revert (D17 safe default).
  *
  * @param {object[]} records - metrics records for a SINGLE class.
@@ -61,8 +63,16 @@ export function signoffClass(records, targets = {}, className) {
   }
 
   const computed = list.map(computeRun);
-  const tokenReductionPct = average(computed.map((c) => c.tokenReductionPct));
-  const qualityDropPct = average(computed.map((c) => c.qualityDropPct));
+  // Portfolio-weighted token reduction from aggregate totals (each record's
+  // tokens.* is validated positive by computeRun).
+  const tokensSingle = list.reduce((a, r) => a + r.tokens.single, 0);
+  const tokensMulti = list.reduce((a, r) => a + r.tokens.multi, 0);
+  const tokenReductionPct = ((tokensSingle - tokensMulti) / tokensSingle) * 100;
+  // Quality drop weighted by each run's single-agent token size.
+  const qualityDropPct = weightedMean(
+    computed.map((c) => c.qualityDropPct),
+    list.map((r) => r.tokens.single),
+  );
   const retries = {
     count: computed.reduce((a, c) => a + c.retries.count, 0),
     attempts: computed.reduce((a, c) => a + c.retries.attempts, 0),

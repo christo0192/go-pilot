@@ -23,17 +23,28 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # LiteLLM — WORKHORSE plane gateway (independent of the mem0/postgres stack).
+  # LiteLLM — OPTIONAL local WORKHORSE gateway (offline / no-Ikey use only).
   # OpenAI-compatible proxy in front of the open models. Pi workers hit
-  # http://localhost:4000 (== LITELLM_BASE_URL). Config + design notes live in
+  # http://127.0.0.1:4000 (== LITELLM_BASE_URL). Config + design notes live in
   # deploy/litellm.yaml. ACTIVATE-BY-KEY: only providers whose key is set below
   # are usable; with NO provider keys the proxy still boots and serves health
   # (0 working models is fine). Env comes from deploy/.env (same file mem0 uses).
+  #
+  # NOW OPTIONAL (D34): the hosted "Ikey" gateway (https://ikey-gateway.fly.dev)
+  # is the default workhorse gateway — set LITELLM_BASE_URL to it and you don't
+  # need this service. This service is gated behind the `local-litellm` compose
+  # profile, so a plain `docker compose up -d` does NOT start it. Start it only
+  # when running fully offline / without Ikey:
+  #   docker compose --profile local-litellm up -d litellm
   # ---------------------------------------------------------------------------
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable   # amd64+arm64 (verified via docker manifest inspect)
+    profiles: ["local-litellm"]         # optional: only starts when explicitly requested
+    # Pinned to an exact version (was :main-stable, a floating tag). main-v1.23.9
+    # is linux/amd64 (matches this x86_64 host); arm64 users: use Ikey or pick an
+    # arm64 tag. Bump deliberately after testing.
+    image: ghcr.io/berriai/litellm:main-v1.23.9
     ports:
-      - "4000:4000"                     # host 4000 -> container 4000 (== LITELLM_BASE_URL)
+      - "127.0.0.1:4000:4000"           # local-only: host 4000 -> container 4000 (== LITELLM_BASE_URL)
     volumes:
       - ./litellm.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
@@ -59,22 +70,21 @@ services:
   mem0:
     build:
       context: ./mem0-src/server        # fully-populated sparse checkout
-      dockerfile: Dockerfile            # prod Dockerfile (python:3.12-slim + uvicorn)
+      dockerfile: ../../mem0.Dockerfile # reproducible image: psycopg[binary] baked in at build
     ports:
-      - "8888:8000"                     # host 8888 -> container 8000 (== MEM0_BASE_URL)
+      - "127.0.0.1:8888:8000"           # local-only: host 8888 -> container 8000 (== MEM0_BASE_URL)
     env_file:
       - .env
     environment:
       - AUTH_DISABLED=${AUTH_DISABLED:-true}
       - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
       - PYTHONUNBUFFERED=1
-    # Run DB migrations THEN serve (prod Dockerfile's CMD doesn't migrate; the app
-    # needs its tables). --reload dropped for a non-dev run.
-    # psycopg[binary] bundles libpq (the slim base image lacks it → "no pq wrapper
-    # available"); install it before migrating/serving. Then migrate, then serve.
+    # Run DB migrations THEN serve. psycopg[binary] is now baked into the image
+    # (deploy/mem0.Dockerfile) — startup no longer does `pip install`, so boots
+    # are fast, offline-safe, and reproducible. Migrations stay at runtime because
+    # `alembic upgrade head` needs a live postgres (can't run at image-build time).
     command: >
-      sh -c "pip install --no-cache-dir 'psycopg[binary]' &&
-             alembic upgrade head &&
+      sh -c "alembic upgrade head &&
              uvicorn main:app --host 0.0.0.0 --port 8000"
     volumes:
       # Mem0's core lib keeps a SQLite "history" DB at HISTORY_DB_PATH
@@ -86,7 +96,13 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: pgvector/pgvector:pg17        # matches Mem0's own server compose
+    # Pinned by multi-arch (amd64+arm64) index digest for reproducibility.
+    # Tag pg17 resolved to this digest on 2026-07-11 (docker-content-digest header).
+    # Re-pin: docker manifest inspect pgvector/pgvector:pg17  (then update the sha).
+    # No `ports:` — postgres stays reachable only on the internal compose network
+    # (strictly better than a 127.0.0.1 publish). Add a "127.0.0.1:5432:5432"
+    # mapping only if you need host psql access.
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
     shm_size: "128mb"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}

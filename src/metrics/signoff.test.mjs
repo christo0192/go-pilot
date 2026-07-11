@@ -72,6 +72,18 @@ test("aggregation averages reduction/drop across a class's runs", () => {
   assert.equal(res.verdict, "sign-off");
 });
 
+test("PORTFOLIO-weighted per-class gate: tiny run can't rescue a regressing class", () => {
+  // Big run barely reduces (1000→995 = 0.5%), tiny run is great (10→3 = 70%).
+  // Equal-average = 35.25% (would sign off); portfolio = (1010−998)/1010 ≈
+  // 1.19% → correctly reverts.
+  const res = signoffClass([
+    record("codegen", { tokens: { single: 1000, multi: 995 } }),
+    record("codegen", { tokens: { single: 10, multi: 3 } }),
+  ]);
+  assert.ok(res.metrics.tokenReductionPct < 2);
+  assert.equal(res.verdict, "revert-to-single");
+});
+
 test("targets are overridable via the targets arg", () => {
   // Raise the bar to 35% — a 30%-reduction class now reverts.
   const res = signoffClass([record("codegen")], { tokenReductionPct: 35 });

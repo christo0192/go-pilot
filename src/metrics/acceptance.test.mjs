@@ -109,6 +109,96 @@ test("formatReport shows FAIL when a target is missed", () => {
   assert.match(report, /OVERALL: FAIL/);
 });
 
+test("PORTFOLIO-weighted, NOT equal-average: a tiny run can't swing the gate", () => {
+  // Big run: 1000 → 700 (30% reduction). Tiny run: 10 → 9 (10% reduction).
+  // Equal-average of the percentages = (30 + 10) / 2 = 20% (borderline).
+  // Portfolio (aggregate totals) = (1010 − 709) / 1010 = 29.80…% — the tiny
+  // run barely moves it. The GATE must use the portfolio number.
+  const big = record({
+    runId: "big",
+    tokens: { single: 1000, multi: 700 },
+    quality: { single: 100, multi: 98 }, // 2% drop
+  });
+  const tiny = record({
+    runId: "tiny",
+    tokens: { single: 10, multi: 9 },
+    quality: { single: 100, multi: 98 }, // 2% drop
+  });
+
+  const evaluation = evaluate([big, tiny]);
+
+  // Portfolio number ≈ 29.8%, definitively NOT the 20% equal-average.
+  assert.ok(Math.abs(evaluation.tokenReduction.value - 29.80198) < 1e-3);
+  assert.notEqual(Math.round(evaluation.tokenReduction.value), 20);
+  assert.equal(evaluation.tokenReduction.pass, true);
+  assert.equal(evaluation.overallPass, true);
+
+  // The equal-weight mean is still exposed for transparency — and it's 20%,
+  // proving the gate deliberately does NOT use it.
+  assert.equal(evaluation.aggregate.meanTokenReductionPct, 20);
+  assert.equal(evaluation.aggregate.tokensSingle, 1010);
+  assert.equal(evaluation.aggregate.tokensMulti, 709);
+});
+
+test("PORTFOLIO gate can FAIL even when the equal-average would PASS", () => {
+  // Big run REGRESSES: 1000 → 995 (0.5% reduction). Tiny run: 10 → 3 (70%).
+  // Equal-average = (0.5 + 70) / 2 = 35.25% → would PASS the 20% bar.
+  // Portfolio = (1010 − 998) / 1010 = 1.188% → correctly FAILS: total tokens
+  // barely moved because the big task dominates.
+  const bigRegress = record({
+    runId: "big",
+    tokens: { single: 1000, multi: 995 },
+  });
+  const tinyWin = record({
+    runId: "tiny",
+    tokens: { single: 10, multi: 3 },
+  });
+
+  const evaluation = evaluate([bigRegress, tinyWin]);
+  assert.ok(evaluation.tokenReduction.value < 2);
+  assert.equal(evaluation.tokenReduction.pass, false);
+  assert.equal(evaluation.overallPass, false);
+  // Equal-average would have been >20 and wrongly passed.
+  assert.ok(evaluation.aggregate.meanTokenReductionPct > 20);
+});
+
+test("distribution reports median / p90 / stdev / sampleCount per metric", () => {
+  const recs = [10, 20, 30, 40, 50].map((mult, i) =>
+    record({
+      runId: `r${i}`,
+      // single 100, multi chosen so reduction% = mult
+      tokens: { single: 100, multi: 100 - mult },
+      quality: { single: 100, multi: 100 - (i % 3) }, // drops 0,1,2,0,1
+    }),
+  );
+  const evaluation = evaluate(recs);
+  const d = evaluation.distribution.tokenReductionPct;
+  assert.equal(d.sampleCount, 5);
+  assert.equal(d.median, 30);
+  assert.equal(d.p90, 46); // (5-1)*0.9 = 3.6 → 40 + 0.6*10
+  assert.ok(Math.abs(d.stdev - Math.sqrt(200)) < 1e-9);
+});
+
+test("single record: portfolio == the record's own percentages (backward compatible)", () => {
+  const evaluation = evaluate(record()); // 20% reduction, 5% drop
+  assert.equal(evaluation.tokenReduction.value, 20);
+  assert.equal(evaluation.quality.drop, 5);
+  assert.equal(evaluation.sampleCount, 1);
+  assert.equal(evaluation.distribution.tokenReductionPct.median, 20);
+});
+
+test("formatReport labels the gate as portfolio-weighted and shows the distribution", () => {
+  const report = formatReport(
+    evaluate([
+      record({ runId: "a", tokens: { single: 1000, multi: 700 } }),
+      record({ runId: "b", tokens: { single: 10, multi: 9 } }),
+    ]),
+  );
+  assert.match(report, /portfolio-weighted/i);
+  assert.match(report, /Distribution across runs/);
+  assert.match(report, /median/);
+});
+
 test("custom targets override the verdict", () => {
   const rec = record({ tokens: { single: 100, multi: 85 } }); // 15% reduction
   // Default target (20%) → fail.

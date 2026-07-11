@@ -1,0 +1,45 @@
+# Go-pilot — PRODUCTION override (Step 8.5). Fail-closed hardening.
+# =============================================================================
+# WHAT THIS DOES (layered ON TOP of docker-compose.yml)
+#   - Mem0 auth ENABLED (AUTH_DISABLED=false) + a JWT signing secret required.
+#   - Every dev-default secret is REMOVED: POSTGRES_PASSWORD, MEM0_JWT_SECRET,
+#     MEM0_ADMIN_API_KEY, and (if you run the local litellm) LITELLM_MASTER_KEY
+#     use `${VAR:?message}` so `docker compose ... up` / `config` FAILS LOUDLY
+#     when the secret is unset or empty. No silent dev fallback in prod.
+#   - 127.0.0.1-only port bindings are inherited unchanged from the base file.
+#
+# USE
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml config     # validate
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d      # run (Ikey workhorse)
+#   # add --profile local-litellm to also start the optional local gateway.
+#
+# REQUIRED secrets (set in deploy/.env or the shell env before running):
+#   POSTGRES_PASSWORD     strong postgres password (NOT the dev mem0devpass)
+#   MEM0_JWT_SECRET       HS256 signing secret for Mem0 access/refresh tokens
+#   MEM0_ADMIN_API_KEY    admin key the Mem0 client sends as X-API-Key (auth is
+#                         on now, so an unauthenticated client would get 401s)
+#   LITELLM_MASTER_KEY    only if you start the `local-litellm` profile
+# =============================================================================
+
+services:
+  mem0:
+    environment:
+      # Turn auth ON (base default is true=disabled; here we force it off/enabled).
+      - AUTH_DISABLED=false
+      # App reads JWT_SECRET; we source it from the MEM0_JWT_SECRET contract var.
+      # Fail closed: unset/empty -> compose errors with this message.
+      - JWT_SECRET=${MEM0_JWT_SECRET:?MEM0_JWT_SECRET must be set for prod (Mem0 JWT signing secret)}
+      # Admin key -> X-API-Key on the Mem0 client. Required so an auth-enabled,
+      # freshly-provisioned store is actually usable (no users yet == all 401).
+      - ADMIN_API_KEY=${MEM0_ADMIN_API_KEY:?MEM0_ADMIN_API_KEY must be set for prod (Mem0 admin X-API-Key)}
+
+  postgres:
+    environment:
+      # Re-assert with no dev default: prod must supply a real password.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set for prod (no dev default)}
+
+  # Only relevant when you also pass `--profile local-litellm`. Removes the
+  # sk-gopilot-dev default so a shared/prod gateway can't boot with a known key.
+  litellm:
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY must be set for prod (no dev default)}

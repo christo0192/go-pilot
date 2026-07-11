@@ -349,7 +349,7 @@ are shared across all profiles.
 
 ---
 
-### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 2/9`  ·  *(8.1 coordinator + 8.2 e2e ✅ — the enforced `gopilot run` pipeline exists, 182/182)*
+### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 4/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.4 metrics accounting, 8.5 deploy hardening ✅ — 198/198; remaining Phase A: 8.3/8.6/8.7)*
 
 > Source: independent production-readiness review in `docs/GPT-FINDINGS.md` (2026-07-10) + Claude's assessment.
 > Decision (D33): the review is accepted; approach is **phased** — **Phase A (adoptable)** builds the missing
@@ -381,7 +381,7 @@ are shared across all profiles.
   - [ ] Live tests explicitly skip-with-reason when a dep (port bind, tool, service) is unavailable
   - Done when: `npm run test:unit` passes on a locked-down runner (no port binds); integration/live self-skip cleanly.
 
-- [ ] **Step 8.4: Correct metrics & acceptance accounting** [Medium]
+- [x] **Step 8.4: Correct metrics & acceptance accounting** [Medium] ✅ 2026-07-11 (portfolio-weighted + distributions + actual router usage)
   - Depends on: Step 7.1 (metrics), Step 3.9 (overhead)
   - Risk: Medium — changes how acceptance passes/fails; must not mask regressions
   - [ ] Portfolio token reduction from aggregate totals `(Σsingle − Σmulti)/Σsingle`, not equal-weighted per-run %
@@ -389,7 +389,7 @@ are shared across all profiles.
   - [ ] Replace the fixed 1,500-token judgment estimate with ACTUAL router usage; include repair/retry/context/memory/summarization tokens in totals
   - Done when: acceptance reconciles to provider/CLI usage totals and cannot pass via unweighted-average distortion.
 
-- [ ] **Step 8.5: Cheap deployment reproducibility hardening** [Medium]
+- [x] **Step 8.5: Cheap deployment reproducibility hardening** [Medium] ✅ 2026-07-11 (reproducible Mem0 image, pinned, 127.0.0.1, fail-closed prod override, Ikey default)
   - Depends on: Step 2.1, Step 4.3
   - Risk: Medium — deploy-config change; must keep local dev frictionless
   - [ ] Pin LiteLLM image by digest; pin the Mem0 source revision; build a reproducible Mem0 image (deps at build time, no pip-install on every startup)

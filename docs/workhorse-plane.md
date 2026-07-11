@@ -5,14 +5,25 @@ panes carry **zero Claude Code overhead**. Pi workers speak the OpenAI protocol
 to a single gateway; the gateway fans out to Kimi / GLM / DeepSeek / Qwen /
 MiniMax.
 
-- **Gateway:** [LiteLLM](https://docs.litellm.ai) — OpenAI-compatible proxy at
-  `http://localhost:4000` (`LITELLM_BASE_URL`), image
-  `ghcr.io/berriai/litellm:main-stable`.
+- **Gateway (default, D34): hosted "Ikey".** The workhorse gateway is a
+  Go-pilot-run LiteLLM hosted on Fly at `https://ikey-gateway.fly.dev`. Set
+  `LITELLM_BASE_URL=https://ikey-gateway.fly.dev` (one key) and you do **not**
+  need to run any gateway locally. This is the normal path.
 - **Config:** [`deploy/litellm.yaml`](../deploy/litellm.yaml) — the `model_list`
-  + settings, heavily commented.
-- **Service:** the `litellm` service in
-  [`deploy/docker-compose.yml`](../deploy/docker-compose.yml), independent of the
-  mem0/postgres stack.
+  + settings, heavily commented (the config Ikey itself runs, and the local
+  service when used).
+- **Optional local gateway (offline / no-Ikey only):** the `litellm` service in
+  [`deploy/docker-compose.yml`](../deploy/docker-compose.yml) is now **optional**,
+  gated behind the `local-litellm` compose profile, so a plain
+  `docker compose up -d` does **not** start it. Pinned to
+  `ghcr.io/berriai/litellm:main-v1.23.9` (an exact version, not the floating
+  `:main-stable`) and bound to `http://127.0.0.1:4000` (local-only). Start it and
+  repoint workers only when running without Ikey:
+  ```bash
+  docker compose --profile local-litellm up -d litellm
+  # then: LITELLM_BASE_URL=http://127.0.0.1:4000
+  ```
+  It remains independent of the mem0/postgres stack.
 
 ## Activate-by-key design (D31)
 
@@ -122,8 +133,12 @@ stable contract `config/router.json` calls.
 
 ## Run
 
+Default is the hosted **Ikey** gateway (no local service to run). To run the
+**optional** local gateway instead (offline / no-Ikey), it is behind the
+`local-litellm` profile:
+
 ```bash
-cd deploy && docker compose up -d litellm      # boots even with no provider keys
+cd deploy && docker compose --profile local-litellm up -d litellm   # boots even with no provider keys
 ```
 
 ## Verify
