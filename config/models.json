@@ -1,0 +1,75 @@
+{
+  "_comment": "Model registry (Step 8.13). Every model referenced in router.json MUST appear here with a pinned version, its plane, capability metadata, and an active flag. `config doctor` fails closed when a routed model is unknown or inactive. capabilities: tools=native tool-calling, jsonSchema=constrained/JSON-schema decoding, contextWindow=max tokens, streaming=token streaming.",
+  "models": {
+    "opus": {
+      "provider": "anthropic-subscription",
+      "version": "claude-opus-4-8",
+      "plane": "frontier",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
+      "active": true
+    },
+    "sonnet": {
+      "provider": "anthropic-subscription",
+      "version": "claude-sonnet-5",
+      "plane": "frontier",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
+      "active": true
+    },
+    "haiku": {
+      "provider": "anthropic-subscription",
+      "version": "claude-haiku-4-5-20251001",
+      "plane": "frontier",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
+      "active": true
+    },
+    "codex": {
+      "provider": "openai-codex",
+      "version": "codex-cli-0.143.0",
+      "plane": "frontier",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 128000, "streaming": true },
+      "active": true
+    },
+    "qwen-coder": {
+      "provider": "workhorse-litellm",
+      "version": "qwen/qwen-2.5-coder-32b-instruct",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 32768, "streaming": true },
+      "active": true
+    },
+    "qwen": {
+      "provider": "workhorse-litellm",
+      "version": "qwen/qwen-2.5-72b-instruct",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 32768, "streaming": true },
+      "active": true
+    },
+    "glm": {
+      "provider": "workhorse-litellm",
+      "version": "zhipuai/glm-4-plus",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 128000, "streaming": true },
+      "active": true
+    },
+    "glm-flash": {
+      "provider": "workhorse-litellm",
+      "version": "zhipuai/glm-4-flash",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": false, "contextWindow": 128000, "streaming": true },
+      "active": true
+    },
+    "kimi": {
+      "provider": "workhorse-litellm",
+      "version": "moonshotai/kimi-k2",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": false, "contextWindow": 200000, "streaming": true },
+      "active": true
+    },
+    "deepseek": {
+      "provider": "workhorse-litellm",
+      "version": "deepseek/deepseek-chat-v3",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 65536, "streaming": true },
+      "active": true
+    }
+  }
+}

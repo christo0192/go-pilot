@@ -11,6 +11,7 @@
 // run and points the user at --dry-run.
 
 import { runTask } from "../src/coordinator/run.mjs";
+import { validateConfig } from "../src/config/governance.mjs";
 
 function parseArgs(argv) {
   const opts = { profile: "pure-anthropic", dryRun: false, category: undefined, json: false };
@@ -49,6 +50,7 @@ const USAGE = `gopilot — governed run coordinator
 
 Usage:
   gopilot run [options] "<task prompt>"
+  gopilot config doctor            validate router.json + models.json (fail-closed)
 
 Options:
   -p, --profile <name>   routing profile (pure-anthropic | hybrid | open-first) [default: pure-anthropic]
@@ -85,6 +87,25 @@ async function main() {
   if (opts.help || command === "help" || !command) {
     process.stdout.write(USAGE + "\n");
     process.exit(command ? 0 : 1);
+  }
+
+  if (command === "config") {
+    const sub = opts._[0];
+    if (sub !== "doctor") {
+      process.stderr.write(`gopilot config: unknown subcommand "${sub ?? ""}". Try: gopilot config doctor\n`);
+      process.exit(1);
+    }
+    const { ok, errors, warnings } = validateConfig();
+    for (const w of warnings) process.stdout.write(`warning: ${w}\n`);
+    if (opts.json) {
+      process.stdout.write(JSON.stringify({ ok, errors, warnings }, null, 2) + "\n");
+    } else if (ok) {
+      process.stdout.write(`config doctor: OK — router + model registry are consistent (${warnings.length} warning(s)).\n`);
+    } else {
+      for (const e of errors) process.stderr.write(`error: ${e}\n`);
+      process.stderr.write(`config doctor: FAILED — ${errors.length} error(s).\n`);
+    }
+    process.exit(ok ? 0 : 1);
   }
 
   if (command !== "run") {
