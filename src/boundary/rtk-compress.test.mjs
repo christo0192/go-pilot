@@ -1,17 +1,15 @@
 // Tests for the rtk-backed "compressed" tier.
 //
-// The FALLBACK path is tested deterministically (no rtk needed): pointing at a
-// nonexistent binary or forcing fallback must degrade to the guard truncate
-// stub WITHOUT throwing. The live rtk path SELF-SKIPS when `rtk` is not on
-// PATH, mirroring the Mem0 integration-test pattern in
-// ../memory/pipeline.integration.test.mjs so the suite stays green anywhere.
+// The FALLBACK path is tested deterministically here (no rtk needed): pointing
+// at a nonexistent binary or forcing fallback must degrade to the guard
+// truncate stub WITHOUT throwing. The live rtk path (which needs `rtk` on PATH)
+// lives in the sibling ./rtk-compress.live.test.mjs so this file stays hermetic.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
   compressOrFallback,
-  rtkCompress,
   rtkAvailable,
   _resetRtkAvailability,
 } from "./rtk-compress.mjs";
@@ -50,22 +48,4 @@ test("compressOrFallback: never throws even when the raw command fails", async (
   });
   assert.ok(typeof res.text === "string", "returns a string, no throw");
   assert.equal(res.source, "truncate-fallback");
-});
-
-// --- LIVE rtk path: self-skips when rtk is absent ---
-
-test("live: rtkCompress compresses git log below the raw size", async (t) => {
-  _resetRtkAvailability();
-  if (!rtkAvailable()) {
-    t.skip("skipped: rtk not on PATH (install rtk to run this live test)");
-    return;
-  }
-
-  const cwd = process.cwd();
-  const { text } = await rtkCompress("git log -n 5", { cwd });
-  assert.ok(text.length > 0, "rtk produced output");
-
-  const res = await compressOrFallback("git log --stat -n 20", { cwd });
-  assert.equal(res.source, "rtk", "live rtk path was taken");
-  assert.ok(res.text.length > 0, "compressed output is non-empty");
 });

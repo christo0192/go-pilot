@@ -1,19 +1,14 @@
 // Tests for the CCE retrieval degrade chain: CCE -> file-path -> compressed.
 //
-// The FALLBACK ordering is tested deterministically with CCE forced off
+// The FALLBACK ordering is tested deterministically here with CCE forced off
 // (forceOff:true), so no tool is required and the result is stable. The live
-// CCE path SELF-SKIPS when `cce` is absent or nothing is indexed, mirroring the
-// Mem0 integration-test pattern in ../memory/pipeline.integration.test.mjs.
+// CCE path (which needs `cce` installed + indexed) lives in the sibling
+// ./cce-retrieve.live.test.mjs so this file stays hermetic.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  retrieve,
-  cceAvailable,
-  cceIndexed,
-  _resetCceAvailability,
-} from "./cce-retrieve.mjs";
+import { retrieve, cceAvailable, _resetCceAvailability } from "./cce-retrieve.mjs";
 
 const REPO = process.cwd();
 
@@ -57,20 +52,4 @@ test("retrieve: injected fileFinder controls the reference result", async () => 
   });
   assert.equal(res.tier, "reference");
   assert.equal(res.ref.path, "src/boundary/guard.mjs");
-});
-
-// --- LIVE CCE path: self-skips when cce is absent / not indexed ---
-
-test("live: CCE retrieves a relevant chunk for a repo query", async (t) => {
-  _resetCceAvailability();
-  if (!cceAvailable() || !cceIndexed()) {
-    t.skip("skipped: cce not on PATH or nothing indexed (install + `cce index` to run)");
-    return;
-  }
-
-  const res = await retrieve("router work-type mapping", { cwd: REPO, topK: 5 });
-  assert.ok(res.text.length > 0, "produced retrieval output");
-  // When CCE answers it should be the semantic tier; if its index missed, we
-  // still accept a degrade (the chain must never fail), but assert no throw.
-  assert.ok(["cce", "reference", "compressed"].includes(res.tier), "valid tier");
 });

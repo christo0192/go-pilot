@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) 0%`  ·  *(S00–S07 build done, 174/174 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
+**Overall Progress:** `M001 core ~92%` + `Sprint 8 (Production Readiness) Phase A 5/9`  ·  *(S00–S07 build done, 198/198 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.
@@ -349,7 +349,7 @@ are shared across all profiles.
 
 ---
 
-### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 4/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.4 metrics accounting, 8.5 deploy hardening ✅ — 198/198; remaining Phase A: 8.3/8.6/8.7)*
+### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 5/9`  ·  *(8.1 coordinator, 8.2 e2e, 8.3 test split, 8.4 metrics accounting, 8.5 deploy hardening ✅ — 198/198; remaining Phase A: 8.6/8.7)*
 
 > Source: independent production-readiness review in `docs/GPT-FINDINGS.md` (2026-07-10) + Claude's assessment.
 > Decision (D33): the review is accepted; approach is **phased** — **Phase A (adoptable)** builds the missing
@@ -374,12 +374,12 @@ are shared across all profiles.
   - [ ] Assert every stage fired (route chosen, boundary applied, gate ran, promotion filtered, metrics persisted)
   - Done when: one hermetic test drives an end-to-end governed run with no sockets/CLIs and asserts each policy invoked.
 
-- [ ] **Step 8.3: Split test suites (unit / integration / live)** [Medium]
+- [x] **Step 8.3: Split test suites (unit / integration / live)** [Medium] ✅ 2026-07-11 (zero-dep `scripts/run-tests.mjs` bucketer + filename-suffix convention)
   - Depends on: Independent
-  - Risk: Medium — reorganizes test invocation; must keep 174 green
-  - [ ] `test:unit` = hermetic (no localhost listeners/CLIs); move mesh + mem0-client fake-server + rtk/cce live tests to `test:integration`/`test:live`
-  - [ ] Live tests explicitly skip-with-reason when a dep (port bind, tool, service) is unavailable
-  - Done when: `npm run test:unit` passes on a locked-down runner (no port binds); integration/live self-skip cleanly.
+  - Risk: Medium — reorganizes test invocation; must keep 198 green
+  - [x] `test:unit` = hermetic (no localhost listeners/CLIs); moved mesh + mem0-client fake-server to `test:integration`; rtk/cce/pipeline live tests to `test:live`
+  - [x] Live tests explicitly skip-with-reason when a dep (port bind, tool, service) is unavailable
+  - Done when: `npm run test:unit` passes on a locked-down runner (no port binds); integration/live self-skip cleanly. → **184 unit + 11 integration + 3 live = 198; unit is 0-skip hermetic.**
 
 - [x] **Step 8.4: Correct metrics & acceptance accounting** [Medium] ✅ 2026-07-11 (portfolio-weighted + distributions + actual router usage)
   - Depends on: Step 7.1 (metrics), Step 3.9 (overhead)

@@ -2,15 +2,16 @@
 
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
-**Active Slice**: S08 Production Readiness — Phase A 4/9 done (integrated control plane building out)
-**Active Task**: — remaining Phase A = 8.3 test-split, 8.6 store state-machine, 8.7 token-aware boundary (all buildable now)
-**Progress**: S00–S07 build✅ · S08 Phase A: 8.1 coordinator✅ 8.2 e2e✅ 8.4 metrics-accounting✅ 8.5 deploy-hardening✅ · unit 198/198, zero deps · HEAD eaa80f7
+**Active Slice**: S08 Production Readiness — Phase A 5/9 done (integrated control plane building out)
+**Active Task**: — remaining Phase A = 8.6 store state-machine, 8.7 token-aware boundary (both buildable now)
+**Progress**: S00–S07 build✅ · S08 Phase A: 8.1 coordinator✅ 8.2 e2e✅ 8.3 test-split✅ 8.4 metrics-accounting✅ 8.5 deploy-hardening✅ · 198/198 (unit 184 + integration 11 + live 3), zero deps · test:unit hermetic 0-skip · HEAD (8.3 commit)
 **Workhorse gateway = Ikey (D34)**: user's own hosted LiteLLM (https://ikey-gateway.fly.dev), one key, no OpenRouter markup. Live worker (8.8) needs the Ikey key + credits topped up (Ikey-side). Local LiteLLM now behind a compose profile.
-**Remaining**: Phase A 8.3/8.6/8.7 (buildable now) · 8.8 live workhorse (Ikey key+credits) · 8.9 benchmark (fixtures+quota) · Phase B 8.10–8.16 deferred · SECURITY: rotate exposed OpenAI key.
+**Remaining**: Phase A 8.6/8.7 (buildable now) · 8.8 live workhorse (Ikey key+credits) · 8.9 benchmark (fixtures+quota) · Phase B 8.10–8.16 deferred · SECURITY: rotate exposed OpenAI key.
+**Test buckets (8.3)**: `npm run test:unit` (hermetic, no ports/tools) · `test:integration` (loopback fakes: mesh, mem0-client) · `test:live` (needs real cce/rtk/Mem0, self-skips). Bucketer = `scripts/run-tests.mjs`, filename-suffix convention `.integration.test.mjs`/`.live.test.mjs`.
 **SCOPE (D31)**: hybrid is first-class — rig must serve anthropic-only / codex-only / hybrid / open-first users. S02 builds the workhorse plane (also fixes the per-worker 44k Claude Code overhead — Pi/open-model panes carry none).
 **Installed this session**: Docker (native WSL2), Pi 0.80.6, rtk 0.43.0, CCE 0.4.25, uv. Mem0 LIVE. NEEDS: ≥1 open-model key (OpenRouter recommended) for LiteLLM.
 **Model Profile**: pure-anthropic (claude+codex installed; no LiteLLM/Pi needed yet)
-**Last Updated**: 2026-07-09
+**Last Updated**: 2026-07-11
 
 ## S03 — Router + Context Tiering (CORE COMPLETE ✅ 2026-07-09)
 - 6/6 tasks built in `src/` (was empty): T01 router, T02 TOON (42%<JSON), T03 boundary guard, T04 overhead

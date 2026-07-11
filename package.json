@@ -8,6 +8,10 @@
   },
   "scripts": {
     "test": "node --test",
+    "test:unit": "node scripts/run-tests.mjs unit",
+    "test:integration": "node scripts/run-tests.mjs integration",
+    "test:live": "node scripts/run-tests.mjs live",
+    "test:all": "node scripts/run-tests.mjs all",
     "gopilot": "node bin/gopilot.mjs",
     "run:task": "node bin/gopilot.mjs run"
   }
