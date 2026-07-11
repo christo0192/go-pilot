@@ -27,6 +27,34 @@ function trackedServer(connectionListener) {
   return server;
 }
 
+// Send one raw payload and resolve with the first reply object, or
+// { closed: true } if the node drops the connection before replying, or
+// { timeout: true } if nothing arrives.
+function rawRequest(port, payload, { terminate = true, timeoutMs = 1000 } = {}) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection(port, "127.0.0.1", () => {
+      socket.write(terminate ? payload + "\n" : payload);
+    });
+    let buffer = "";
+    let done = false;
+    const settle = (v) => {
+      if (done) return;
+      done = true;
+      clearTimeout(t);
+      socket.destroy();
+      resolve(v);
+    };
+    const t = setTimeout(() => settle({ timeout: true }), timeoutMs);
+    socket.on("data", (chunk) => {
+      buffer += chunk.toString("utf8");
+      const idx = buffer.indexOf("\n");
+      if (idx !== -1) settle(JSON.parse(buffer.slice(0, idx)));
+    });
+    socket.on("close", () => settle({ closed: true }));
+    socket.on("error", () => settle({ closed: true }));
+  });
+}
+
 after(async () => {
   for (const node of openNodes) {
     await node.close();
@@ -193,4 +221,205 @@ test("error reply: askPeer rejects with a populated .reason on {type:'error'}", 
 
   assert.ok(err instanceof Error, "askPeer should reject on an error reply");
   assert.match(err.reason, /exception-only/);
+});
+
+// --- Step 8.10 hardening ---------------------------------------------------
+
+test("auth: a peer without the token is rejected (unauthorized), onQuery never runs", async () => {
+  let calls = 0;
+  const node = await startNode({
+    name: "sec",
+    port: 0,
+    authToken: "s3cret",
+    onQuery: () => {
+      calls++;
+      return "ok";
+    },
+  });
+  openNodes.push(node);
+
+  const err = await askPeer({ port: node.port, from: "w", to: "sec", ask: "fact" }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(err instanceof Error, "unauthenticated query must reject");
+  assert.match(err.reason, /unauthorized/);
+  assert.equal(calls, 0, "onQuery must not run for an unauthorized peer");
+});
+
+test("auth: the correct token is accepted", async () => {
+  const node = await startNode({
+    name: "sec2",
+    port: 0,
+    authToken: "s3cret",
+    onQuery: ({ ask }) => (ask === "fact" ? "yes" : "no"),
+  });
+  openNodes.push(node);
+
+  const ans = await askPeer({
+    port: node.port,
+    from: "w",
+    to: "sec2",
+    ask: "fact",
+    authToken: "s3cret",
+  });
+  assert.equal(ans, "yes");
+});
+
+test("auth: a wrong token is rejected (unauthorized)", async () => {
+  let calls = 0;
+  const node = await startNode({
+    name: "sec3",
+    port: 0,
+    authToken: "s3cret",
+    onQuery: () => {
+      calls++;
+      return "ok";
+    },
+  });
+  openNodes.push(node);
+
+  const err = await askPeer({
+    port: node.port,
+    from: "w",
+    to: "sec3",
+    ask: "fact",
+    authToken: "wrong-token",
+  }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(err instanceof Error);
+  assert.match(err.reason, /unauthorized/);
+  assert.equal(calls, 0);
+});
+
+test("size cap: an oversized message is rejected and onQuery never runs", async () => {
+  let calls = 0;
+  const node = await startNode({
+    name: "big",
+    port: 0,
+    maxMessageBytes: 40,
+    onQuery: () => {
+      calls++;
+      return "x";
+    },
+  });
+  openNodes.push(node);
+
+  const huge = JSON.stringify({
+    type: "query",
+    exception: true,
+    from: "w",
+    to: "big",
+    ask: "A".repeat(500),
+  });
+  const reply = await rawRequest(node.port, huge);
+  assert.equal(reply.type, "error");
+  assert.match(reply.reason, /too large/);
+  assert.equal(calls, 0, "an oversized message must never reach onQuery");
+});
+
+test("connection cap: connections beyond maxConnections are dropped", async () => {
+  const node = await startNode({
+    name: "cap",
+    port: 0,
+    maxConnections: 1,
+    onQuery: () => "ok",
+  });
+  openNodes.push(node);
+
+  // Hold one connection open to fill the single slot.
+  const held = net.createConnection(node.port, "127.0.0.1");
+  held.on("error", () => {});
+  await new Promise((res) => held.once("connect", res));
+
+  const second = await rawRequest(
+    node.port,
+    JSON.stringify({ type: "query", exception: true, from: "w", to: "cap", ask: "x" }),
+  );
+  held.destroy();
+
+  assert.notEqual(second.type, "answer", "an over-cap connection must not be served");
+  assert.equal(second.closed, true, "the over-cap connection is dropped");
+});
+
+test("correlation id is echoed back on the reply", async () => {
+  const node = await startNode({ name: "corr", port: 0, onQuery: () => "pong" });
+  openNodes.push(node);
+
+  const reply = await rawRequest(
+    node.port,
+    JSON.stringify({
+      type: "query",
+      exception: true,
+      from: "w",
+      to: "corr",
+      ask: "ping",
+      id: "corr-123",
+    }),
+  );
+  assert.equal(reply.type, "answer");
+  assert.equal(reply.id, "corr-123", "the request id is echoed on the reply");
+  assert.equal(reply.answer, "pong");
+});
+
+test("idle connections are reclaimed so a silent hold cannot lock out the slots", async () => {
+  const node = await startNode({
+    name: "idle",
+    port: 0,
+    idleTimeoutMs: 120,
+    onQuery: () => "ok",
+  });
+  openNodes.push(node);
+
+  // Open a connection and send nothing — the node must reclaim it on idle.
+  const closed = await new Promise((resolve) => {
+    const s = net.createConnection(node.port, "127.0.0.1");
+    s.on("error", () => {});
+    s.on("close", () => resolve(true));
+  });
+  assert.equal(closed, true, "an idle connection is dropped by the node");
+});
+
+test("askPeer rejects an oversized peer reply (client-side size cap)", async () => {
+  // A hostile peer that streams a reply with no newline, forever.
+  const flooder = trackedServer((socket) => {
+    socket.on("data", () => socket.write("Z".repeat(500)));
+  });
+  await new Promise((res) => flooder.listen(0, "127.0.0.1", res));
+  const port = flooder.address().port;
+
+  const err = await askPeer({
+    port,
+    from: "w",
+    to: "x",
+    ask: "fact",
+    maxReplyBytes: 50,
+    timeoutMs: 500,
+  }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(err instanceof Error);
+  assert.match(err.message, /reply too large/);
+});
+
+test("handler errors are sanitized — internal message never leaks to the peer", async () => {
+  const node = await startNode({
+    name: "boom",
+    port: 0,
+    onQuery: () => {
+      throw new Error("SECRET internal dsn=postgres://user:pw@host leaked");
+    },
+  });
+  openNodes.push(node);
+
+  const err = await askPeer({ port: node.port, from: "w", to: "boom", ask: "fact" }).then(
+    () => null,
+    (e) => e,
+  );
+  assert.ok(err instanceof Error);
+  assert.match(err.reason, /query handler error/);
+  assert.doesNotMatch(err.reason, /SECRET|dsn|postgres/, "no internal detail is forwarded");
 });
