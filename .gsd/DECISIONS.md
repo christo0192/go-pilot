@@ -151,3 +151,13 @@
   hosted/shared-use bar rather than the current teammate-local goal. Calibration notes: the "172/172 not
   reproducible" was an env artifact (GPT's sandbox blocks localhost listeners → mesh/mem0 fake-server tests fail
   instead of skip) — 172/172 is real on WSL, but the split-portable-tests fix (8.3) is warranted. Next step = 8.1.
+
+## 2026-07-11 — Workhorse gateway = Ikey (self-hosted LiteLLM), NOT OpenRouter
+- D34: The user built "Ikey" — their OWN hosted LiteLLM gateway (VITE_GATEWAY_URL=https://ikey-gateway.fly.dev,
+  BFF=https://ikey-bff.fly.dev) that issues ONE API key for ALL models with NO OpenRouter 5.5% markup. This is the
+  workhorse provider for Go-pilot (supersedes the "OpenRouter recommended" framing in D31/S02). Consequence: Go-pilot
+  points its workhorse directly at Ikey — set LITELLM_BASE_URL=https://ikey-gateway.fly.dev + the Ikey key as
+  LITELLM_MASTER_KEY in deploy/.env; the LOCAL LiteLLM docker service becomes optional/offline-only (Ikey is the
+  hosted LiteLLM). Router aliases in config/litellm.yaml + config/router.json must be reconciled to Ikey's actual
+  model names (GET /v1/models on Ikey). "No amounts added" = an IKEY-SIDE credit/budget issue (upstream provider
+  balance and/or the LiteLLM virtual-key budget), NOT a Go-pilot code fix — diagnose via verify-litellm.mjs error.

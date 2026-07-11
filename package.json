@@ -3,7 +3,12 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
+  "bin": {
+    "gopilot": "bin/gopilot.mjs"
+  },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "gopilot": "node bin/gopilot.mjs",
+    "run:task": "node bin/gopilot.mjs run"
   }
 }

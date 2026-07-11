@@ -349,7 +349,7 @@ are shared across all profiles.
 
 ---
 
-### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `0%`
+### Sprint 8 — Production Readiness / Integrated Control Plane  ·  progress `Phase A 2/9`  ·  *(8.1 coordinator + 8.2 e2e ✅ — the enforced `gopilot run` pipeline exists, 182/182)*
 
 > Source: independent production-readiness review in `docs/GPT-FINDINGS.md` (2026-07-10) + Claude's assessment.
 > Decision (D33): the review is accepted; approach is **phased** — **Phase A (adoptable)** builds the missing
@@ -359,7 +359,7 @@ are shared across all profiles.
 
 #### Phase A — Adoptable (build now)
 
-- [ ] **Step 8.1: Run coordinator + `gopilot run` CLI (dry-run first)** [Complex]
+- [x] **Step 8.1: Run coordinator + `gopilot run` CLI (dry-run first)** [Complex] ✅ 2026-07-11
   - Depends on: Step 3.1, Step 3.3, Step 4.2, Step 4.4, Step 7.1 (existing modules as libraries)
   - Risk: High — becomes the single enforced execution path; central control logic
   - [ ] `src/coordinator/run.mjs` composing: profile+config validation → task classify/accept → per-class sign-off gate → deterministic router → context-budget/boundary → dispatcher adapter → tool-profile select → result validation → memory promotion → metrics/verdict persist
@@ -367,7 +367,7 @@ are shared across all profiles.
   - [ ] Treat lower-level modules as internal libraries; shells/herdr commands remain diagnostics only
   - Done when: `gopilot run --dry-run "<task>"` prints the full governed plan; a run cannot skip a policy stage.
 
-- [ ] **Step 8.2: Portable fake-provider + fake-dispatcher end-to-end test** [Complex]
+- [x] **Step 8.2: Portable fake-provider + fake-dispatcher end-to-end test** [Complex] ✅ 2026-07-11
   - Depends on: Step 8.1
   - Risk: Medium — must prove policy invocation without network/ports/CLIs
   - [ ] In-process fake model provider + fake dispatcher; drive a full run through the coordinator
