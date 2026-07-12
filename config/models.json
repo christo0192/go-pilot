@@ -43,6 +43,20 @@
       "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 32768, "streaming": true },
       "active": true
     },
+    "kimi-ikey": {
+      "provider": "ikey-gateway",
+      "version": "test/kimi-k2.6",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
+      "active": true
+    },
+    "deepseek-ikey": {
+      "provider": "ikey-gateway",
+      "version": "test/deepseek-v4-pro",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 128000, "streaming": true },
+      "active": true
+    },
     "glm": {
       "provider": "workhorse-litellm",
       "version": "zhipuai/glm-4-plus",

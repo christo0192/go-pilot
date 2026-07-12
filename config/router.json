@@ -29,6 +29,21 @@
     },
     "default": "__judgment__"
   },
+  "ikey-hybrid": {
+    "categories": {
+      "orchestrate": {"plane":"frontier","model":"opus"},
+      "plan":        {"plane":"frontier","model":"opus"},
+      "code":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "analyze":     {"plane":"workhorse","model":"kimi-ikey"},
+      "draft":       {"plane":"workhorse","model":"kimi-ikey"},
+      "extract":     {"plane":"workhorse","model":"kimi-ikey"},
+      "classify":    {"plane":"workhorse","model":"deepseek-ikey"},
+      "summarize":   {"plane":"workhorse","model":"kimi-ikey"},
+      "code-review": {"plane":"workhorse","model":"deepseek-ikey"},
+      "lateral":     {"plane":"workhorse","model":"deepseek-ikey"}
+    },
+    "default": "__judgment__"
+  },
   "open-first": {
     "categories": {
       "orchestrate": {"plane":"workhorse","model":"glm"},
