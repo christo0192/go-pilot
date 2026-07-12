@@ -1,0 +1,25 @@
+{
+  "id": "creative-hard-01",
+  "area": 9,
+  "areaName": "creative-writing",
+  "category": "draft",
+  "armAModel": "kimi-ikey",
+  "difficulty": "hard",
+  "prompt": "Rewrite the rough founder note into a polished LinkedIn post. Requirements: 180-230 words, first-person founder voice, candid but not defensive, include exactly one short anecdote, preserve the actual numbers, acknowledge a tradeoff, end with a thoughtful question, and avoid corporate jargon. Do not invent customer names or funding details.",
+  "inputs": [
+    {
+      "name": "rough-note.txt",
+      "content": "We changed onboarding. Old activation was 41% in 14 days. New activation is 58% after 6 weeks. But support tickets rose 22% because users explore more and hit advanced settings earlier. Anecdote: I watched a new ops manager finish setup in one sitting, then immediately ask how to restrict exports by team. That never happened before. Tradeoff: more curiosity means more edge-case questions. We are adding clearer guardrails instead of hiding advanced features. Tone should be human and not salesy."
+    }
+  ],
+  "settings": { "temperature": 0.7, "max_tokens": 10000, "top_p": 0.95 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["constraint_following", "usefulness", "tone", "faithfulness"],
+    "guidance": "A 10 is 180-230 words, first person, human founder voice, exactly one anecdote based on the ops manager, preserves 41%, 58%, 6 weeks, 22%, acknowledges support-ticket tradeoff, ends with a thoughtful question, avoids corporate jargon and invented details. Penalize changing numbers, adding customers/funding, sounding defensive or salesy, multiple anecdotes, or no final question.",
+    "calibrationAnchors": [
+      { "answer": "Our revolutionary onboarding crushed activation and delighted Fortune 500 customers. We raised money because everyone loves it.", "scores": { "constraint_following": 1, "usefulness": 1, "tone": 1, "faithfulness": 1 } },
+      { "answer": "We changed onboarding because the old version was technically complete but too hard to finish. Six weeks in, activation within 14 days has moved from 41% to 58%.\n\nThat number matters, but the more interesting signal came from watching one new ops manager complete setup in a single sitting. Instead of asking where to begin, she immediately asked how to restrict exports by team. That question would not have shown up in the old flow because most teams never reached that point so quickly.\n\nThere is a tradeoff. Support tickets are up 22%, largely because people are exploring more and reaching advanced settings earlier. I do not want to solve that by hiding power from users again. The better answer is clearer guardrails, better defaults, and sharper explanations at the moments where teams are most likely to make a consequential choice.\n\nActivation going up is good. Curiosity going up may be even better, as long as we help people handle it.\n\nWhere have you seen a product improvement create more questions before it created more calm?", "scores": { "constraint_following": 10, "usefulness": 10, "tone": 10, "faithfulness": 10 } }
+    ]
+  }
+}

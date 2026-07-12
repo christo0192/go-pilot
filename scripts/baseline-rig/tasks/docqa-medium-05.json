@@ -1,0 +1,25 @@
+{
+  "id": "docqa-medium-05",
+  "area": 3,
+  "areaName": "document-qa",
+  "category": "doc-qa",
+  "armAModel": "kimi-ikey",
+  "difficulty": "medium",
+  "prompt": "Using ONLY the handbook excerpt, answer: Can a remote employee combine the wellness stipend and equipment allowance to buy one ergonomic chair, and what reimbursement amount is allowed? Cite the relevant section numbers. If a detail is not specified, say so.",
+  "inputs": [
+    {
+      "name": "handbook.md",
+      "content": "Section 1. Equipment Allowance. Full-time employees may expense up to USD 600 once every 24 months for work equipment, including monitors, keyboards, chairs, desks, and webcams. The item must be primarily used for work.\n\nSection 2. Wellness Stipend. Employees may expense up to USD 75 per month for wellness activities or services, including gym memberships, meditation apps, fitness classes, and health coaching. The wellness stipend cannot be used for durable goods, furniture, computer accessories, or equipment.\n\nSection 3. Combining Benefits. Separate benefits may not be combined for a single purchase unless this handbook explicitly says they may be combined. This handbook does not create cash-equivalent balances.\n\nSection 4. Receipts. Reimbursements require an itemized receipt submitted within 45 days of purchase. Taxes and shipping are included in the applicable cap.\n\nSection 5. Remote Work Exception. Fully remote employees may use the equipment allowance for ergonomic furniture even if they already have an office desk at a company location."
+    }
+  ],
+  "settings": { "temperature": 0.1, "max_tokens": 8000, "top_p": 0.95 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "faithfulness", "reasoning"],
+    "guidance": "Correct: No, they cannot combine wellness stipend and equipment allowance for one ergonomic chair. Chair is durable furniture/equipment, excluded from wellness under Section 2, and benefits cannot be combined absent explicit permission under Section 3. Remote employee may use the equipment allowance for ergonomic furniture under Sections 1 and 5. Reimbursement is capped at USD 600 including taxes/shipping if receipt submitted within 45 days under Sections 1 and 4. Do not say USD 675.",
+    "calibrationAnchors": [
+      { "answer": "Yes, remote employees can combine the $600 equipment allowance and $75 wellness stipend, so the chair reimbursement can be $675.", "scores": { "correctness": 1, "completeness": 3, "faithfulness": 1, "reasoning": 2 } },
+      { "answer": "No. The employee can use the equipment allowance for an ergonomic chair because chairs are covered work equipment and remote ergonomic furniture is allowed (Sections 1 and 5). But the wellness stipend cannot be used for durable goods/furniture/equipment (Section 2), and benefits cannot be combined unless explicitly allowed (Section 3). The cap is $600 including taxes/shipping, with an itemized receipt within 45 days (Section 4).", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10, "reasoning": 10 } }
+    ]
+  }
+}

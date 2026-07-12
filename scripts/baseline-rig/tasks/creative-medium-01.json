@@ -1,0 +1,25 @@
+{
+  "id": "creative-medium-01",
+  "area": 9,
+  "areaName": "creative-writing",
+  "category": "draft",
+  "armAModel": "kimi-ikey",
+  "difficulty": "medium",
+  "prompt": "Write a launch email for a B2B analytics feature. Requirements: 120-160 words, calm executive tone, no hype words like revolutionary/game-changing, mention exactly three benefits, include one specific CTA, and do not promise automated decisions. Product facts are provided below.",
+  "inputs": [
+    {
+      "name": "product-brief.md",
+      "content": "Feature: Segment Lens. It helps revenue teams compare customer cohorts by region, plan, lifecycle stage, and product usage. It surfaces changes in retention, expansion, and support volume. It exports CSV snapshots for finance review. It does not make automated decisions or replace human review. CTA: Book a 20-minute walkthrough."
+    }
+  ],
+  "settings": { "temperature": 0.7, "max_tokens": 8000, "top_p": 0.95 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["constraint_following", "usefulness", "tone", "faithfulness"],
+    "guidance": "A 10 is 120-160 words, executive/calm, no hype banned words, exactly three clear benefits from the brief, one specific CTA to book a 20-minute walkthrough, and no automated-decision promise. Penalize generic fluff, missing CTA, too many/few benefits, unsupported claims, or hype tone.",
+    "calibrationAnchors": [
+      { "answer": "Segment Lens is a revolutionary game-changing AI that automatically decides where your team should focus. Click here to learn more.", "scores": { "constraint_following": 1, "usefulness": 2, "tone": 2, "faithfulness": 1 } },
+      { "answer": "Subject: Compare customer segments with more confidence\n\nSegment Lens is now available for revenue teams that need a clearer view of customer movement across regions, plans, lifecycle stages, and product usage. It gives leaders three practical benefits: faster cohort comparison, clearer visibility into retention and expansion changes, and CSV snapshots your finance team can review without rebuilding reports.\n\nThe feature is designed to support human analysis, not replace it. Your team can use it to spot where a segment is improving, where support volume is rising, and where a deeper account review may be needed.\n\nBook a 20-minute walkthrough to see Segment Lens on your own customer segments.", "scores": { "constraint_following": 10, "usefulness": 10, "tone": 10, "faithfulness": 10 } }
+    ]
+  }
+}

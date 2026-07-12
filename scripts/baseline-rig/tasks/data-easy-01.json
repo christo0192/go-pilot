@@ -1,0 +1,25 @@
+{
+  "id": "data-easy-01",
+  "area": 8,
+  "areaName": "spreadsheet-analysis",
+  "category": "analyze",
+  "armAModel": "kimi-ikey",
+  "difficulty": "easy",
+  "prompt": "Analyze the CSV below and answer in exactly 4 bullets: (1) total revenue by channel, (2) best channel by conversion rate, (3) channel with the highest refund rate, and (4) one practical recommendation. Show the arithmetic briefly. Do not invent data.",
+  "inputs": [
+    {
+      "name": "campaigns.csv",
+      "content": "channel,visits,orders,revenue_usd,refunds\nSearch,12000,840,75600,21\nPaid Social,18000,720,50400,54\nEmail,5000,600,66000,6\nPartner,3000,210,25200,8\n"
+    }
+  ],
+  "settings": { "temperature": 0.1, "max_tokens": 8000, "top_p": 0.95 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "reasoning", "faithfulness"],
+    "guidance": "Gold: total revenue: Search $75,600; Paid Social $50,400; Email $66,000; Partner $25,200. Conversion rates: Search 7.0%, Paid Social 4.0%, Email 12.0%, Partner 7.0%, so Email is best. Refund rate by orders: Search 2.5%, Paid Social 7.5%, Email 1.0%, Partner about 3.8%, so Paid Social is worst. Recommendation should prioritize Email and investigate/reduce Paid Social refunds. Penalize missing arithmetic, wrong denominator, or invented causal claims.",
+    "calibrationAnchors": [
+      { "answer": "Email is best because it has the most revenue. Paid Social is good because it has the most visits.", "scores": { "correctness": 3, "completeness": 3, "reasoning": 2, "faithfulness": 5 } },
+      { "answer": "- Revenue: Search $75,600; Paid Social $50,400; Email $66,000; Partner $25,200. - Conversion: Email is best at 600/5,000 = 12%. - Refund rate: Paid Social is worst at 54/720 = 7.5%. - Recommendation: shift budget toward Email while auditing Paid Social refund causes before scaling it.", "scores": { "correctness": 10, "completeness": 10, "reasoning": 10, "faithfulness": 10 } }
+    ]
+  }
+}

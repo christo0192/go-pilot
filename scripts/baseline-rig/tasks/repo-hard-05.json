@@ -1,0 +1,42 @@
+{
+  "id": "repo-hard-05",
+  "area": 7,
+  "areaName": "repo-change",
+  "category": "repo-change",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "The repository contains parser.py and report.py. Fix the CSV parsing/reporting behavior so all hidden tests pass. Requirements: parse_orders(csv_text) must handle quoted commas via the standard csv module, ignore blank lines, convert amount to float, reject rows missing order_id/customer/amount/status, and preserve status case as given. summarize_by_customer(rows) must return a dict keyed by customer with total_amount and order_count, excluding rows whose status is exactly 'cancelled'. Do not change function names. Return complete corrected contents of every changed file using <<<FILE path>>> blocks and nothing else.",
+  "inputs": [
+    {
+      "name": "parser.py",
+      "content": "def parse_orders(csv_text):\n    lines = csv_text.strip().split('\\n')\n    header = lines[0].split(',')\n    rows = []\n    for line in lines[1:]:\n        parts = line.split(',')\n        rows.append(dict(zip(header, parts)))\n    return rows\n"
+    },
+    {
+      "name": "report.py",
+      "content": "from parser import parse_orders\n\n\ndef summarize_by_customer(rows):\n    out = {}\n    for row in rows:\n        customer = row['customer']\n        out.setdefault(customer, {'total_amount': 0, 'order_count': 0})\n        out[customer]['total_amount'] += row['amount']\n        out[customer]['order_count'] += 1\n    return out\n"
+    }
+  ],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "repo-change",
+    "language": "python",
+    "timeoutMs": 15000,
+    "files": [
+      {
+        "path": "parser.py",
+        "content": "def parse_orders(csv_text):\n    lines = csv_text.strip().split('\\n')\n    header = lines[0].split(',')\n    rows = []\n    for line in lines[1:]:\n        parts = line.split(',')\n        rows.append(dict(zip(header, parts)))\n    return rows\n"
+      },
+      {
+        "path": "report.py",
+        "content": "from parser import parse_orders\n\n\ndef summarize_by_customer(rows):\n    out = {}\n    for row in rows:\n        customer = row['customer']\n        out.setdefault(customer, {'total_amount': 0, 'order_count': 0})\n        out[customer]['total_amount'] += row['amount']\n        out[customer]['order_count'] += 1\n    return out\n"
+      }
+    ],
+    "testFiles": [
+      {
+        "path": "test_orders.py",
+        "content": "from parser import parse_orders\nfrom report import summarize_by_customer\n\ncsv_text = '''order_id,customer,amount,status\\n1,Acme,10.50,paid\\n2,\"Beta, Inc\",20,cancelled\\n\\n3,Acme,4.25,paid\\n4,\"Beta, Inc\",7.75,PAID\\n'''\nrows = parse_orders(csv_text)\nassert len(rows) == 4, rows\nassert rows[1]['customer'] == 'Beta, Inc', rows[1]\nassert rows[0]['amount'] == 10.5 and isinstance(rows[0]['amount'], float)\nassert rows[3]['status'] == 'PAID'\nsummary = summarize_by_customer(rows)\nassert summary == {\n    'Acme': {'total_amount': 14.75, 'order_count': 2},\n    'Beta, Inc': {'total_amount': 7.75, 'order_count': 1},\n}, summary\ntry:\n    parse_orders('order_id,customer,amount,status\\n5,,9,paid\\n')\n    raise AssertionError('expected ValueError')\nexcept ValueError:\n    pass\nprint('ok')\n"
+      }
+    ],
+    "testCommand": ["python3", "test_orders.py"]
+  }
+}

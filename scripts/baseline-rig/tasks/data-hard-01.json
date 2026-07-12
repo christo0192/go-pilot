@@ -1,0 +1,25 @@
+{
+  "id": "data-hard-01",
+  "area": 8,
+  "areaName": "spreadsheet-analysis",
+  "category": "analyze",
+  "armAModel": "kimi-ikey",
+  "difficulty": "hard",
+  "prompt": "You are given a messy ecommerce cohort export. Produce an executive analysis with: (1) corrected Q2 gross margin by region after excluding internal test orders, (2) the main hidden pattern, (3) one misleading conclusion a careless analyst would draw, and (4) three actions. You must explain your calculations and use only the data provided.",
+  "inputs": [
+    {
+      "name": "orders_export.csv",
+      "content": "order_id,date,region,segment,revenue,cogs,discount,refund,notes\n1001,2026-04-03,NA,SMB,12000,6600,600,0,\n1002,2026-04-08,EU,Enterprise,28000,15400,0,0,\n1003,2026-04-11,APAC,SMB,9000,6300,900,0,\n1004,2026-04-17,NA,Enterprise,45000,24750,2250,0,\n1005,2026-04-20,EU,SMB,11000,7700,1100,0,\nTEST-01,2026-04-22,NA,Internal,99999,1,0,0,internal test order - exclude\n1006,2026-05-02,APAC,Enterprise,26000,18200,2600,0,\n1007,2026-05-09,NA,SMB,14000,8400,1400,0,\n1008,2026-05-13,EU,Enterprise,31000,17050,0,0,\n1009,2026-05-15,APAC,SMB,10000,7600,2000,1000,refund issued after discount dispute\n1010,2026-05-22,NA,Enterprise,52000,28600,0,0,\n1011,2026-06-04,EU,SMB,13000,9100,2600,0,\n1012,2026-06-08,APAC,Enterprise,30000,22500,4500,0,\n1013,2026-06-12,NA,SMB,15000,9000,3000,0,\n1014,2026-06-20,EU,Enterprise,34000,18700,0,0,\n1015,2026-06-25,APAC,SMB,8000,6400,2400,2000,refund from damaged shipment\n"
+    }
+  ],
+  "settings": { "temperature": 0.1, "max_tokens": 14000, "top_p": 0.95 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "reasoning", "faithfulness"],
+    "guidance": "Use net revenue = revenue - discount - refund. Gross profit = net revenue - cogs. Exclude TEST-01. NA net revenue: 11400+42750+12600+52000+12000 = 130750; cogs 66350; GP 64400; GM 49.3%. EU net revenue: 28000+9900+31000+10400+34000 = 113300; cogs 67950; GP 45350; GM 40.0%. APAC net revenue: 8100+23400+7000+25500+3600 = 67600; cogs 61000; GP 6600; GM 9.8%. Hidden pattern: APAC is destroyed by heavy discounts, high COGS, and refunds; APAC Enterprise also has weak margin due to discounts/COGS, not only SMB. Misleading conclusion: including TEST-01 makes NA look much larger/highly profitable, or looking at raw revenue suggests APAC is merely smaller rather than structurally low-margin. Good actions: exclude internal/test orders from reporting, review APAC discounting/fulfillment/COGS, tighten refund/damage process, set margin guardrails by region/segment.",
+    "calibrationAnchors": [
+      { "answer": "NA is best because it has a $99,999 order, so focus on NA growth. APAC has less revenue but is probably okay.", "scores": { "correctness": 1, "completeness": 2, "reasoning": 1, "faithfulness": 2 } },
+      { "answer": "After excluding TEST-01 and using net revenue after discounts/refunds: NA GM is 64,400/130,750 = 49.3%; EU is 45,350/113,300 = 40.0%; APAC is 6,600/67,600 = 9.8%. The hidden pattern is APAC margin collapse from discounts, COGS, and refunds, not just lower volume. A careless analyst might include TEST-01 and overstate NA. Actions: remove test orders from reporting, audit APAC discount/refund causes, and enforce margin guardrails.", "scores": { "correctness": 10, "completeness": 9, "reasoning": 10, "faithfulness": 10 } }
+    ]
+  }
+}

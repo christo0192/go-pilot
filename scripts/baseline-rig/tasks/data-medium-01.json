@@ -1,0 +1,25 @@
+{
+  "id": "data-medium-01",
+  "area": 8,
+  "areaName": "spreadsheet-analysis",
+  "category": "analyze",
+  "armAModel": "kimi-ikey",
+  "difficulty": "medium",
+  "prompt": "Analyze the monthly SaaS metrics table. Give: (1) net revenue retention trend, (2) the biggest driver of the March revenue miss, (3) whether churn or expansion is the larger risk, and (4) two concrete actions. Use the supplied numbers only and call out any metric that is ambiguous.",
+  "inputs": [
+    {
+      "name": "saas_metrics.csv",
+      "content": "month,start_mrr,new_mrr,expansion_mrr,contraction_mrr,churn_mrr,end_mrr,target_end_mrr,active_customers,churned_customers\n2026-01,200000,24000,18000,7000,9000,226000,224000,420,9\n2026-02,226000,18000,11000,12000,16000,227000,238000,414,15\n2026-03,227000,21000,6000,19000,23000,212000,246000,398,22\n"
+    }
+  ],
+  "settings": { "temperature": 0.1, "max_tokens": 10000, "top_p": 0.95 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "reasoning", "faithfulness"],
+    "guidance": "NRR proxy excluding new MRR = (start + expansion - contraction - churn)/start. Jan = (200k+18k-7k-9k)/200k = 101%; Feb = (226k+11k-12k-16k)/226k = 92.5%; Mar = (227k+6k-19k-23k)/227k = 84.1%. Trend is sharply deteriorating. March revenue miss: target 246k vs actual 212k = $34k miss. Compared with prior month, churn increased by $7k, contraction by $7k, expansion fell by $5k, new rose by $3k; biggest negative March components are churn $23k and contraction $19k, with churn largest absolute. Larger risk is retention/churn plus contraction, not acquisition. Ambiguity: table lacks cohorts/renewal base and does not prove causes. Good actions: churn save program for at-risk accounts, investigate contraction causes/pricing/usage, expansion playbook recovery, customer-health segmentation.",
+    "calibrationAnchors": [
+      { "answer": "Revenue is down because new sales are low. The company should spend more on acquisition.", "scores": { "correctness": 2, "completeness": 2, "reasoning": 2, "faithfulness": 4 } },
+      { "answer": "NRR proxy fell from 101.0% in Jan to 92.5% in Feb to 84.1% in Mar. March missed target by $34k. The largest absolute negative March component is churn at $23k, with contraction close behind at $19k; expansion also weakened to $6k. The risk is retention/churn and contraction rather than acquisition, though the table does not reveal root cause. Actions: launch targeted churn-save reviews for high-risk accounts and diagnose contraction/usage drops while rebuilding expansion plays.", "scores": { "correctness": 10, "completeness": 10, "reasoning": 10, "faithfulness": 10 } }
+    ]
+  }
+}
