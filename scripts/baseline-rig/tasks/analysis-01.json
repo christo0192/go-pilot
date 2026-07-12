@@ -7,7 +7,7 @@
   "difficulty": "hard",
   "prompt": "A 5-person seed-stage startup (2 backend, 1 frontend, 1 designer, 1 founder-PM) is deciding whether to build their new B2B SaaS product as a modular monolith or as microservices from day one. They expect <1000 users in year one and need to ship an MVP in 10 weeks. Give a structured recommendation: (a) state your recommendation in one sentence, (b) give the three strongest reasons FOR it grounded in their specific constraints, (c) give the single strongest argument AGAINST your recommendation and why it does not change the decision here, (d) name one concrete signal that should trigger revisiting the decision later. Be specific to their team size, timeline, and scale — avoid generic textbook tradeoffs.",
   "inputs": [],
-  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "reasoning", "specificity"],

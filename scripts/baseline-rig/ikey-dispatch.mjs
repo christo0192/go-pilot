@@ -79,6 +79,9 @@ export function createBenchmarkDispatcher(opts = {}) {
     };
     if (Number.isFinite(s.temperature)) body.temperature = s.temperature;
     if (Number.isFinite(s.top_p)) body.top_p = s.top_p;
+    // Model-specific parameter constraints. Kimi (Moonshot) rejects any top_p
+    // other than 0.95 with a hard 400 — coerce so a stray value never aborts a run.
+    if (/kimi/i.test(gatewayModel) && body.top_p != null && body.top_p !== 0.95) body.top_p = 0.95;
     const res = await fetch(`${GATEWAY}/v1/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

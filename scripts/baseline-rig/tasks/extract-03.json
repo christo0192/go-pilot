@@ -12,7 +12,7 @@
       "content": "Product Sync - Notes\nDate: Monday, 3 June 2024\nPresent: Dana (PM), Raj (eng lead), Meera (design), Tom (guest, sales)\n\nDiscussion:\n- Dana confirmed the export feature ships in the June release. Decision made: v2 export ships in June, CSV only, no PDF for now.\n- Raj will finalize the export API spec by Wednesday this week.\n- The onboarding redesign mockups need a second review round; someone needs to own scheduling that - we'll sort the owner offline, no name assigned yet.\n- Meera to deliver the updated icon set by next Monday.\n- Tom raised that two enterprise customers asked about PDF export. Noted for the backlog. No action."
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "faithfulness"],

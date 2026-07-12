@@ -38,3 +38,6 @@ metrics/runs/
 deploy/mem0-src/
 deploy/.env
 .gopilot/
+
+# Live campaign run artifacts (raw ledgers with full outputs); the report is committed to docs/
+scripts/baseline-rig/out/

@@ -7,7 +7,7 @@
   "difficulty": "hard",
   "prompt": "A VP of Engineering makes this argument in a planning meeting: 'Last month we shipped Feature X to 100% of users. In the two weeks after launch, our count of production incidents did not go up at all. Our three QA engineers manually tested Feature X before release. Since removing that testing gate clearly would not have increased incidents, manual QA adds no measurable value. Therefore we should reassign all three QA engineers to feature development, which will let us ship roughly 20% faster.' Rigorously evaluate this argument. Produce a structured response: (a) identify the single most damaging logical flaw in the inference and name the reasoning error precisely (do not just list many minor nitpicks); (b) explain why the observed evidence — flat incident count after a QA-tested launch — is actually consistent with QA working well, i.e. state the counterfactual the VP ignored; (c) give a fair verdict: is the conclusion (reassign QA to ship faster) necessarily WRONG, or merely UNSUPPORTED by this argument, and why; (d) specify the concrete evidence or test that would actually settle whether the QA gate earns its cost. Be precise about the specific inference in THIS argument (QA-tested release, 2-week window, incident count as the only metric) rather than giving a generic essay about the value of testing.",
   "inputs": [],
-  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "reasoning", "specificity"],

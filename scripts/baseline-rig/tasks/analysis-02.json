@@ -7,7 +7,7 @@
   "difficulty": "hard",
   "prompt": "A 25-person B2B SaaS company (Series A, $2.1M ARR, one available backend engineer) has two enterprise deals worth a combined $180K ARR that are blocked on a single requirement: SAML SSO plus SCIM user provisioning. Their current auth is homegrown (email/password with bcrypt + JWT sessions) and has no SSO. They are deciding between two options. BUILD: the one backend engineer estimates ~6 weeks to build SAML + SCIM in-house, after which each new enterprise customer needs 1-3 days of per-IdP integration work (Okta, Azure AD, Ping, etc. all behave differently) plus ongoing maintenance. BUY: an SSO-as-a-service vendor (e.g. WorkOS-style) integrates in ~1 week and charges roughly $125 per SSO connection per month, so those two customers would cost ~$3K/year total. Give a structured recommendation: (a) state the recommendation in one sentence, (b) give the three strongest reasons FOR it grounded in these specific numbers and constraints, (c) give the single strongest argument AGAINST your recommendation and explain why it does not change the decision here, (d) name one concrete signal that should trigger revisiting the decision later. Be specific to their team size, the $180K blocked revenue, the 6-week build estimate, and the per-connection economics — avoid generic build-vs-buy platitudes.",
   "inputs": [],
-  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "reasoning", "specificity"],

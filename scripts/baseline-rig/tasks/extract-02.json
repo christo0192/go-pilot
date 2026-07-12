@@ -12,7 +12,7 @@
       "content": "BLUE RIDGE SUPPLY CO.\n47 Kiln Road, Sheffield, UK\nINVOICE\n\nBill To: Aperture Labs, 400 Innovation Way, Austin TX, USA\nInvoice #: BRS-2024-00917\nInvoice Date: 14 March 2024\nCustomer Ref: CR-55210\nAccount No: 88123\n\nDescription                        Qty   Unit     Amount\nRecycled A4 paper, case             12   18.50    222.00\nToner cartridge (black)              4   64.00    256.00\nDelivery surcharge                   1   15.00     15.00\n\nSubtotal:            EUR 493.00\nVAT (20%):           EUR  98.60\nTotal Due:           EUR 591.60\n\nPayment terms: Net 30. Please remit within 30 days of the invoice date.\nLate payments subject to 1.5% monthly interest.\nQuestions? billing@blueridge.example"
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "faithfulness"],

@@ -7,7 +7,7 @@
   "difficulty": "hard",
   "prompt": "A project-management SaaS charges $50 per seat per month. It has 400 customers averaging 12 paid seats each (~$2.9M ARR). Three data points are on the table: (1) usage logs show 35% of all paid seats log in fewer than twice per month — mostly stakeholders who only read status and comment, never create or edit work; (2) sales reports that 3 of the last 10 lost deals explicitly cited 'too expensive to add read-only stakeholders' as a blocker; (3) the closest competitor just launched free unlimited read-only 'viewer' seats. The proposal under debate: introduce a free read-only Viewer seat (can view and comment, cannot create or edit items) while keeping full Editor seats at $50/seat/month. Finance objects that customers will cannibalize revenue by downgrading paid Editors to free Viewers. Give a structured recommendation: (a) state the recommendation in one sentence, (b) give the three strongest reasons FOR it grounded in the specific numbers and the read/write gate, (c) give the single strongest argument AGAINST (the cannibalization risk) and explain why, given the feature gate and buyer behavior, it does not change the decision, (d) name one concrete metric to monitor that would trigger revisiting or rolling back. Ground everything in the 35% low-activity figure, the 3-of-10 lost deals, and the Editor/Viewer capability split — avoid generic pricing-theory answers.",
   "inputs": [],
-  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "reasoning", "specificity"],

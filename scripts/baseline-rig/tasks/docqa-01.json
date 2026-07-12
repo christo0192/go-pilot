@@ -12,7 +12,7 @@
       "content": "# Remote Equipment Reimbursement Policy (v3)\n\nClause 1. Eligible employees may claim reimbursement for home-office equipment.\nClause 2. Monitors, keyboards, and chairs are eligible categories. Laptops are NOT covered by this policy (see the separate IT Asset Policy).\nClause 3. The reimbursement ceiling per item is 200 EUR. Amounts above the ceiling are the employee's responsibility.\nClause 4. Claims must be submitted within 30 days of purchase.\nClause 5. Employees in the DACH region (Germany, Austria, Switzerland) receive a regional uplift of 10% applied to the CEILING (not the purchase price) for ergonomic categories.\nClause 6. Ergonomic categories are defined as: chairs and standing-desk converters ONLY. Monitors are not ergonomic for the purposes of Clause 5.\nClause 7. Reimbursement requires a manager's approval recorded in the system before payment."
     }
   ],
-  "settings": { "temperature": 0.2, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0.2, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "faithfulness", "reasoning"],

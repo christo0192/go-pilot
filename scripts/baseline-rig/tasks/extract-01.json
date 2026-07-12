@@ -12,7 +12,7 @@
       "content": "From: Priya Menon <priya@northwind.example>\nSubject: URGENT - dashboards down since Tuesday\n\nHi, this is Priya from Northwind (account NW-4821). Our analytics dashboards have been completely unavailable since Tuesday the 8th of July and it is blocking our month-end close. This is now business-critical for us. I'm not asking for money back at this stage, I just need it fixed today. Please escalate.\n\nThanks,\nPriya"
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "faithfulness"],

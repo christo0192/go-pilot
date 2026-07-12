@@ -12,7 +12,7 @@
       "content": "Incident Report - Payments API degradation\nWindow: 09:12-09:47 UTC, 22 Feb 2025\n\nAt 09:12 UTC the payments API began returning elevated 503 rates, peaking at 34% of requests. On-call engineer Sara Okonkwo was paged at 09:15. Investigation found the primary database connection pool was exhausted. The team increased the pool size from 50 to 120 connections and restarted the API pods; error rates returned to baseline by 09:47. Approximately 4,200 checkout requests failed during the window. No customer payment data was lost or exposed. Root-cause analysis is ongoing: the connection-pool exhaustion coincided with a marketing email sent at 09:05 that drove a traffic spike, but a definitive causal link has not yet been confirmed."
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 1 },
+  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 0.95 },
   "grading": {
     "type": "rubric",
     "dimensions": ["correctness", "completeness", "faithfulness"],
