@@ -208,15 +208,24 @@ test("validation failure: a 'TODO' result is NOT promoted and verdict is 'failed
   assert.equal(adapter.inner.search("would-be keeper").length, 0);
 });
 
-test("sign-off gate: a class with NO sign-off record is forced to single-agent (downgrade)", async () => {
+test("sign-off gate: requested multi-agent with NO sign-off is forced to single-agent (real downgrade)", async () => {
   const res = await runTask(
     { category: "code", prompt: "x" },
-    { profile: "pure-anthropic", dryRun: true },
+    { profile: "pure-anthropic", dryRun: true, mode: "multi-agent" },
   );
 
   assert.equal(res.plan.signedOff, false);
   assert.equal(res.plan.execution, "single-agent");
-  assert.equal(res.plan.downgraded, true);
+  assert.equal(res.plan.downgraded, true, "multi-agent -> single-agent is a genuine downgrade");
+});
+
+test("a plain single-agent run is NOT labeled downgraded", async () => {
+  const res = await runTask(
+    { category: "code", prompt: "x" },
+    { profile: "pure-anthropic", dryRun: true },
+  );
+  assert.equal(res.plan.execution, "single-agent");
+  assert.equal(res.plan.downgraded, false, "nothing was downgraded");
 });
 
 test("sign-off gate: a class that MEETS targets is allowed multi-agent", async () => {
@@ -269,7 +278,7 @@ test("candidate-race executes two candidates and selects a passing result", asyn
   };
   const res = await runTask(
     { category: "code", prompt: "implement safely" },
-    { profile: "pure-anthropic", mode: "candidate-race", dispatch, retrieve: false, captureWorkspace: false },
+    { profile: "pure-anthropic", mode: "candidate-race", dispatch, retrieve: false, captureWorkspace: false, allowParallelCost: true },
   );
   assert.equal(calls.length, 2);
   assert.equal(res.result.text, "verified result");
@@ -297,10 +306,30 @@ test("candidate-race survives one candidate erroring (allSettled, not all)", asy
       shouldRetry: () => false, // no retries, so the first candidate fails outright
       breakers: new Map(), // isolated breaker registry
       captureWorkspace: false,
+      allowParallelCost: true,
     },
   );
   assert.equal(res.verdict, "ok");
   assert.equal(res.result.text, "verified survivor");
+});
+
+test("candidate-race is NOT sign-off-gated but REQUIRES explicit cost approval on a live run", async () => {
+  const dispatch = () => ({ result: { text: "ok" }, usage: {} });
+  // No allowParallelCost -> the cost-opt-in guard refuses (never a stray --mode).
+  await assert.rejects(
+    () => runTask(
+      { category: "code", prompt: "x" },
+      { profile: "pure-anthropic", mode: "candidate-race", dispatch, retrieve: false, captureWorkspace: false },
+    ),
+    /requires explicit cost approval/,
+  );
+  // A dry-run still shows the plan (no spend) without approval.
+  const dry = await runTask(
+    { category: "code", prompt: "x" },
+    { profile: "pure-anthropic", mode: "candidate-race", dryRun: true },
+  );
+  assert.equal(dry.plan.execution, "candidate-race", "not downgraded by sign-off");
+  assert.equal(dry.verdict, "dry-run");
 });
 
 test("plan-then-execute performs separate planner and executor calls", async () => {

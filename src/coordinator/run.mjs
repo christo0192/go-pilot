@@ -13,7 +13,7 @@ import { withYagni } from "../prompts/fragment.mjs";
 import { buildPrompt } from "../prompts/builder.mjs";
 import { signoff } from "../metrics/signoff.mjs";
 import { validateRecord, computeRun, recordRun } from "../metrics/metrics.mjs";
-import { resolveContract } from "../runtime/contracts.mjs";
+import { resolveContract, modeGovernance } from "../runtime/contracts.mjs";
 import { retrieveContext } from "../context/retrieve.mjs";
 import { createJournal } from "../reliability/journal.mjs";
 import { createCircuitBreaker, withRetry } from "../reliability/retry.mjs";
@@ -90,8 +90,14 @@ export async function runTask(task = {}, opts = {}) {
   const signResult = signoff(opts.signoffRecords ?? {}, opts.targets ?? {});
   const signedOff = category != null && signResult.signedOff.includes(category);
   const requestedMode = opts.mode || contract.mode;
-  const execution = requestedMode === "multi-agent" && !signedOff ? "single-agent" : requestedMode;
-  const downgraded = execution !== requestedMode || !signedOff;
+  // Only EFFICIENCY-GATED parallel modes (multi-agent) are downgraded when a
+  // class is not signed off. Cost-opt-in modes (candidate-race) are NOT gated by
+  // the efficiency sign-off — they are governed by explicit cost approval below.
+  const execution = modeGovernance(requestedMode).efficiencyGated && !signedOff ? "single-agent" : requestedMode;
+  // Downgraded == the requested mode was actually changed (an efficiency-gated
+  // mode forced to single-agent). A plain single-agent or an opt-in
+  // candidate-race run is NOT a downgrade, so don't mislabel it as one.
+  const downgraded = execution !== requestedMode;
 
   let decision = route(task, { profile, config: mapping });
   let needsJudgment = decision.deterministic !== true;
@@ -160,6 +166,19 @@ export async function runTask(task = {}, opts = {}) {
   };
   if (typeof opts.dispatch !== "function") throw new Error("runTask: opts.dispatch is required for a live run");
 
+  // Cost-opt-in modes (candidate-race) run multiple parallel panes and multiply
+  // spend. They are NOT sign-off-gated (they make no efficiency claim), so guard
+  // the COST axis explicitly: a live run needs deliberate approval, never a
+  // stray `--mode`. Dry-run above still shows the plan without this gate.
+  if (modeGovernance(execution).costOptIn && !(opts.allowParallelCost || contract.allowParallelCost)) {
+    throw new Error(
+      `execution mode "${execution}" runs parallel panes and multiplies cost; it is not gated by the efficiency sign-off but requires explicit cost approval — pass allowParallelCost:true (CLI: --allow-parallel-cost)`,
+    );
+  }
+  if (modeGovernance(execution).parallel) {
+    events.emit({ runId, kind: "run.parallel_approved", mode: execution, costOptIn: modeGovernance(execution).costOptIn });
+  }
+
   // Workspace capture shells out to `git diff --binary`; on a large/dirty repo
   // that is a real per-run cost. On by default (checkpoint evidence), opt out
   // with captureWorkspace:false.
@@ -188,6 +207,7 @@ export async function runTask(task = {}, opts = {}) {
     { retries: contract.maxRetries, signal: opts.signal, shouldRetry: opts.shouldRetry || (() => true) },
   )));
   let dispatched;
+  let parallelCostUsd = null; // total observed cost across parallel panes, if any
   try {
     if (execution === "plan-only") {
       dispatched = await executeAttempt(`${runId}:plan:0`, `${safePrompt}\n\nReturn an implementation plan only. Do not edit files.`, "planner");
@@ -208,6 +228,7 @@ export async function runTask(task = {}, opts = {}) {
       ]);
       const fulfilled = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
       if (fulfilled.length === 0) throw settled.find((s) => s.status === "rejected").reason;
+      parallelCostUsd = fulfilled.reduce((sum, c) => sum + (Number.isFinite(c.usage?.costUsd) ? c.usage.costUsd : 0), 0);
       const evaluated = fulfilled.map((candidate) => ({ candidate, gate: mustPass(candidate.result, checks) }));
       const passing = evaluated.filter((item) => item.gate.passed);
       if (passing.length === 0) dispatched = fulfilled[0];
@@ -224,6 +245,12 @@ export async function runTask(task = {}, opts = {}) {
     throw error;
   }
   const { result, usage = {} } = dispatched || {};
+  // Optional per-run cost budget (enforced when cost data is present — real
+  // providers report costUsd). For parallel modes this is the summed pane cost.
+  const observedCostUsd = parallelCostUsd != null ? parallelCostUsd : (Number.isFinite(usage.costUsd) ? usage.costUsd : 0);
+  if (Number.isFinite(contract.maxCostUsd) && observedCostUsd > contract.maxCostUsd) {
+    throw new Error(`run cost $${observedCostUsd} exceeded budget $${contract.maxCostUsd}`);
+  }
   const workspace = captureEnabled
     ? workspaceDelta(workspaceBefore, captureWorkspace(opts.cwd || process.cwd()))
     : { available: false, changed: false, diff: "", status: "" };

@@ -180,3 +180,17 @@ scan free-text VALUES. Consequence: callers MUST place secrets in clearly-named
 fields, never inside a free-text `note`/`message` value, or they will not be
 redacted. Chosen over value-scanning to avoid false positives + cost on every
 event. Config trust is separately enforced by `config doctor` (8.13).
+
+## D37 — candidate-race is cost-opt-in, not sign-off-gated (2026-07-12, user decision)
+The token-efficiency sign-off (D17) certifies "multi-agent is measurably cheaper
+for this class". candidate-race makes the OPPOSITE claim — it runs the same task
+on N parallel panes and deliberately costs MORE to buy reliability. Gating it
+behind the efficiency sign-off is a category error (it can never satisfy a proof
+it doesn't claim). So: multi-agent = efficiencyGated (downgraded to single-agent
+when not signed off); candidate-race = costOptIn (NOT gated) but requires
+explicit cost approval — `opts.allowParallelCost` / contract.allowParallelCost /
+CLI `--allow-parallel-cost` — on a LIVE run so 2x spend is never accidental
+(dry-run still shows the plan). Optional `contract.maxCostUsd` caps summed pane
+cost when providers report it. Taxonomy codified in `src/runtime/contracts.mjs`
+`modeGovernance()`. Also corrected `downgraded` to mean "execution actually
+changed", not "not signed off".

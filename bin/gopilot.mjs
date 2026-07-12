@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function parseArgs(argv) {
-  const opts = { profile: "pure-anthropic", dryRun: false, category: undefined, json: false, mode: undefined, cwd: process.cwd() };
+  const opts = { profile: "pure-anthropic", dryRun: false, category: undefined, json: false, mode: undefined, cwd: process.cwd(), allowParallelCost: false };
   const rest = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -41,6 +41,9 @@ function parseArgs(argv) {
         break;
       case "--mode":
         opts.mode = argv[++i];
+        break;
+      case "--allow-parallel-cost":
+        opts.allowParallelCost = true;
         break;
       case "--cwd":
         opts.cwd = resolve(argv[++i]);
@@ -68,6 +71,7 @@ Options:
   -c, --category <cat>   task class (orchestrate|plan|code|analyze|draft|extract|classify|summarize|code-review|lateral)
   -n, --dry-run          print the governed plan without invoking any model
       --mode <mode>       execution mode override
+      --allow-parallel-cost  approve the extra spend of a parallel mode (e.g. candidate-race)
       --cwd <path>        repository working directory [default: current directory]
       --json             emit machine-readable JSON
   -h, --help             show this help
@@ -141,6 +145,7 @@ async function main() {
         profile: opts.profile,
         dryRun: opts.dryRun,
         mode: opts.mode,
+        allowParallelCost: opts.allowParallelCost,
         cwd: opts.cwd,
         dispatch,
         stateDir: resolve(opts.cwd, ".gopilot"),

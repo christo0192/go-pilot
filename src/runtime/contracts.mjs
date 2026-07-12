@@ -15,6 +15,25 @@ const MODES = new Set([
   "candidate-race",
 ]);
 
+// Governance taxonomy for multi-pane modes. The two axes are DELIBERATELY
+// distinct:
+//   - efficiencyGated: makes the token-efficiency claim the sign-off (D17)
+//     exists to verify; a class not signed off is downgraded to single-agent.
+//   - costOptIn: trades MORE tokens for reliability (it never claims savings),
+//     so it is NOT sign-off-gated — instead it requires explicit cost approval
+//     (allowParallelCost) so 2x spend is never accidental.
+const PARALLEL_MODES = new Set(["multi-agent", "candidate-race"]);
+const EFFICIENCY_GATED_MODES = new Set(["multi-agent"]);
+const COST_OPT_IN_MODES = new Set(["candidate-race"]);
+
+export function modeGovernance(mode) {
+  return {
+    parallel: PARALLEL_MODES.has(mode),
+    efficiencyGated: EFFICIENCY_GATED_MODES.has(mode),
+    costOptIn: COST_OPT_IN_MODES.has(mode),
+  };
+}
+
 export function loadContracts(path = DEFAULT_PATH) {
   const parsed = JSON.parse(readFileSync(path, "utf8"));
   if (!parsed.defaults || !parsed.categories) throw new Error("execution contracts require defaults and categories");
@@ -35,4 +54,4 @@ export function resolveContract(category, opts = {}) {
   return Object.freeze(contract);
 }
 
-export { MODES };
+export { MODES, PARALLEL_MODES, EFFICIENCY_GATED_MODES, COST_OPT_IN_MODES };
