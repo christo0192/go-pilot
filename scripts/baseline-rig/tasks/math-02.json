@@ -1,0 +1,19 @@
+{
+  "id": "math-02",
+  "area": 1,
+  "areaName": "math",
+  "category": "math",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Consider 100! (the factorial of 100). Written in base 12, how many trailing zeros does 100! have? Work step by step: determine the prime factorization of the base, use Legendre's formula to find the exponents of the relevant primes in 100!, then figure out the highest power of the base that divides 100!. Give the final answer as a decimal on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 48,
+    "match": "numeric",
+    "tolerance": 0.001,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "Base 12 = 2^2 * 3. Trailing zeros in base 12 = largest k with 12^k | 100!, i.e. (2^2)^k * 3^k = 2^(2k) * 3^k divides 100!. Legendre: v_2(100!) = 50+25+12+6+3+1 = 97; v_3(100!) = 33+11+3+1 = 48. Need 2k <= 97 (k <= 48) and k <= 48. So k = min(floor(97/2), 48) = min(48, 48) = 48. Answer 48."
+  }
+}

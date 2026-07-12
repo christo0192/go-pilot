@@ -1,0 +1,25 @@
+{
+  "id": "extract-04",
+  "area": 5,
+  "areaName": "extraction",
+  "category": "extract",
+  "armAModel": "kimi-ikey",
+  "difficulty": "hard",
+  "prompt": "Write a faithful summary of the incident report below in NO MORE THAN 60 words and AT MOST 3 sentences. Include only facts explicitly stated in the report. Do NOT assert a root cause the report does not confirm, do not add numbers or entities not present, and do not editorialize. Output ONLY the summary text, with no title, bullet points, or preamble.",
+  "inputs": [
+    {
+      "name": "incident.txt",
+      "content": "Incident Report - Payments API degradation\nWindow: 09:12-09:47 UTC, 22 Feb 2025\n\nAt 09:12 UTC the payments API began returning elevated 503 rates, peaking at 34% of requests. On-call engineer Sara Okonkwo was paged at 09:15. Investigation found the primary database connection pool was exhausted. The team increased the pool size from 50 to 120 connections and restarted the API pods; error rates returned to baseline by 09:47. Approximately 4,200 checkout requests failed during the window. No customer payment data was lost or exposed. Root-cause analysis is ongoing: the connection-pool exhaustion coincided with a marketing email sent at 09:05 that drove a traffic spike, but a definitive causal link has not yet been confirmed."
+    }
+  ],
+  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 1 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "faithfulness"],
+    "guidance": "Gold summary (one acceptable form, <=60 words, <=3 sentences): 'On 22 Feb 2025 the payments API returned elevated 503 errors (peaking at 34%) from 09:12 to 09:47 UTC, caused by an exhausted primary database connection pool. Engineers increased the pool from 50 to 120 connections and restarted the API pods, restoring baseline error rates. About 4,200 checkout requests failed; no customer payment data was lost or exposed.' A faithful summary MUST convey: the payments API 503 degradation during 09:12-09:47 UTC on 22 Feb 2025; the identified issue was DB connection-pool exhaustion; the fix (pool 50->120 + pod restart); ~4,200 failed checkout requests; and that no payment data was lost/exposed. The DELIBERATE TRAP: the report says the exhaustion merely 'coincided' with a 09:05 marketing email and 'a definitive causal link has not yet been confirmed'. A summary MUST NOT state the marketing email CAUSED the outage as established fact (mentioning it as an unconfirmed/coincident factor is acceptable but optional). It also must not invent that data WAS compromised, alter the numbers (34%, 50/120, 4,200), or exceed 60 words / 3 sentences. A 10 is within the length/sentence limits, faithful, includes the key facts, and does not assert the unconfirmed cause. A 1-3 hallucinates the marketing email as the confirmed cause, claims data was lost/exposed, invents or changes figures, or blows the length constraint.",
+    "calibrationAnchors": [
+      { "answer": "A marketing email sent at 09:05 overloaded the payments API on 22 Feb 2025, causing a major outage that exposed customer payment data and crashed the checkout system for over 5,000 users before engineers fixed the database. The incident lasted most of the morning and has been fully resolved with the root cause confirmed as the email campaign.", "scores": { "correctness": 2, "completeness": 3, "faithfulness": 1 } },
+      { "answer": "On 22 Feb 2025 the payments API returned elevated 503 errors (peaking at 34%) from 09:12 to 09:47 UTC, caused by an exhausted primary database connection pool. Engineers increased the pool from 50 to 120 connections and restarted the API pods, restoring baseline error rates. About 4,200 checkout requests failed; no customer payment data was lost or exposed.", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10 } }
+    ]
+  }
+}

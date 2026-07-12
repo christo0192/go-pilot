@@ -1,0 +1,19 @@
+{
+  "id": "math-03",
+  "area": 1,
+  "areaName": "math",
+  "category": "math",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Seven distinct letters are placed into seven distinct envelopes, one letter per envelope, uniformly at random over all possible assignments. Compute the probability that NO letter ends up in its own correct envelope (i.e. the assignment is a derangement of 7 elements). Work step by step using inclusion-exclusion (or the derangement recurrence), then give the final probability as a decimal rounded to 5 decimal places on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 0.36786,
+    "match": "numeric",
+    "tolerance": 0.0005,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "Number of derangements D_7 = 7! * sum_{k=0}^{7} (-1)^k/k! = 1854. Total permutations 7! = 5040. Probability = 1854/5040 = 0.367857142... which rounds to 0.36786 (approaches 1/e = 0.367879...)."
+  }
+}

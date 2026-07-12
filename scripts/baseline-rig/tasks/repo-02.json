@@ -1,0 +1,47 @@
+{
+  "id": "repo-02",
+  "area": 7,
+  "areaName": "repo-change",
+  "category": "repo-change",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "The repository contains brackets.py with a broken `is_balanced` function. It is meant to return True when every opening bracket in the string has a correctly ordered, correctly typed matching closer, and False otherwise. Two bugs exist: (a) it never checks that a closer matches the most recent opener, so wrongly-interleaved input like '([)]' is accepted; (b) it calls stack.pop() on a closer even when the stack is empty, which raises IndexError on input such as ']' or ')('. Fix the function so ALL of these hold: it returns True for correctly nested brackets (and for strings with non-bracket characters mixed in), returns False for mismatched, interleaved, or unbalanced input, and NEVER raises on an unexpected closer. Non-bracket characters are ignored. Return the COMPLETE corrected contents of brackets.py using EXACTLY this format (the delimiters must be on their own lines):\n<<<FILE brackets.py>>>\n<full file content here>\n<<<END>>>\nReturn nothing else.",
+  "inputs": [
+    {
+      "name": "brackets.py (current, buggy)",
+      "content": "def is_balanced(s):\n    stack = []\n    pairs = {')': '(', ']': '[', '}': '{'}\n    for ch in s:\n        if ch in '([{':\n            stack.append(ch)\n        elif ch in ')]}':\n            stack.pop()\n    return len(stack) == 0\n"
+    }
+  ],
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 16000,
+    "top_p": 1
+  },
+  "grading": {
+    "type": "repo-change",
+    "language": "python",
+    "timeoutMs": 15000,
+    "files": [
+      {
+        "path": "brackets.py",
+        "content": "def is_balanced(s):\n    stack = []\n    pairs = {')': '(', ']': '[', '}': '{'}\n    for ch in s:\n        if ch in '([{':\n            stack.append(ch)\n        elif ch in ')]}':\n            stack.pop()\n    return len(stack) == 0\n"
+      }
+    ],
+    "testFiles": [
+      {
+        "path": "test_brackets.py",
+        "content": "from brackets import is_balanced\n\nassert is_balanced('([])') is True\nassert is_balanced('([]{})') is True\nassert is_balanced('') is True\nassert is_balanced('abc') is True\nassert is_balanced('(a[b]c)') is True\nassert is_balanced('([)]') is False, 'interleaved must fail'\nassert is_balanced('(') is False\nassert is_balanced(']') is False, 'lone closer must not crash'\nassert is_balanced(')(') is False\nassert is_balanced('(()') is False\nprint('ok')\n"
+      }
+    ],
+    "testCommand": [
+      "python3",
+      "test_brackets.py"
+    ]
+  },
+  "_reference": [
+    {
+      "path": "brackets.py",
+      "content": "def is_balanced(s):\n    stack = []\n    pairs = {')': '(', ']': '[', '}': '{'}\n    for ch in s:\n        if ch in '([{':\n            stack.append(ch)\n        elif ch in ')]}':\n            if not stack or stack[-1] != pairs[ch]:\n                return False\n            stack.pop()\n    return len(stack) == 0\n"
+    }
+  ]
+}

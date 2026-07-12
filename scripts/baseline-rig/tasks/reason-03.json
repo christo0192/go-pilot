@@ -1,0 +1,18 @@
+{
+  "id": "reason-03",
+  "area": 6,
+  "areaName": "multi-step-reasoning",
+  "category": "reasoning",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Four friends -- Alice, Ben, Clara, and Dan -- each live in a house of a different color (Red, Green, Blue, Yellow) and each own a different pet (Cat, Dog, Parrot, Fish). Use these facts:\n1. Clara lives in the Blue house.\n2. Ben owns the Dog.\n3. The person in the Green house owns the Cat.\n4. The owner of the Parrot lives in the Yellow house.\n5. Alice does not live in the Red house.\n6. Ben lives in neither the Yellow house nor the Green house.\n7. Dan does not own the Cat.\nWork out the complete assignment of colors and pets by elimination, then determine who owns the Parrot. Give the owner's first name as the final answer on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answers": ["Dan"],
+    "match": "string",
+    "extract": ["boxed", "answer-phrase", "final-line"],
+    "_solution": "Clue 6 + clue 1: Ben is not Yellow/Green and Clara holds Blue, so Ben is Red. Clue 5: Alice not Red (taken) -> Alice is Green or Yellow. Clue 3: Green person owns Cat; clue 2 Ben owns Dog so Ben(Red) not Green (consistent). Clue 4: Parrot owner is Yellow. Remaining colors for Alice and Dan are Green and Yellow. Clue 7: Dan does not own the Cat, and the Green person owns the Cat, so Dan is not Green -> Dan is Yellow, Alice is Green. Green Alice owns the Cat; Yellow Dan owns the Parrot (clue 4). Ben owns Dog, so Clara owns the Fish. Unique solution: Alice Green Cat, Ben Red Dog, Clara Blue Fish, Dan Yellow Parrot. Parrot owner = Dan. Brute force over all 24x24 permutations confirms exactly one solution."
+  }
+}

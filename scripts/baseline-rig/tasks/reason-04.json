@@ -1,0 +1,19 @@
+{
+  "id": "reason-04",
+  "area": 6,
+  "areaName": "multi-step-reasoning",
+  "category": "reasoning",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "An elevator serves floors numbered 1 through 10. It starts on floor 1 moving in the up direction. It performs 12 numbered moves. On move number k (for k = 1, 2, ..., 12) the elevator takes exactly k single-floor steps, one after another. Before each single-floor step the following rule is applied: if the elevator is currently on floor 10 its direction is set to down; if it is currently on floor 1 its direction is set to up; otherwise the direction is unchanged. It then moves one floor in the current direction. (So the elevator bounces off the top and bottom floors like a reflecting wall.) Determine which floor the elevator is on immediately after completing move number 12. Reason step by step -- tracking direction reversals carefully or using the total step count -- then give the final floor as a single integer on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 7,
+    "match": "numeric",
+    "tolerance": 0.5,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "Total single-floor steps = 1+2+...+12 = 78. The motion is a triangle wave reflecting in [1,10]: from floor 1 going up it takes 9 steps to reach 10, then 9 steps back down to 1, a period of 18 steps that returns to floor 1 moving up. 78 mod 18 = 6. Starting at floor 1 moving up, 6 steps up lands on floor 1+6 = 7. Direct step-by-step simulation of all 78 steps confirms the final floor is 7."
+  }
+}

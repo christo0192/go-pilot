@@ -1,0 +1,19 @@
+{
+  "id": "reason-02",
+  "area": 6,
+  "areaName": "multi-step-reasoning",
+  "category": "reasoning",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Consider the set of integers {1, 2, 3, ..., 25}. Count the number of 5-element subsets you can choose such that every pair of chosen numbers differs by at least 3 (i.e. no two selected numbers are within 2 of each other). Reason step by step: set up a gap/spacing model or a bijection to an unconstrained selection, derive the count, and compute it exactly. Give the final count as a single integer on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 6188,
+    "match": "numeric",
+    "tolerance": 0.5,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "Pick 5 values a1<a2<...<a5 from 1..25 with a(i+1)-a(i) >= 3. Substitute b(i) = a(i) - 2*(i-1). Then the b(i) are strictly increasing (each gap reduced by 2, so gaps become >=1) and lie in 1..25-2*4 = 1..17. The map is a bijection between valid subsets and arbitrary 5-element subsets of {1..17}. Count = C(17,5) = 6188. Brute-force enumeration over all C(25,5)=53130 subsets confirms 6188."
+  }
+}

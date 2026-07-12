@@ -1,0 +1,59 @@
+{
+  "id": "repo-04",
+  "area": 7,
+  "areaName": "repo-change",
+  "category": "repo-change",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "This repository has two files. money.py provides pricing helpers and cart.py uses them. Both `format_price` and `add_tax` are buggy: `format_price` uses round() and drops cents, so format_price(10) returns '$10' and format_price(10.5) returns '$10' or '$11' instead of a value with exactly two decimal places; `add_tax` returns an unrounded float that carries floating-point drift (e.g. tiny fractions of a cent). Fix BOTH files so ALL of these hold: (1) format_price(amount) always returns a string like '$10.00' with exactly two decimal places; (2) add_tax(amount, rate) returns amount plus tax, rounded to 2 decimals; (3) cart_total keeps working and returns '$0.00' for an empty cart. Do NOT change any function name or its parameters, and cart.py must keep importing from money. Return the COMPLETE corrected contents of EACH changed file. For every file emit a separate block in EXACTLY this format (delimiters on their own lines):\n<<<FILE money.py>>>\n<full file content>\n<<<END>>>\n<<<FILE cart.py>>>\n<full file content>\n<<<END>>>\nReturn nothing else.",
+  "inputs": [
+    {
+      "name": "money.py (current, buggy)",
+      "content": "def add_tax(amount, rate):\n    return amount + amount * rate\n\n\ndef format_price(amount):\n    return '$' + str(round(amount))\n"
+    },
+    {
+      "name": "cart.py (current)",
+      "content": "from money import add_tax, format_price\n\n\ndef cart_total(prices, tax_rate):\n    subtotal = sum(prices)\n    return format_price(add_tax(subtotal, tax_rate))\n"
+    }
+  ],
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 16000,
+    "top_p": 1
+  },
+  "grading": {
+    "type": "repo-change",
+    "language": "python",
+    "timeoutMs": 15000,
+    "files": [
+      {
+        "path": "money.py",
+        "content": "def add_tax(amount, rate):\n    return amount + amount * rate\n\n\ndef format_price(amount):\n    return '$' + str(round(amount))\n"
+      },
+      {
+        "path": "cart.py",
+        "content": "from money import add_tax, format_price\n\n\ndef cart_total(prices, tax_rate):\n    subtotal = sum(prices)\n    return format_price(add_tax(subtotal, tax_rate))\n"
+      }
+    ],
+    "testFiles": [
+      {
+        "path": "test_money.py",
+        "content": "from money import add_tax, format_price\nfrom cart import cart_total\n\n# format_price: always exactly two decimals\nassert format_price(10) == '$10.00', format_price(10)\nassert format_price(10.5) == '$10.50', format_price(10.5)\nassert format_price(0) == '$0.00'\n\n# add_tax: taxed amount rounded to 2 decimals (no float drift)\nassert add_tax(100, 0.1) == 110.0, add_tax(100, 0.1)\nassert add_tax(0, 0.2) == 0\nassert add_tax(19.99, 0.0) == 19.99\n\n# cart_total: end to end\nassert cart_total([10, 20], 0.0) == '$30.00', cart_total([10, 20], 0.0)\nassert cart_total([9.99, 5.01], 0.0) == '$15.00', cart_total([9.99, 5.01], 0.0)\nassert cart_total([], 0.1) == '$0.00', cart_total([], 0.1)\nassert cart_total([100], 0.1) == '$110.00', cart_total([100], 0.1)\nprint('ok')\n"
+      }
+    ],
+    "testCommand": [
+      "python3",
+      "test_money.py"
+    ]
+  },
+  "_reference": [
+    {
+      "path": "money.py",
+      "content": "def add_tax(amount, rate):\n    return round(amount + amount * rate, 2)\n\n\ndef format_price(amount):\n    return '${:.2f}'.format(amount)\n"
+    },
+    {
+      "path": "cart.py",
+      "content": "from money import add_tax, format_price\n\n\ndef cart_total(prices, tax_rate):\n    subtotal = sum(prices)\n    return format_price(add_tax(subtotal, tax_rate))\n"
+    }
+  ]
+}

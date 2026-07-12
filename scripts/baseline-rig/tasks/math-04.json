@@ -1,0 +1,19 @@
+{
+  "id": "math-04",
+  "area": 1,
+  "areaName": "math",
+  "category": "math",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Evaluate the definite integral of x^2 * sin(x) with respect to x from x = 0 to x = pi. Work step by step using integration by parts (applied twice), obtain the exact closed form, then give its numerical value as a decimal rounded to 5 decimal places on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 5.86960,
+    "match": "numeric",
+    "tolerance": 0.0005,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "Integration by parts twice: integral x^2 sin x dx = -x^2 cos x + 2x sin x + 2 cos x. Evaluate 0..pi: at pi: -pi^2*(-1) + 0 + 2*(-1) = pi^2 - 2; at 0: -0 + 0 + 2*1 = 2. Definite = (pi^2 - 2) - 2 = pi^2 - 4 = 9.8696044... - 4 = 5.8696044..., rounds to 5.86960."
+  }
+}

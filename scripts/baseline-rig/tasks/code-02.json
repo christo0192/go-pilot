@@ -1,0 +1,18 @@
+{
+  "id": "code-02",
+  "area": 2,
+  "areaName": "coding",
+  "category": "code",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Implement a Python function `evaluate_expression(expr)` that evaluates a mathematical expression given as a string and returns its numeric value (a float or int). The expression may contain: non-negative integer and decimal literals (e.g. `3`, `3.5`), the binary operators `+`, `-`, `*`, `/`, unary plus/minus (e.g. `-5`, `2*-3`), parentheses for grouping, and arbitrary whitespace. Standard precedence applies: `*` and `/` bind tighter than `+` and `-`; parentheses override precedence; `/` is true (floating-point) division. Parse and evaluate WITHOUT using `eval`, `exec`, `compile`, or any similar dynamic-evaluation builtin. Return ONLY a single ```python fenced code block containing the function definition and any helpers, and nothing else.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "unit-test",
+    "language": "python",
+    "timeoutMs": 10000,
+    "tests": "assert evaluate_expression(\"2+3*4\") == 14\nassert evaluate_expression(\"(2+3)*4\") == 20\nassert evaluate_expression(\"2*3+4*5\") == 26\nassert evaluate_expression(\"  7 \") == 7\nassert evaluate_expression(\"-5+3\") == -2\nassert evaluate_expression(\"2*-3\") == -6\nassert evaluate_expression(\"-(3+4)\") == -7\nassert evaluate_expression(\"2*(3+(4-1)*2)\") == 18\nassert abs(evaluate_expression(\"10/4\") - 2.5) < 1e-9\nassert abs(evaluate_expression(\"1/3*3\") - 1.0) < 1e-9\nassert evaluate_expression(\"((1+2)*(3+4))\") == 21\nassert evaluate_expression(\"3.5+1.5\") == 5"
+  },
+  "_reference": "def evaluate_expression(expr):\n    tokens = []\n    i = 0\n    n = len(expr)\n    while i < n:\n        c = expr[i]\n        if c.isspace():\n            i += 1; continue\n        if c in '+-*/()':\n            tokens.append(c); i += 1; continue\n        if c.isdigit() or c == '.':\n            j = i\n            while j < n and (expr[j].isdigit() or expr[j] == '.'): j += 1\n            tokens.append(float(expr[i:j])); i = j; continue\n        raise ValueError('bad char')\n    pos = 0\n    def peek(): return tokens[pos] if pos < len(tokens) else None\n    def parse_expr():\n        nonlocal pos\n        val = parse_term()\n        while peek() in ('+', '-'):\n            op = tokens[pos]; pos += 1; rhs = parse_term()\n            val = val + rhs if op == '+' else val - rhs\n        return val\n    def parse_term():\n        nonlocal pos\n        val = parse_factor()\n        while peek() in ('*', '/'):\n            op = tokens[pos]; pos += 1; rhs = parse_factor()\n            val = val * rhs if op == '*' else val / rhs\n        return val\n    def parse_factor():\n        nonlocal pos\n        t = peek()\n        if t == '+': pos += 1; return parse_factor()\n        if t == '-': pos += 1; return -parse_factor()\n        if t == '(':\n            pos += 1; val = parse_expr(); pos += 1; return val\n        pos += 1; return t\n    return parse_expr()"
+}

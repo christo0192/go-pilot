@@ -1,0 +1,18 @@
+{
+  "id": "code-03",
+  "area": 2,
+  "areaName": "coding",
+  "category": "code",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "Implement a Python function `word_ladder_length(begin, end, word_list)` that returns the number of words in the SHORTEST transformation sequence from `begin` to `end`, where each step changes exactly one letter and every intermediate word (and `end`) must appear in `word_list`. All words are the same length and lowercase a-z. The returned count includes both `begin` and `end` (e.g. hit -> hot -> dot -> dog -> cog is length 5). `begin` itself need not be in `word_list`, but `end` must be in `word_list` for a sequence to exist. If `begin` equals `end`, return 1. If no transformation sequence exists, return 0. Do not mutate `word_list`. Use an efficient breadth-first search. Return ONLY a single ```python fenced code block containing the function definition and any helpers, and nothing else.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "unit-test",
+    "language": "python",
+    "timeoutMs": 10000,
+    "tests": "assert word_ladder_length(\"hit\", \"cog\", [\"hot\",\"dot\",\"dog\",\"lot\",\"log\",\"cog\"]) == 5\nassert word_ladder_length(\"hit\", \"cog\", [\"hot\",\"dot\",\"dog\",\"lot\",\"log\"]) == 0\nassert word_ladder_length(\"a\", \"c\", [\"a\",\"b\",\"c\"]) == 2\nassert word_ladder_length(\"hit\", \"hit\", [\"hit\"]) == 1\nassert word_ladder_length(\"hot\", \"dog\", [\"hot\",\"dog\"]) == 0\nassert word_ladder_length(\"red\", \"tax\", [\"ted\",\"tex\",\"red\",\"tax\",\"tad\",\"den\",\"rex\",\"pee\"]) == 4\nassert word_ladder_length(\"game\", \"code\", [\"game\",\"gace\",\"gcode\",\"code\"]) == 0\n_wl = [\"hot\",\"dot\",\"dog\",\"lot\",\"log\",\"cog\"]\nassert word_ladder_length(\"hit\", \"cog\", _wl) == 5 and _wl == [\"hot\",\"dot\",\"dog\",\"lot\",\"log\",\"cog\"], 'must not mutate input'\nassert word_ladder_length(\"abc\", \"abc\", [\"abc\",\"abd\"]) == 1\nassert word_ladder_length(\"cat\", \"dog\", [\"cat\",\"cot\",\"cog\",\"dog\",\"dot\"]) == 4"
+  },
+  "_reference": "from collections import deque\ndef word_ladder_length(begin, end, word_list):\n    words = set(word_list)\n    if end not in words: return 0\n    if begin == end: return 1\n    letters = 'abcdefghijklmnopqrstuvwxyz'\n    visited = {begin}\n    q = deque([(begin, 1)])\n    while q:\n        word, dist = q.popleft()\n        if word == end: return dist\n        for i in range(len(word)):\n            for ch in letters:\n                if ch == word[i]: continue\n                nxt = word[:i] + ch + word[i+1:]\n                if nxt in words and nxt not in visited:\n                    visited.add(nxt); q.append((nxt, dist + 1))\n    return 0"
+}

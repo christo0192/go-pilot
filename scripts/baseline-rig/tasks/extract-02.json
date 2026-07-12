@@ -1,0 +1,25 @@
+{
+  "id": "extract-02",
+  "area": 5,
+  "areaName": "extraction",
+  "category": "extract",
+  "armAModel": "kimi-ikey",
+  "difficulty": "hard",
+  "prompt": "From the invoice below, extract a JSON object with EXACTLY these keys: vendor_name (string, the party that ISSUED the invoice / seller, NOT the bill-to customer), invoice_number (string), invoice_date (ISO date YYYY-MM-DD), currency (ISO 4217 code, e.g. USD/EUR/GBP), subtotal (number), tax_amount (number, or null if no tax/VAT line is itemized), total_due (number), payment_terms_days (integer number of days, or null if not stated), po_number (string, or null if no purchase-order number is present). Output ONLY the JSON object, no commentary. Copy numbers exactly as printed; do not recompute. Use null wherever the invoice is silent; do NOT substitute a customer reference, account number, or any other identifier for a purchase-order number that is not there.",
+  "inputs": [
+    {
+      "name": "invoice.txt",
+      "content": "BLUE RIDGE SUPPLY CO.\n47 Kiln Road, Sheffield, UK\nINVOICE\n\nBill To: Aperture Labs, 400 Innovation Way, Austin TX, USA\nInvoice #: BRS-2024-00917\nInvoice Date: 14 March 2024\nCustomer Ref: CR-55210\nAccount No: 88123\n\nDescription                        Qty   Unit     Amount\nRecycled A4 paper, case             12   18.50    222.00\nToner cartridge (black)              4   64.00    256.00\nDelivery surcharge                   1   15.00     15.00\n\nSubtotal:            EUR 493.00\nVAT (20%):           EUR  98.60\nTotal Due:           EUR 591.60\n\nPayment terms: Net 30. Please remit within 30 days of the invoice date.\nLate payments subject to 1.5% monthly interest.\nQuestions? billing@blueridge.example"
+    }
+  ],
+  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 1 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "faithfulness"],
+    "guidance": "Gold JSON: {\"vendor_name\":\"Blue Ridge Supply Co.\",\"invoice_number\":\"BRS-2024-00917\",\"invoice_date\":\"2024-03-14\",\"currency\":\"EUR\",\"subtotal\":493.00,\"tax_amount\":98.60,\"total_due\":591.60,\"payment_terms_days\":30,\"po_number\":null}. Two deliberate traps: (1) po_number MUST be null — the invoice shows a 'Customer Ref' (CR-55210) and an 'Account No' (88123) but NO purchase-order number; treating either as po_number is a hallucination. (2) vendor_name is the ISSUER 'Blue Ridge Supply Co.', NOT the bill-to customer 'Aperture Labs'. Also note the currency is EUR (not USD, despite US addresses), the date must be ISO 2024-03-14, and payment_terms_days is 30 (from 'Net 30'). A 10 matches all nine fields with correct types, the exact EUR currency code, tax_amount 98.60, po_number null, and vendor_name = the seller. Heavily penalize po_number set to CR-55210 / 88123 / any non-null value, vendor_name = Aperture Labs, currency USD, a null or recomputed tax_amount, a wrong/missing date, or extra keys and prose outside the JSON.",
+    "calibrationAnchors": [
+      { "answer": "{\"vendor_name\":\"Aperture Labs\",\"invoice_number\":\"88123\",\"invoice_date\":null,\"currency\":\"USD\",\"subtotal\":493,\"tax_amount\":null,\"total_due\":591.6,\"payment_terms_days\":null,\"po_number\":\"CR-55210\"}", "scores": { "correctness": 2, "completeness": 3, "faithfulness": 1 } },
+      { "answer": "{\"vendor_name\":\"Blue Ridge Supply Co.\",\"invoice_number\":\"BRS-2024-00917\",\"invoice_date\":\"2024-03-14\",\"currency\":\"EUR\",\"subtotal\":493.00,\"tax_amount\":98.60,\"total_due\":591.60,\"payment_terms_days\":30,\"po_number\":null}", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10 } }
+    ]
+  }
+}
