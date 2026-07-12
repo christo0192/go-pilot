@@ -37,3 +37,4 @@ metrics/runs/
 # Mem0 build context (sparse clone) + local secrets
 deploy/mem0-src/
 deploy/.env
+.gopilot/

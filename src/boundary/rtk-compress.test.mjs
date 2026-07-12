@@ -23,8 +23,12 @@ test("rtkAvailable: false for a nonexistent binary (no throw)", () => {
 
 test("compressOrFallback: rtk absent -> degrades to truncate stub, long output", async () => {
   // 5000 chars of deterministic output, threshold 800 -> truncated + marker.
-  const cmd = `node -e "process.stdout.write('x'.repeat(5000))"`;
-  const res = await compressOrFallback(cmd, { rtkBin: BOGUS, threshold: 800 });
+  const cmd = "emit-long-output";
+  const res = await compressOrFallback(cmd, {
+    rtkBin: BOGUS,
+    threshold: 800,
+    rawRunner: () => "x".repeat(5000),
+  });
 
   assert.equal(res.source, "truncate-fallback", "used the fallback, not rtk");
   assert.equal(res.tier, "compressed", "long output was compressed");
@@ -34,8 +38,12 @@ test("compressOrFallback: rtk absent -> degrades to truncate stub, long output",
 });
 
 test("compressOrFallback: forceFallback short output passes through as full", async () => {
-  const cmd = `node -e "process.stdout.write('hello world')"`;
-  const res = await compressOrFallback(cmd, { forceFallback: true, threshold: 800 });
+  const cmd = "emit-short-output";
+  const res = await compressOrFallback(cmd, {
+    forceFallback: true,
+    threshold: 800,
+    rawRunner: () => "hello world",
+  });
 
   assert.equal(res.source, "truncate-fallback");
   assert.equal(res.tier, "full", "under threshold -> full passthrough");

@@ -111,7 +111,7 @@ function runRaw(command, { cwd, timeout = 120000 }) {
  * Chain: rtk (if available) -> raw command + guard truncate stub. Never throws.
  *
  * @param {string} command  rtk-proxy-style command, e.g. "git log --stat"
- * @param {{ cwd?: string, threshold?: number, rtkBin?: string, forceFallback?: boolean }} [opts]
+ * @param {{ cwd?: string, threshold?: number, rtkBin?: string, forceFallback?: boolean, rawRunner?: Function }} [opts]
  * @returns {Promise<{ text: string, tier: "compressed"|"full", source: "rtk"|"truncate-fallback", flagged: boolean }>}
  */
 export async function compressOrFallback(command, opts = {}) {
@@ -120,6 +120,7 @@ export async function compressOrFallback(command, opts = {}) {
     threshold = DEFAULT_THRESHOLD,
     rtkBin = "rtk",
     forceFallback = false,
+    rawRunner = runRaw,
   } = opts;
 
   // Tier 1: real rtk compression.
@@ -135,7 +136,7 @@ export async function compressOrFallback(command, opts = {}) {
   }
 
   // Tier 2 (fallback): run raw + reuse the existing guard truncate stub.
-  const raw = runRaw(command, { cwd });
+  const raw = rawRunner(command, { cwd });
   const guarded = guardBoundary({ tier: "full", content: raw }, { threshold });
   return {
     text: guarded.content ?? raw,

@@ -12,9 +12,14 @@
 
 import { runTask } from "../src/coordinator/run.mjs";
 import { validateConfig } from "../src/config/governance.mjs";
+import { createProcessDispatcher } from "../src/dispatch/dispatch.mjs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function parseArgs(argv) {
-  const opts = { profile: "pure-anthropic", dryRun: false, category: undefined, json: false };
+  const opts = { profile: "pure-anthropic", dryRun: false, category: undefined, json: false, mode: undefined, cwd: process.cwd() };
   const rest = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -33,6 +38,12 @@ function parseArgs(argv) {
         break;
       case "--json":
         opts.json = true;
+        break;
+      case "--mode":
+        opts.mode = argv[++i];
+        break;
+      case "--cwd":
+        opts.cwd = resolve(argv[++i]);
         break;
       case "--help":
       case "-h":
@@ -56,12 +67,14 @@ Options:
   -p, --profile <name>   routing profile (pure-anthropic | hybrid | open-first) [default: pure-anthropic]
   -c, --category <cat>   task class (orchestrate|plan|code|analyze|draft|extract|classify|summarize|code-review|lateral)
   -n, --dry-run          print the governed plan without invoking any model
+      --mode <mode>       execution mode override
+      --cwd <path>        repository working directory [default: current directory]
       --json             emit machine-readable JSON
   -h, --help             show this help
 
 Notes:
-  A live (non-dry) run requires the workhorse/frontier dispatcher (Step 8.8).
-  Until then, only --dry-run is supported; live runs fall back to a dry-run plan.`;
+  Live runs execute the resolved Claude, Codex, or Pi adapter. Use --dry-run to inspect
+  routing, budgets, tools, retrieval, cache metadata, and validation policy first.`;
 
 function renderPlan(res) {
   const p = res.plan;
@@ -119,21 +132,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Live dispatch is not wired yet (Step 8.8). Force dry-run and tell the user.
-  let dryRun = opts.dryRun;
-  if (!dryRun) {
-    process.stderr.write(
-      "gopilot: live dispatch requires the workhorse/frontier dispatcher (Step 8.8), " +
-        "which is not configured. Showing the governed DRY-RUN plan instead.\n\n",
-    );
-    dryRun = true;
-  }
-
   let res;
   try {
+    const dispatch = createProcessDispatcher({ root: REPO_ROOT });
     res = await runTask(
       { category: opts.category, prompt },
-      { profile: opts.profile, dryRun },
+      {
+        profile: opts.profile,
+        dryRun: opts.dryRun,
+        mode: opts.mode,
+        cwd: opts.cwd,
+        dispatch,
+        stateDir: resolve(opts.cwd, ".gopilot"),
+        eventLogPath: resolve(opts.cwd, ".gopilot", "events.jsonl"),
+        logPath: resolve(opts.cwd, ".gopilot", "metrics.jsonl"),
+      },
     );
   } catch (err) {
     process.stderr.write(`gopilot: ${err.message}\n`);

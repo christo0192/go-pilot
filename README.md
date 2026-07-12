@@ -9,8 +9,9 @@ Go-pilot is **profile-agnostic** — the architecture is identical whether you r
 fan-out), or `open-first` (open models end-to-end). Only *which model fills which tier*
 changes; it's a config value.
 
-Zero runtime dependencies: the harness is plain **Node.js ESM**, tested with `node --test`
-(172 passing). The only services are two optional local Docker containers (Mem0 + LiteLLM).
+Zero npm runtime dependencies: the harness is plain **Node.js ESM**. Tests are split into
+portable unit, loopback integration, and external live suites. Mem0 and local LiteLLM are
+optional Docker services.
 
 > **Source of truth:** [`PLAN.md`](PLAN.md) tracks the full sprint-by-sprint build and
 > live status. This README is the onboarding front door.
@@ -62,15 +63,20 @@ Full details, idempotency, and uninstall: [`docs/INSTALL.md`](docs/INSTALL.md).
 
 | You want to… | Do this |
 |---|---|
+| Inspect a governed route without running a model | `npm run gopilot -- run --dry-run --category code "task"` |
+| Run a governed live task | `npm run gopilot -- run --category code --cwd /path/to/repo "task"` |
 | Run the Pi workhorse terminal (skills + extensions loaded) | `./scripts/pi-gopilot.sh` |
 | Orchestrate panes (frontier + workhorse) | `herdr server` then `herdr` — see [`panes/herdr-orchestration.md`](panes/herdr-orchestration.md) |
 | Dispatch a lean frontier worker | `scripts/lean-worker.sh` (claude) · `scripts/lean-codex-worker.sh` (codex) |
-| Run the tests | `node --test` → **172 pass** |
+| Run portable tests | `npm run test:unit` |
+| Run loopback integration tests | `npm run test:integration` |
+| Run dependency-backed tests | `npm run test:live` |
 | Verify the workhorse gateway | `node scripts/verify-litellm.mjs` |
 
-The core orchestration loop is `herdr pane run` → `herdr wait output --match <marker>` →
-`herdr pane read` (boomerang-style block-until-output; no polling). The interactive frontier
-pane is `herdr agent start -- claude` / `herdr agent start -- codex`.
+`gopilot run` is the supported policy-enforcing path. It resolves the execution contract,
+route, model, tool profile, scoped rules, retrieval budget, prompt budget, journal, retry and
+circuit-breaker policy, validation contract, memory promotion, usage record, event trace, and
+workspace diff. Herdr remains the pane substrate for interactive and parallel workflows.
 
 ---
 
@@ -118,13 +124,15 @@ research docs/       # BRD, model-strategy docs, sources & decisions
 
 ## Status
 
-Track everything in [`PLAN.md`](PLAN.md) (currently ~94%). Snapshot:
+Track everything in [`PLAN.md`](PLAN.md). Snapshot:
 
 - **Live / proven:** herdr substrate + both frontier CLIs (claude, codex) + write-safety +
   worktree-per-pane (Sprint 1 ✅); router + context tiering incl. `rtk`/CCE (Sprint 3 ✅);
   two-tier memory with **real Mem0** (Sprint 4 ✅); Pi workflow skills (Sprint 5 ✅);
   installers + compose, `install.sh` live-verified idempotent (Sprint 6, 80%); metrics +
-  acceptance harness (Sprint 7 ✅). 172/172 tests, zero deps.
+  acceptance harness (Sprint 7 ✅); governed runtime, live process adapters, retrieval,
+  prompt/cache metadata, execution contracts, durable dispatch, retries, validation,
+  observability, scoped rules, candidate racing, and workspace evidence.
 - **Pending (needs a live provider key or a fresh machine):** the **live Pi workhorse worker**
   through LiteLLM + tool-call reliability *measurement* (Sprint 2 — gateway/config/repair are
   built and tested; the before/after numbers wait on `OPENROUTER_API_KEY`); **per-task-class

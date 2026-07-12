@@ -1,6 +1,6 @@
 # Go-pilot — Implementation Plan (Source of Truth)
 
-**Overall Progress:** `M001 core ~92%` + `Sprint 8 Phase A 7/9 + Phase B core done`  ·  *(S00–S07 build done, 293/293 tests. Sprint 8 folds in the GPT-FINDINGS production review, phased: Phase A adoptable — run coordinator + measurement + cheap hardening — buildable now; Phase B production hardening deferred. See docs/GPT-FINDINGS.md + D33.)*
+**Overall Progress:** `M001 core + governed-runtime build complete; live evidence gates remain`  ·  *(S00–S09 foundations plus the first competitor-performance build pass. Supported `gopilot run` now wires process dispatch, contracts, retrieval, full-prompt budgets, modes, mandatory validation, durable dispatch, retry/breaker, events, scoped rules, workspace evidence, and benchmark foundations. Provider verification, benchmark campaign, cross-platform acceptance, security review, and pilot remain.)*
 
 > **How to use this file.** This is the single authoritative build plan. Build **sprint
 > by sprint, top to bottom**. Do not start a step until its `Depends on` steps are Done.

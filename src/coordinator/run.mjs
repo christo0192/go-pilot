@@ -1,317 +1,264 @@
-// Run coordinator — the SINGLE enforced execution path (PLAN Step 8.1).
-//
-// GPT-FINDINGS P0 #1 / decision D33: every primitive exists as a tested library,
-// but nothing COMPOSES and ENFORCES them, so a real run could bypass
-// routing / boundary / validation / memory / metrics. This module is that
-// composition. It is the ONLY supported way to run a task; every module it calls
-// is an internal library. There is no bypass — each lifecycle stage is reached
-// in order, and the returned verdict is the evidence that it was.
-//
-// Dispatch is an INJECTED interface: `opts.dispatch({plane, model, tools, prompt,
-// category}) -> { result, usage }`. The real herdr / claude / pi dispatchers land
-// in Step 8.8; tests inject a fake. Nothing in this module (or its imports) binds
-// a socket or calls a network at import time — the only I/O is bounded config
-// reads (router.json, tool-profiles.json, the YAGNI fragment) and, when a
-// `logPath` is given, a metrics append.
-//
-// Lifecycle owned here, IN ORDER:
-//   1. load + validate profile/config      (profile required; unknown -> Error)
-//   2. classify / accept task class         (missing category -> judgment path)
-//   3. per-class sign-off gate              (not signed off -> FORCE single-agent, D17)
-//   4. route -> plane + model               (or costed judgment path)
-//   5. tool profile -> worker tool set
-//   6. recall (optional adapter)            -> bounded context injection (+YAGNI)
-//   7. boundary                             -> nothing full-content crosses unjustified
-//   8. DISPATCH (injected)                  -> { result, usage }   (skipped on dryRun)
-//   9. validate result                      -> mustPass(result, checks)
-//  10. promote validated keeper             -> Tier-2
-//  11. metrics / verdict                    -> recordRun + structured verdict
-
+import { randomUUID } from "node:crypto";
+import { appendFileSync, mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, resolve } from "node:path";
 import { route, loadConfig } from "../router/router.mjs";
 import { piToolArgs, loadToolProfiles } from "../router/tool-profiles.mjs";
 import { guardBoundary } from "../boundary/guard.mjs";
 import { resolveModel } from "../config/governance.mjs";
-import { mustPass } from "../memory/gate.mjs";
+import { mustPass, noPlaceholders } from "../memory/gate.mjs";
 import { promote } from "../memory/promotion.mjs";
 import { recall } from "../memory/recall.mjs";
 import { withYagni } from "../prompts/fragment.mjs";
+import { buildPrompt } from "../prompts/builder.mjs";
 import { signoff } from "../metrics/signoff.mjs";
 import { validateRecord, computeRun, recordRun } from "../metrics/metrics.mjs";
+import { resolveContract } from "../runtime/contracts.mjs";
+import { retrieveContext } from "../context/retrieve.mjs";
+import { createJournal } from "../reliability/journal.mjs";
+import { createCircuitBreaker, withRetry } from "../reliability/retry.mjs";
+import { createEventLog } from "../observability/events.mjs";
+import { discoverInstructions } from "../instructions/rules.mjs";
+import { captureWorkspace, workspaceDelta } from "../runtime/workspace.mjs";
 
-function isFiniteNumber(v) {
-  return typeof v === "number" && Number.isFinite(v);
+// Process-global by design: a circuit breaker must persist across runs to trip.
+// The registry is injectable (opts.breakers) so tests get isolation instead of
+// order-dependent shared state.
+const globalBreakers = new Map();
+
+function breakerFor(registry, key, opts = {}) {
+  if (!registry.has(key)) registry.set(key, createCircuitBreaker(opts));
+  return registry.get(key);
 }
 
-// --- usage normalization ------------------------------------------------------
-// The dispatcher reports `usage`. We turn it into a metrics record WITHOUT
-// fabricating token counts: if usage carries no usable token data the record is
-// left un-buildable (metrics stays null) rather than invented.
-
-function normalizeTokens(usage) {
-  const t = usage.tokens;
-  if (t && typeof t === "object" && isFiniteNumber(t.single) && isFiniteNumber(t.multi)) {
-    return { single: t.single, multi: t.multi };
-  }
-  if (isFiniteNumber(t)) {
-    // A single total: single == multi (a governed single-agent run is its own
-    // baseline). Explicit usage.baseline overrides the single side if present.
-    const single = isFiniteNumber(usage.baseline) ? usage.baseline : t;
-    return { single, multi: t };
-  }
-  return null; // no usable token data — do not fabricate
+function resultText(result) {
+  if (typeof result === "string") return result;
+  if (result && typeof result.text === "string") return result.text;
+  return JSON.stringify(result ?? "");
 }
 
-function normalizeQuality(usage) {
-  const q = usage.quality;
-  if (q && typeof q === "object" && isFiniteNumber(q.single) && isFiniteNumber(q.multi)) {
-    return { single: q.single, multi: q.multi };
-  }
-  return { single: 1, multi: 1 }; // neutral, valid default (single > 0 required)
+function defaultChecks(names) {
+  return names.map((name) => {
+    if (name === "non-empty") return { name, run: (result) => resultText(result).trim().length > 0 };
+    if (name === "no-placeholders") return noPlaceholders();
+    throw new Error(`unknown required validation check "${name}"`);
+  });
 }
 
-function normalizeRetries(usage) {
-  const r = usage.retries;
-  if (r && typeof r === "object" && Number.isInteger(r.count) && Number.isInteger(r.attempts)) {
-    return { count: r.count, attempts: r.attempts };
+function normalizeUsage(usage = {}) {
+  const raw = usage.tokens;
+  if (raw && typeof raw === "object" && Number.isFinite(raw.single) && Number.isFinite(raw.multi)) {
+    return { comparison: { single: raw.single, multi: raw.multi }, detail: raw };
   }
-  return { count: 0, attempts: 1 };
+  const total = typeof raw === "number" ? raw : Number.isFinite(raw?.total) ? raw.total : null;
+  const baseline = Number.isFinite(usage.baseline) ? usage.baseline : null;
+  return { comparison: total != null && baseline != null ? { single: baseline, multi: total } : null, detail: raw || {} };
 }
 
-/**
- * Build a metrics record from actual usage, or return null if token data is
- * missing (never fabricate). Router overhead stays its own line item.
- */
-function buildMetricsRecord({ runId, taskClass, usage, routerOverheadTokens }) {
-  const u = usage && typeof usage === "object" ? usage : {};
-  const tokens = normalizeTokens(u);
-  if (!tokens) return null;
+function metricsRecord({ runId, category, usage, routerOverheadTokens }) {
+  const normalized = normalizeUsage(usage);
+  if (!normalized.comparison || !usage.quality || !Number.isFinite(usage.quality.single) || !Number.isFinite(usage.quality.multi)) return null;
   return {
     runId,
-    taskClass,
-    tokens,
-    quality: normalizeQuality(u),
-    retries: normalizeRetries(u),
+    taskClass: category,
+    tokens: normalized.comparison,
+    quality: usage.quality,
+    retries: usage.retries || { count: 0, attempts: 1 },
     routerOverheadTokens,
   };
 }
 
-/** Derive the candidate memory to (maybe) promote from the dispatch result. */
-function memoryFromResult(result, task) {
-  if (task.memory && typeof task.memory === "object") return task.memory;
-  const text =
-    result && typeof result.text === "string"
-      ? result.text
-      : typeof result === "string"
-        ? result
-        : JSON.stringify(result);
-  const memory = { text };
-  if (typeof task.kind === "string") memory.kind = task.kind;
-  if (Array.isArray(task.tags)) memory.tags = task.tags;
-  return memory;
+function eventSink(path) {
+  if (!path) return undefined;
+  mkdirSync(dirname(path), { recursive: true });
+  return (record) => {
+    appendFileSync(path, JSON.stringify(record) + "\n", "utf8");
+  };
 }
 
-/**
- * Run a task through the full, enforced coordinator lifecycle.
- *
- * @param {{ id?: string, category?: string, prompt?: string, checks?: Array<{name:string,run:Function}>, context?: any, memory?: object, kind?: string, tags?: string[] }} task
- * @param {{
- *   profile: string,
- *   dispatch?: (args: {plane:string,model:string,tools:string[],prompt:string,category:string}) => ({result:any,usage:any}) | Promise<{result:any,usage:any}>,
- *   adapter?: {add:Function, search:Function},
- *   dryRun?: boolean,
- *   signoffRecords?: object | Array<{class:string,records:object[]}>,
- *   targets?: {tokenReductionPct?:number, qualityDropPct?:number},
- *   logPath?: string,
- *   metrics?: (record: object, opts?: object) => object,
- *   boundaryThreshold?: number,
- *   recall?: {topK?: number, maxTokens?: number},
- * }} opts
- * @returns {Promise<{
- *   plan: {profile:string, category:(string|null), plane:(string|null), model:(string|null), tools:string[], contextTier:string, signedOff:boolean, execution:string, downgraded:boolean, needsJudgment:boolean},
- *   dispatched: boolean,
- *   validated: boolean,
- *   promoted: boolean,
- *   verdict: "ok"|"failed"|"dry-run",
- *   metrics: (object|null),
- *   failures: Array<{name:string, detail?:string}>,
- *   result?: any,
- *   boundary: {tier:string, flagged:boolean, reason:string},
- *   recall?: {used: object[], tokens: number},
- * }>}
- */
 export async function runTask(task = {}, opts = {}) {
-  // --- 1. load + validate profile / config -----------------------------------
-  const { profile } = opts;
-  if (!profile || typeof profile !== "string") {
-    throw new Error(
-      "runTask: opts.profile is required (e.g. 'pure-anthropic' | 'hybrid' | 'open-first')",
-    );
-  }
-  // Loads the profile mapping; throws a clear Error on an unknown profile.
-  const mapping = loadConfig(profile);
-  const toolProfiles = loadToolProfiles();
-
-  const dryRun = opts.dryRun === true;
-
-  // --- 2. classify / accept task class ---------------------------------------
+  const profile = opts.profile;
+  if (!profile || typeof profile !== "string") throw new Error("runTask: opts.profile is required");
   const category = typeof task.category === "string" ? task.category : undefined;
-  const runId = task.id || `run-${category ?? "unclassified"}`;
+  const runId = task.id || `run-${randomUUID()}`;
+  const mapping = loadConfig(profile, opts);
+  const toolProfiles = loadToolProfiles(opts.toolProfilesPath ? { configPath: opts.toolProfilesPath } : undefined);
+  const contract = resolveContract(category, { path: opts.contractPath, override: opts.contract });
+  const events = opts.events || createEventLog({ sink: eventSink(opts.eventLogPath) });
+  events.emit({ runId, kind: "run.started", profile, category, mode: contract.mode });
 
-  // --- 3. per-class sign-off gate (D17 safe default) -------------------------
-  // A class is signed off for multi-agent ONLY when its live metrics meet the
-  // acceptance targets. No data / not signed off -> revert to the proven
-  // single-agent baseline. We represent the run mode as `execution` and record
-  // the downgrade explicitly.
   const signResult = signoff(opts.signoffRecords ?? {}, opts.targets ?? {});
   const signedOff = category != null && signResult.signedOff.includes(category);
-  const execution = signedOff ? "multi-agent" : "single-agent";
-  const downgraded = !signedOff;
+  const requestedMode = opts.mode || contract.mode;
+  const execution = requestedMode === "multi-agent" && !signedOff ? "single-agent" : requestedMode;
+  const downgraded = execution !== requestedMode || !signedOff;
 
-  // --- 4. route -> plane + model (or costed judgment) ------------------------
-  const decision = route(task, { profile, config: mapping });
-  const needsJudgment = decision.deterministic !== true;
-  const plane = needsJudgment ? null : decision.plane;
-  const model = needsJudgment ? null : decision.model;
-  // Router overhead is its OWN summable line item — NEVER netted against savings.
-  const routerOverheadTokens =
-    needsJudgment && decision.judgmentCost ? decision.judgmentCost.estimatedTokens ?? 0 : 0;
-
-  // --- 5. tool profile -> worker tool set ------------------------------------
+  let decision = route(task, { profile, config: mapping });
+  let needsJudgment = decision.deterministic !== true;
+  if (decision.deterministic !== true) {
+    if (typeof opts.judgeRoute !== "function") throw new Error("ambiguous task requires opts.judgeRoute; refusing null dispatch");
+    decision = await opts.judgeRoute(task, { profile, mapping, contract });
+    needsJudgment = true;
+  }
+  if (!decision?.plane || !decision?.model) throw new Error("routing did not resolve plane and model");
+  const resolved = resolveModel(decision.model, { registryPath: opts.registryPath });
+  if (resolved.plane !== decision.plane) throw new Error(`resolved model plane mismatch for ${decision.model}`);
   const tools = piToolArgs(category, { profiles: toolProfiles });
+  const discoveredRules = opts.rules === false ? { text: "", files: [], tokens: 0 } :
+    discoverInstructions(opts.cwd || process.cwd(), { root: opts.rulesRoot || opts.cwd || process.cwd() });
 
-  // --- 6. recall (optional; skipped on dry-run to avoid I/O) -----------------
-  let recallResult = { text: "", used: [], tokens: 0 };
-  if (!dryRun && opts.adapter) {
-    recallResult = await recall(opts.adapter, task.context ?? task.prompt, opts.recall ?? {});
+  let memoryContext = { text: "", used: [], tokens: 0 };
+  if (!opts.dryRun && opts.adapter) memoryContext = await recall(opts.adapter, task.context ?? task.prompt, opts.recall ?? {});
+  const retrieval = opts.retrieve === false ? { text: "", files: [], tokens: 0 } :
+    await Promise.resolve((opts.retriever || retrieveContext)(task.prompt || "", {
+      cwd: opts.cwd,
+      maxFiles: contract.maxRetrievalFiles,
+      maxTokens: contract.maxRetrievalTokens,
+    }));
+  const context = [memoryContext.text, retrieval.text, typeof task.context === "string" ? task.context : ""].filter(Boolean).join("\n\n");
+  const promptBase = buildPrompt({
+    policy: withYagni(""),
+    rules: typeof opts.rules === "string" ? opts.rules : discoveredRules.text,
+    toolSummary: tools.join(" "),
+    task: task.prompt || "",
+  });
+  const inputBudget = Math.min(contract.maxInputTokens, opts.boundaryThreshold ?? contract.maxInputTokens);
+  if (promptBase.tokens > inputBudget) throw new Error(`task and stable instructions exceed input budget (${promptBase.tokens} > ${inputBudget})`);
+  let contextBudget = Math.max(0, inputBudget - promptBase.tokens - 12);
+  let contextBoundary;
+  let prompt;
+  for (;;) {
+    contextBoundary = guardBoundary({ tier: "full", content: context }, { threshold: contextBudget });
+    const safeContext = contextBoundary.content || (contextBoundary.ref ? `Context artifact: ${contextBoundary.ref}` : "");
+    prompt = buildPrompt({
+      policy: withYagni(""), rules: typeof opts.rules === "string" ? opts.rules : discoveredRules.text, toolSummary: tools.join(" "), context: safeContext, task: task.prompt || "",
+    });
+    if (prompt.tokens <= inputBudget || contextBudget === 0) break;
+    contextBudget = Math.max(0, contextBudget - (prompt.tokens - inputBudget) - 8);
   }
-
-  // --- 7. boundary: nothing full-content crosses unjustified -----------------
-  // The content crossing the pane boundary is the injected recall context (or,
-  // absent recall, a string `task.context`). Guarded WITHOUT blanket
-  // justification so oversized, unjustified content is flagged/downgraded — the
-  // whole point of the invariant.
-  const crossingContent =
-    recallResult.text ||
-    (typeof task.context === "string" ? task.context : "");
-  const boundary = guardBoundary(
-    { tier: "full", content: crossingContent },
-    opts.boundaryThreshold != null ? { threshold: opts.boundaryThreshold } : {},
-  );
-  const contextTier = boundary.tier;
-  // Respect the guard's decision on what may cross (possibly truncated content).
-  const safeInjection = typeof boundary.content === "string" ? boundary.content : "";
-
-  // Composed worker prompt: bounded recall context + YAGNI fragment + task prompt.
-  const workerBody = withYagni(task.prompt ?? "");
-  const composedPrompt = safeInjection
-    ? `${safeInjection}\n\n${workerBody}`
-    : workerBody;
-
-  // Record the RESOLVED provider + pinned version for this run (Step 8.13
-  // follow-on) so a run is traceable to the exact model behind an alias. Best
-  // effort: registry drift must not crash a run — `gopilot config doctor` is
-  // the hard gate — so an unresolvable/inactive alias degrades to nulls here.
-  let provider = null;
-  let version = null;
-  if (!needsJudgment && model) {
-    try {
-      const resolved = resolveModel(model, { registryPath: opts.registryPath });
-      provider = resolved.provider;
-      version = resolved.version;
-    } catch {
-      provider = null;
-      version = null;
-    }
-  }
+  if (prompt.tokens > inputBudget) throw new Error(`composed prompt exceeds input budget (${prompt.tokens} > ${inputBudget})`);
+  const boundary = { ...contextBoundary, promptTokens: prompt.tokens, inputBudget };
+  const safePrompt = prompt.text;
 
   const plan = {
-    profile,
-    category: category ?? null,
-    plane,
-    model,
-    provider,
-    version,
-    tools,
-    contextTier,
-    signedOff,
-    execution,
-    downgraded,
-    needsJudgment,
+    runId, profile, category: category ?? null, plane: decision.plane, model: decision.model,
+    provider: resolved.provider, version: resolved.version, tools, execution,
+    requestedMode, signedOff, downgraded, contextTier: boundary.tier, contract,
+    retrieval: { files: retrieval.files?.map((f) => f.file) || [], tokens: retrieval.tokens || 0 },
+    cache: prompt.cache, needsJudgment,
+    rules: { files: discoveredRules.files.map((file) => file.path), tokens: discoveredRules.tokens },
   };
+  events.emit({ runId, kind: "run.planned", profile, category, model: decision.model, provider: resolved.provider, mode: execution, tokens: prompt.tokens });
 
-  // --- Dry-run: return the plan, invoke NO model, do NO dispatch -------------
-  if (dryRun) {
-    return {
-      plan,
-      dispatched: false,
-      validated: false,
-      promoted: false,
-      verdict: "dry-run",
-      metrics: null,
-      failures: [],
-      boundary: { tier: boundary.tier, flagged: boundary.flagged, reason: boundary.reason },
-      recall: { used: recallResult.used, tokens: recallResult.tokens },
-    };
+  if (opts.dryRun) return {
+    plan, dispatched: false, validated: false, promoted: false, verdict: "dry-run", metrics: null,
+    failures: [], boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),
+  };
+  if (execution === "retrieval-only") return {
+    plan, dispatched: false, validated: true, promoted: false, verdict: "ok", metrics: null,
+    failures: [], result: retrieval, boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),
+  };
+  if (typeof opts.dispatch !== "function") throw new Error("runTask: opts.dispatch is required for a live run");
+
+  // Workspace capture shells out to `git diff --binary`; on a large/dirty repo
+  // that is a real per-run cost. On by default (checkpoint evidence), opt out
+  // with captureWorkspace:false.
+  const captureEnabled = opts.captureWorkspace !== false;
+  const workspaceBefore = captureEnabled ? captureWorkspace(opts.cwd || process.cwd()) : { git: false };
+  const stateDir = opts.stateDir || mkdtempSync(resolve(tmpdir(), "gopilot-run-"));
+  const journalPath = opts.journalPath || resolve(stateDir, "journal.jsonl");
+  mkdirSync(dirname(journalPath), { recursive: true });
+  const journal = opts.journal || createJournal(journalPath);
+  // Durable runs (caller-pinned journal/stateDir + a stable task.id) reconcile
+  // any work left in-flight by a prior crash. With the ephemeral defaults
+  // (random runId + temp dir) there is nothing to reconcile.
+  if (opts.journal || opts.stateDir || opts.journalPath) {
+    const inflight = journal.reconcile();
+    if (inflight.length) events.emit({ runId, kind: "run.reconcile", inflight });
   }
-
-  // --- 8. DISPATCH via the injected interface --------------------------------
-  if (typeof opts.dispatch !== "function") {
-    throw new Error(
-      "runTask: opts.dispatch is required for a live run. Pass dryRun:true for a plan-only run, " +
-        "or inject a dispatcher ({plane,model,tools,prompt,category}) => {result,usage}.",
-    );
+  const breakerRegistry = opts.breakers || globalBreakers;
+  const breaker = opts.breaker || breakerFor(breakerRegistry, `${decision.plane}/${decision.model}`, opts.breakerOptions);
+  const started = Date.now();
+  const checks = [...defaultChecks(contract.requiredChecks), ...(Array.isArray(task.checks) ? task.checks : [])];
+  const executeAttempt = (key, attemptPrompt, role) => journal.dispatchOnce(key, () => breaker.run(() => withRetry(
+    () => opts.dispatch({
+      runId, plane: decision.plane, model: decision.model, tools, prompt: attemptPrompt,
+      category, mode: execution, role, contract, cwd: opts.cwd,
+    }),
+    { retries: contract.maxRetries, signal: opts.signal, shouldRetry: opts.shouldRetry || (() => true) },
+  )));
+  let dispatched;
+  try {
+    if (execution === "plan-only") {
+      dispatched = await executeAttempt(`${runId}:plan:0`, `${safePrompt}\n\nReturn an implementation plan only. Do not edit files.`, "planner");
+    } else if (execution === "plan-then-execute") {
+      const planned = await executeAttempt(`${runId}:plan:0`, `${safePrompt}\n\nCreate a precise implementation plan. Do not edit files yet.`, "planner");
+      dispatched = await executeAttempt(
+        `${runId}:execute:0`,
+        `${safePrompt}\n\n## approved-plan\n${resultText(planned.result)}\n\nExecute this plan and validate the result.`,
+        "executor",
+      );
+    } else if (execution === "multi-agent" || execution === "candidate-race") {
+      // allSettled, NOT all: one candidate erroring must not abort a run that
+      // has a passing sibling — surviving a single failure is the entire point
+      // of the redundancy. Fail closed only if EVERY candidate errored.
+      const settled = await Promise.allSettled([
+        executeAttempt(`${runId}:candidate:0`, `${safePrompt}\n\nSolve independently. Prefer the smallest verified change.`, "candidate"),
+        executeAttempt(`${runId}:candidate:1`, `${safePrompt}\n\nSolve independently. Explore edge cases and verify carefully.`, "candidate"),
+      ]);
+      const fulfilled = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+      if (fulfilled.length === 0) throw settled.find((s) => s.status === "rejected").reason;
+      const evaluated = fulfilled.map((candidate) => ({ candidate, gate: mustPass(candidate.result, checks) }));
+      const passing = evaluated.filter((item) => item.gate.passed);
+      if (passing.length === 0) dispatched = fulfilled[0];
+      else dispatched = passing.sort((a, b) => {
+        const ta = normalizeUsage(a.candidate.usage).detail?.total ?? Number.MAX_SAFE_INTEGER;
+        const tb = normalizeUsage(b.candidate.usage).detail?.total ?? Number.MAX_SAFE_INTEGER;
+        return ta - tb;
+      })[0].candidate;
+    } else {
+      dispatched = await executeAttempt(`${runId}:dispatch:0`, safePrompt, "executor");
+    }
+  } catch (error) {
+    events.emit({ runId, kind: "dispatch.failed", ok: false, error: error.message, latencyMs: Date.now() - started, model: decision.model, provider: resolved.provider });
+    throw error;
   }
-  const { result, usage } = await opts.dispatch({
-    plane,
-    model,
-    tools,
-    prompt: composedPrompt,
-    category,
-  });
+  const { result, usage = {} } = dispatched || {};
+  const workspace = captureEnabled
+    ? workspaceDelta(workspaceBefore, captureWorkspace(opts.cwd || process.cwd()))
+    : { available: false, changed: false, diff: "", status: "" };
+  // When a contract requires a usage report (real providers do), a missing
+  // output-token count is a fail-closed refusal — otherwise the output budget is
+  // silently unenforced. Synthetic-usage callers leave requireUsageReport unset.
+  if (contract.requireUsageReport && !Number.isFinite(usage.tokens?.output)) {
+    throw new Error("dispatcher did not report output tokens; cannot enforce output budget (fail-closed)");
+  }
+  const outputTokens = Number.isFinite(usage.tokens?.output) ? usage.tokens.output : null;
+  if (outputTokens != null && outputTokens > contract.maxOutputTokens) {
+    throw new Error(`dispatcher exceeded output token budget (${outputTokens} > ${contract.maxOutputTokens})`);
+  }
+  if (Number.isFinite(usage.toolCalls) && usage.toolCalls > contract.maxToolCalls) {
+    throw new Error(`dispatcher exceeded tool-call budget (${usage.toolCalls} > ${contract.maxToolCalls})`);
+  }
+  events.emit({ runId, kind: "dispatch.completed", ok: true, latencyMs: Date.now() - started, model: decision.model, provider: resolved.provider, tokens: normalizeUsage(usage).detail?.total || 0, costUsd: usage.costUsd || 0, retries: usage.retries?.count || 0 });
 
-  // --- 9. validate result ----------------------------------------------------
-  // On failure the FULL result propagates untouched (never summarized) and is
-  // NOT promoted.
-  const checks = Array.isArray(task.checks) ? task.checks : [];
   const gate = mustPass(result, checks);
-  const validated = gate.passed;
-
-  // --- 10. promote validated keeper into Tier-2 ------------------------------
   let promoted = false;
-  if (validated && opts.adapter) {
-    const memory = memoryFromResult(result, task);
+  if (gate.passed && opts.adapter) {
+    const memory = task.memory || { text: resultText(result), kind: task.kind, tags: task.tags };
     const report = await promote([{ memory, checks }], opts.adapter);
     promoted = report.promoted.length > 0;
   }
-
-  // --- 11. metrics / verdict -------------------------------------------------
-  const record = buildMetricsRecord({
-    runId,
-    taskClass: category,
-    usage,
-    routerOverheadTokens,
-  });
+  const record = metricsRecord({ runId, category, usage, routerOverheadTokens: usage.routerOverheadTokens || 0 });
   let metrics = null;
   if (record && validateRecord(record).valid) {
-    if (typeof opts.metrics === "function") {
-      metrics = opts.metrics(record, { logPath: opts.logPath });
-    } else if (opts.logPath) {
-      metrics = recordRun(record, { logPath: opts.logPath });
-    } else {
-      metrics = computeRun(record);
-    }
+    metrics = typeof opts.metrics === "function" ? opts.metrics(record, { logPath: opts.logPath }) :
+      opts.logPath ? recordRun(record, { logPath: opts.logPath }) : computeRun(record);
   }
-
+  const verdict = gate.passed ? "ok" : "failed";
+  events.emit({ runId, kind: "run.completed", ok: gate.passed, profile, category, model: decision.model, provider: resolved.provider, mode: execution });
   return {
-    plan,
-    dispatched: true,
-    validated,
-    promoted,
-    verdict: validated ? "ok" : "failed",
-    metrics,
-    failures: gate.failures,
-    result,
-    boundary: { tier: boundary.tier, flagged: boundary.flagged, reason: boundary.reason },
-    recall: { used: recallResult.used, tokens: recallResult.tokens },
+    plan, dispatched: true, validated: gate.passed, promoted, verdict, metrics, failures: gate.failures,
+    result, usage, workspace, boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),
   };
 }

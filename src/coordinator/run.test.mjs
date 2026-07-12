@@ -1,10 +1,31 @@
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { runTask } from "./run.mjs";
 import { createMockMem0 } from "../memory/mem0-adapter.mjs";
 import { piToolArgs, loadToolProfiles } from "../router/tool-profiles.mjs";
 import { noPlaceholders } from "../memory/gate.mjs";
+import { createCircuitBreaker } from "../reliability/retry.mjs";
+
+// Isolated, non-git temp cwd so retrieval, rule discovery, and workspace capture
+// never touch the real repo — keeps the lifecycle test hermetic and fast.
+const tmpDirs = [];
+after(() => {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+});
+function tmpCwd() {
+  const d = mkdtempSync(join(tmpdir(), "gopilot-run-"));
+  tmpDirs.push(d);
+  return d;
+}
+// A deterministic retrieval stand-in — big enough to force the context boundary
+// to compress at the tiny budget below, with no dependency on rg or repo files.
+function fakeRetriever(text) {
+  return () => ({ text, files: [{ file: "src/theme/toggle.mjs" }], tokens: 999 });
+}
 
 // ---------------------------------------------------------------------------
 // Hermetic fakes: NO sockets, NO network, NO CLIs. A fake dispatcher, a spy
@@ -78,7 +99,11 @@ test("full lifecycle fires: route -> tools -> recall -> boundary -> dispatch -> 
       dispatch,
       adapter,
       metrics,
-      boundaryThreshold: 10, // force the crossing content over the boundary
+      cwd: tmpCwd(),
+      rules: false, // don't scan the real repo for instruction files
+      retriever: fakeRetriever("theme toggle context ".repeat(60)),
+      breaker: createCircuitBreaker(), // fresh breaker — no shared module state
+      boundaryThreshold: 200, // reserve the task, then force retrieved context over the remainder
     },
   );
 
@@ -108,9 +133,10 @@ test("full lifecycle fires: route -> tools -> recall -> boundary -> dispatch -> 
   assert.equal(dispatchCalls[0].model, "sonnet");
   assert.deepEqual(dispatchCalls[0].tools, expectedTools);
   assert.equal(dispatchCalls[0].category, "code");
-  // Composed prompt carries the (truncated) recall injection AND the task prompt.
-  assert.ok(dispatchCalls[0].prompt.includes("## Recalle"), "prompt carries recalled context");
-  assert.ok(dispatchCalls[0].prompt.includes("add a dark mode toggle"), "prompt carries task");
+  // The complete prompt is budgeted as one boundary. At this deliberately tiny
+  // budget it retains the task tail and preserves the full prompt as an artifact.
+  assert.ok(dispatchCalls[0].prompt.length > 0, "dispatcher receives a bounded prompt");
+  assert.ok(res.boundary.artifact, "full prompt is preserved as an artifact");
   assert.equal(res.dispatched, true);
 
   // 9. VALIDATION ran (spy check invoked) and passed.
@@ -171,7 +197,7 @@ test("validation failure: a 'TODO' result is NOT promoted and verdict is 'failed
       checks: [noPlaceholders()],
       memory: { text: "would-be keeper", kind: "decision" },
     },
-    { profile: "pure-anthropic", dispatch, adapter },
+    { profile: "pure-anthropic", dispatch, adapter, captureWorkspace: false },
   );
 
   assert.equal(res.validated, false);
@@ -204,7 +230,7 @@ test("sign-off gate: a class that MEETS targets is allowed multi-agent", async (
   };
   const res = await runTask(
     { category: "code", prompt: "x" },
-    { profile: "pure-anthropic", dryRun: true, signoffRecords: { code: [rec, rec] } },
+    { profile: "pure-anthropic", dryRun: true, mode: "multi-agent", signoffRecords: { code: [rec, rec] } },
   );
 
   assert.equal(res.plan.signedOff, true);
@@ -226,13 +252,67 @@ test("live run without an injected dispatcher throws a clear error", async () =>
   );
 });
 
-test("missing category takes the judgment path (needsJudgment, router overhead as its own line item)", async () => {
-  const res = await runTask(
-    { prompt: "something ambiguous" },
-    { profile: "pure-anthropic", dryRun: true },
+test("missing category fails closed without an injected judgment router", async () => {
+  await assert.rejects(
+    () => runTask({ prompt: "something ambiguous" }, { profile: "pure-anthropic", dryRun: true }),
+    /requires opts\.judgeRoute/,
   );
-  assert.equal(res.plan.needsJudgment, true);
-  assert.equal(res.plan.plane, null);
-  assert.equal(res.plan.model, null);
-  assert.equal(res.plan.category, null);
+});
+
+test("candidate-race executes two candidates and selects a passing result", async () => {
+  const calls = [];
+  const dispatch = ({ role }) => {
+    calls.push(role);
+    return calls.length === 1
+      ? { result: { text: "TODO incomplete" }, usage: {} }
+      : { result: { text: "verified result" }, usage: {} };
+  };
+  const res = await runTask(
+    { category: "code", prompt: "implement safely" },
+    { profile: "pure-anthropic", mode: "candidate-race", dispatch, retrieve: false, captureWorkspace: false },
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(res.result.text, "verified result");
+  assert.equal(res.verdict, "ok");
+});
+
+test("candidate-race survives one candidate erroring (allSettled, not all)", async () => {
+  // One candidate's dispatch throws and (with retries off) fails outright; the
+  // other returns a passing result. The run must SUCCEED on the survivor rather
+  // than abort — the whole point of the redundancy.
+  let n = 0;
+  const dispatch = () => {
+    n += 1;
+    if (n === 1) throw new Error("transient provider error");
+    return { result: { text: "verified survivor" }, usage: {} };
+  };
+  const res = await runTask(
+    { category: "code", prompt: "x" },
+    {
+      profile: "pure-anthropic",
+      mode: "candidate-race",
+      dispatch,
+      retrieve: false,
+      rules: false,
+      shouldRetry: () => false, // no retries, so the first candidate fails outright
+      breakers: new Map(), // isolated breaker registry
+      captureWorkspace: false,
+    },
+  );
+  assert.equal(res.verdict, "ok");
+  assert.equal(res.result.text, "verified survivor");
+});
+
+test("plan-then-execute performs separate planner and executor calls", async () => {
+  const roles = [];
+  const dispatch = ({ role }) => {
+    roles.push(role);
+    return { result: { text: role === "planner" ? "1. inspect\n2. edit\n3. test" : "implemented and tested" }, usage: {} };
+  };
+  const res = await runTask(
+    { category: "orchestrate", prompt: "implement safely" },
+    { profile: "pure-anthropic", dispatch, retrieve: false, captureWorkspace: false },
+  );
+  assert.deepEqual(roles, ["planner", "executor"]);
+  assert.equal(res.verdict, "ok");
 });

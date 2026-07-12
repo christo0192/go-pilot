@@ -10,4 +10,7 @@ set -euo pipefail
 PROMPT="${1:?prompt required}"; MODEL="${2:-}"
 ARGS=(exec --json --skip-git-repo-check --sandbox read-only --ignore-user-config)
 [ -n "$MODEL" ] && ARGS+=(-m "$MODEL")
-exec codex "${ARGS[@]}" "$PROMPT" </dev/null
+# `--` ends option parsing: a prompt that starts with `-` (e.g. an attacker-
+# crafted task saying "--sandbox danger-full-access") is treated as the
+# positional prompt, NOT as flags that could widen the read-only sandbox.
+exec codex "${ARGS[@]}" -- "$PROMPT" </dev/null
