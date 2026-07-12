@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   inputsText, naivePrompt, runKey, hashSeed, armOrderFor, buildRunPlan, pendingRuns,
+  repairPrompt, mergeUsage,
 } from "./campaign.mjs";
 
 test("naivePrompt concatenates prompt + inputs verbatim", () => {
@@ -49,6 +50,25 @@ test("buildRunPlan is fully reproducible for a fixed seed", () => {
   const p1 = buildRunPlan(fixtures, { trials: 2, seed: 7 }).map((r) => runKey(r.fixtureId, r.trial, r.arm));
   const p2 = buildRunPlan(fixtures, { trials: 2, seed: 7 }).map((r) => runKey(r.fixtureId, r.trial, r.arm));
   assert.deepEqual(p1, p2);
+});
+
+test("repairPrompt restates the task and demands a direct complete answer", () => {
+  const fx = { prompt: "Do X", inputs: [] };
+  const p = repairPrompt(fx);
+  assert.match(p, /Do X/);
+  assert.match(p, /empty, truncated, or timed out/);
+  assert.match(p, /COMPLETE final answer/);
+});
+
+test("mergeUsage sums tokens and cost so a repair attempt is counted", () => {
+  const a = { tokens: { input: 10, output: 20, total: 30 }, costUsd: 0.001, latencyMs: 100, finishReason: "length" };
+  const b = { tokens: { input: 5, output: 40, total: 45 }, costUsd: 0.002, latencyMs: 200, finishReason: "stop", provider: "ikey-gateway" };
+  const m = mergeUsage(a, b);
+  assert.equal(m.tokens.total, 75);
+  assert.equal(m.tokens.output, 60);
+  assert.ok(Math.abs(m.costUsd - 0.003) < 1e-9);
+  assert.equal(m.latencyMs, 300);
+  assert.equal(m.finishReason, "stop"); // repair result's finish reason wins
 });
 
 test("pendingRuns removes completed keys (resume)", () => {

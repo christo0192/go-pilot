@@ -23,7 +23,7 @@ export function loadFixtures(dir = TASKS_DIR) {
 }
 
 /** Validate every fixture's schema + routing. Returns {ok, errors, hash, byArea}. */
-export function validateManifest(fixtures, { profile = "ikey-hybrid", routerPath = ROUTER_PATH } = {}) {
+export function validateManifest(fixtures, { profile = "ikey-hybrid", routerPath = ROUTER_PATH, checkArmModel = true } = {}) {
   const router = JSON.parse(readFileSync(routerPath, "utf8"));
   const profileCats = router[profile]?.categories || {};
   const errors = [];
@@ -41,13 +41,16 @@ export function validateManifest(fixtures, { profile = "ikey-hybrid", routerPath
     // Routing: category must resolve to the declared Arm-A model under profile.
     const routed = profileCats[fx.category];
     if (!routed) errors.push(`${tag}: category "${fx.category}" not in profile "${profile}"`);
-    else if (routed.model !== fx.armAModel) errors.push(`${tag}: category "${fx.category}" routes to ${routed.model}, not declared armAModel ${fx.armAModel}`);
-    // Arm-A model must resolve and be a workhorse (the whole point of routing).
-    try {
-      const m = resolveModel(fx.armAModel);
-      if (m.plane !== "workhorse") errors.push(`${tag}: armAModel ${fx.armAModel} is ${m.plane}, expected workhorse`);
-    } catch (e) {
-      errors.push(`${tag}: armAModel ${fx.armAModel} does not resolve (${e.message})`);
+    else if (checkArmModel && routed.model !== fx.armAModel) errors.push(`${tag}: category "${fx.category}" routes to ${routed.model}, not declared armAModel ${fx.armAModel}`);
+    // The routed workhorse model must resolve and be a workhorse (the point of routing).
+    const modelToCheck = checkArmModel ? fx.armAModel : routed?.model;
+    if (modelToCheck) {
+      try {
+        const m = resolveModel(modelToCheck);
+        if (m.plane !== "workhorse") errors.push(`${tag}: model ${modelToCheck} is ${m.plane}, expected workhorse`);
+      } catch (e) {
+        errors.push(`${tag}: model ${modelToCheck} does not resolve (${e.message})`);
+      }
     }
     if (fx.area != null) (byArea[fx.area] ||= []).push(fx.id);
   }

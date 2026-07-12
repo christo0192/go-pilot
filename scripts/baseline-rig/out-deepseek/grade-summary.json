@@ -1,0 +1,12 @@
+{
+  "gradedThisPass": 23,
+  "totalGraded": 36,
+  "rubricDisagreements": 8,
+  "meanMaxDelta": 1.3478260869565217,
+  "judgeTokens": {
+    "opus": 9177,
+    "deepseek": 70116
+  },
+  "judgeDeepseekEstUsd": 0.05806454031055896,
+  "generatedAt": "2026-07-12T21:25:32.209Z"
+}

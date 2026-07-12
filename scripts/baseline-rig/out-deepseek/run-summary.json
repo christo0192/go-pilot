@@ -1,0 +1,39 @@
+{
+  "manifestHash": "e318bbc52d44ff4fd7c43d4f2f4c1093b3d16d8f34ac9569763b65c4ab7ed69c",
+  "seed": 12648430,
+  "trials": 1,
+  "plannedRuns": 36,
+  "completedThisPass": 24,
+  "totalRecords": 36,
+  "failures": {
+    "empty": 1,
+    "truncated": 1
+  },
+  "baselineSpend": 0.6116940529999991,
+  "settledSpend": 0.6583251829999989,
+  "workhorseSettledDelta": 0.04663112999999974,
+  "workhorseEstimate": 0.048424382375776356,
+  "workhorsePerModel": {
+    "test/deepseek-v4-pro": {
+      "calls": 24,
+      "tokens": 58475,
+      "estUsd": 0.048424382375776356,
+      "reportedUsd": 0.048424382375776356
+    }
+  },
+  "reconciliation": {
+    "settledTotalDelta": 0.04663112999999974,
+    "scale": 0.9629679866258105,
+    "split": {
+      "test/deepseek-v4-pro": {
+        "calls": 24,
+        "tokens": 58475,
+        "estUsd": 0.048424382375776356,
+        "reportedUsd": 0.048424382375776356,
+        "reconciledUsd": 0.04663112999999974
+      }
+    }
+  },
+  "opusCostUsd": 0,
+  "generatedAt": "2026-07-12T21:09:41.148Z"
+}

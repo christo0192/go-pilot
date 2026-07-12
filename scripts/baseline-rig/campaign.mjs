@@ -51,6 +51,33 @@ export function runKey(fixtureId, trial, arm) {
   return `${fixtureId}:t${trial}:${arm}`;
 }
 
+/** Stricter repair prompt for a failed/empty/truncated workhorse answer.
+ *  Framework-preserving: the SAME workhorse model retries itself — no Opus. */
+export function repairPrompt(fx) {
+  return [
+    naivePrompt(fx),
+    "",
+    "IMPORTANT: your previous attempt returned no usable answer (it was empty, truncated, or timed out).",
+    "Give the COMPLETE final answer DIRECTLY and concisely now. Do not think out loud at length.",
+    "If the task asks for JSON, output ONLY valid JSON. If it asks for a boxed number, end with the boxed value.",
+  ].join("\n");
+}
+
+/** Sum two usage objects so a repair attempt's tokens/cost are COUNTED, not free. */
+export function mergeUsage(a = {}, b = {}) {
+  const t = (x) => x?.tokens || {};
+  const add = (k) => (Number(t(a)[k]) || 0) + (Number(t(b)[k]) || 0);
+  return {
+    model: b.model || a.model,
+    provider: b.provider || a.provider,
+    tokens: { input: add("input"), output: add("output"), reasoning: add("reasoning"), cached: add("cached"), total: add("total") },
+    costUsd: (Number(a.costUsd) || 0) + (Number(b.costUsd) || 0),
+    estCostUsd: (Number(a.estCostUsd) || 0) + (Number(b.estCostUsd) || 0),
+    latencyMs: (Number(a.latencyMs) || 0) + (Number(b.latencyMs) || 0),
+    finishReason: b.finishReason || a.finishReason,
+  };
+}
+
 /** Deterministic 32-bit seed from a string (FNV-1a). */
 export function hashSeed(str) {
   let h = 0x811c9dc5;
@@ -110,7 +137,7 @@ export function completedFromLedger(ledgerPath) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function parseArgs(argv) {
-  const args = { trials: 3, seed: 0xc0ffee, limit: Infinity, only: null, delayMs: 400, dry: false };
+  const args = { trials: 3, seed: 0xc0ffee, limit: Infinity, only: null, delayMs: 400, dry: false, profile: "ikey-hybrid", cModel: null, arms: null, repair: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--trials") args.trials = Number(argv[++i]);
@@ -118,28 +145,60 @@ function parseArgs(argv) {
     else if (a === "--limit") args.limit = Number(argv[++i]);
     else if (a === "--only") args.only = argv[++i].split(",");
     else if (a === "--delay") args.delayMs = Number(argv[++i]);
+    else if (a === "--profile") args.profile = argv[++i];
+    else if (a === "--c-model") args.cModel = argv[++i];
+    else if (a === "--arms") args.arms = argv[++i].split(",");
+    else if (a === "--repair") args.repair = true;
     else if (a === "--dry") args.dry = true;
   }
   return args;
 }
 
-async function runArm(arm, fx, dispatch) {
+async function runArm(arm, fx, dispatch, opts = {}) {
   const naive = naivePrompt(fx);
+  const profile = opts.profile || "ikey-hybrid";
+  const cModel = opts.cModel || fx.armAModel;
   if (arm === "A") {
     const task = { id: runKey(fx.id, 0, "A"), category: fx.category, prompt: fx.prompt, context: inputsText(fx) };
-    const res = await runTask(task, {
-      profile: "ikey-hybrid",
-      dispatch: (req) => dispatch({ ...req, settings: fx.settings }),
-      retrieve: false, rules: false, captureWorkspace: false,
-    });
-    const gatewayModel = resolveModel(res.plan.model).version;
+    let res = null;
+    let timedOut = false;
+    try {
+      res = await runTask(task, {
+        profile,
+        dispatch: (req) => dispatch({ ...req, settings: fx.settings }),
+        retrieve: false, rules: false, captureWorkspace: false,
+      });
+    } catch (e) {
+      // With repair on, a timeout/abort is recoverable — retry below. Otherwise rethrow.
+      if (opts.repair && /timeout|abort/i.test(String(e.message))) timedOut = true;
+      else throw e;
+    }
+    let output = res?.result?.text || "";
+    let usage = res?.usage || {};
+    const routedAlias = res?.plan?.model || opts.routedAlias || fx.armAModel;
+    const gatewayModel = resolveModel(routedAlias).version;
+    let repairUsed = false;
+    const truncated = usage.finishReason === "length";
+    if (opts.repair && (timedOut || !output.trim() || truncated)) {
+      // Framework-preserving repair: SAME workhorse model, stricter prompt, generous budget. No Opus.
+      const rep = await dispatch({
+        plane: "workhorse", model: routedAlias, prompt: repairPrompt(fx),
+        settings: { ...fx.settings, max_tokens: Math.max(fx.settings.max_tokens || 8000, 16000) },
+        contract: { maxOutputTokens: 16000 }, signal: AbortSignal.timeout(300000),
+      }).catch(() => null);
+      if (rep?.result?.text?.trim()) {
+        output = rep.result.text;
+        usage = mergeUsage(usage, rep.usage);
+        repairUsed = true;
+      }
+    }
     return {
-      output: res.result?.text || "",
-      usage: res.usage || {},
+      output, usage,
       meta: {
-        plane: res.plan.plane, model: res.plan.model, provider: res.plan.provider, gatewayModel,
-        contextTier: res.plan.contextTier, promptTokens: res.boundary?.promptTokens,
-        validated: res.validated, verdict: res.verdict, retries: res.usage?.retries?.count || 0,
+        plane: "workhorse", model: routedAlias, provider: usage.provider || "ikey-gateway", gatewayModel,
+        contextTier: res?.plan?.contextTier, promptTokens: res?.boundary?.promptTokens,
+        validated: res?.validated, verdict: res?.verdict, retries: res?.usage?.retries?.count || 0,
+        repairUsed, timedOut,
       },
     };
   }
@@ -148,8 +207,8 @@ async function runArm(arm, fx, dispatch) {
     return { output: res.result?.text || "", usage: res.usage || {}, meta: { plane: "frontier", model: "opus", provider: res.usage?.provider, gatewayModel: null } };
   }
   // Arm C: same model as A, naive.
-  const res = await dispatch({ plane: "workhorse", model: fx.armAModel, prompt: naive, settings: fx.settings, contract: { maxOutputTokens: fx.settings.max_tokens } });
-  return { output: res.result?.text || "", usage: res.usage || {}, meta: { plane: "workhorse", model: fx.armAModel, provider: res.usage?.provider, gatewayModel: resolveModel(fx.armAModel).version } };
+  const res = await dispatch({ plane: "workhorse", model: cModel, prompt: naive, settings: fx.settings, contract: { maxOutputTokens: fx.settings.max_tokens } });
+  return { output: res.result?.text || "", usage: res.usage || {}, meta: { plane: "workhorse", model: cModel, provider: res.usage?.provider, gatewayModel: resolveModel(cModel).version } };
 }
 
 async function main() {
@@ -160,16 +219,25 @@ async function main() {
   const summaryPath = join(OUT_DIR, "run-summary.json");
 
   let fixtures = loadFixtures();
-  const manifest = validateManifest(fixtures);
+  // When Arm A runs on a non-default profile or Arm C uses an override model, the
+  // fixture's declared armAModel is intentionally NOT the routed model (model-swap
+  // experiment), so skip the armAModel-match assertion.
+  const swap = args.profile !== "ikey-hybrid" || args.cModel != null;
+  const manifest = validateManifest(fixtures, { profile: args.profile, checkArmModel: !swap });
   if (!manifest.ok) { console.error("manifest invalid:", manifest.errors); process.exit(1); }
   if (args.only) fixtures = fixtures.filter((f) => args.only.includes(f.id));
 
   const plan = buildRunPlan(fixtures, { trials: args.trials, seed: args.seed });
   const completed = completedFromLedger(ledgerPath);
   let pending = pendingRuns(plan, completed);
+  if (args.arms) pending = pending.filter((r) => args.arms.includes(r.arm));
   if (Number.isFinite(args.limit)) pending = pending.slice(0, args.limit);
 
-  console.error(`Manifest ${manifest.hash.slice(0, 12)} · ${fixtures.length} fixtures · ${args.trials} trials · seed ${args.seed}`);
+  // Profile route lookup for the Arm-A budget guard (before runTask resolves it).
+  const routerCfg = JSON.parse(readFileSync(join(HERE, "..", "..", "config", "router.json"), "utf8"));
+  const profileCats = routerCfg[args.profile]?.categories || {};
+
+  console.error(`Manifest ${manifest.hash.slice(0, 12)} · profile ${args.profile}${args.cModel ? ` · C=${args.cModel}` : ""}${args.arms ? ` · arms ${args.arms.join("")}` : ""} · ${fixtures.length} fixtures · ${args.trials} trials · seed ${args.seed}`);
   console.error(`Plan ${plan.length} runs · ${completed.size} done · ${pending.length} to run this pass${args.dry ? " (DRY)" : ""}`);
   if (args.dry) {
     for (const r of pending.slice(0, 12)) console.error(`  ${runKey(r.fixtureId, r.trial, r.arm)} [order ${r.armOrder}]`);
@@ -202,7 +270,8 @@ async function main() {
 
     // Budget guard for workhorse arms (A routes to workhorse; C is workhorse).
     if (r.arm === "A" || r.arm === "C") {
-      const gwModel = resolveModel(fx.armAModel).version;
+      const armAlias = r.arm === "A" ? (profileCats[fx.category]?.model || fx.armAModel) : (args.cModel || fx.armAModel);
+      const gwModel = resolveModel(armAlias).version;
       const projected = estimateCallCost(gwModel, { total: fx.settings.max_tokens }, rates);
       const check = ledger.wouldExceed(gwModel, projected);
       if (check.blocked) {
@@ -215,7 +284,8 @@ async function main() {
     }
 
     try {
-      const { output, usage, meta: armMeta } = await runArm(r.arm, fx, dispatch);
+      const routedAlias = profileCats[fx.category]?.model || fx.armAModel;
+      const { output, usage, meta: armMeta } = await runArm(r.arm, fx, dispatch, { profile: args.profile, cModel: args.cModel, repair: args.repair, routedAlias });
       const failures = [];
       if (!output.trim()) failures.push("empty");
       if (usage.finishReason === "length") failures.push("truncated");
@@ -239,12 +309,13 @@ async function main() {
         latencyMs: usage.latencyMs ?? null, finishReason: usage.finishReason ?? null,
         outputChars: output.length, output,
         overhead: r.arm === "A" ? { promptTokens: armMeta.promptTokens, contextTier: armMeta.contextTier, retries: armMeta.retries, validated: armMeta.validated } : null,
+        repairUsed: armMeta.repairUsed || false,
         grade: gradeResult, score: gradeResult ? gradeResult.score : null, failures,
       });
       for (const f of failures) fails[f] = (fails[f] || 0) + 1;
       done += 1;
       const scoreStr = gradeResult ? `score=${gradeResult.score}` : "score=deferred";
-      console.error(`  ${key0} ${r.arm}->${armMeta.model} tok=${usage.tokens?.total ?? "?"} ${scoreStr}${failures.length ? " FAIL:" + failures.join(",") : ""}`);
+      console.error(`  ${key0} ${r.arm}->${armMeta.model} tok=${usage.tokens?.total ?? "?"} ${scoreStr}${armMeta.repairUsed ? " [repaired]" : ""}${failures.length ? " FAIL:" + failures.join(",") : ""}`);
     } catch (e) {
       rec.failures = ["error"]; rec.error = String(e.message || e).slice(0, 400); rec.score = null;
       fails["error"] = (fails["error"] || 0) + 1;
