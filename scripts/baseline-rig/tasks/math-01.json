@@ -1,0 +1,19 @@
+{
+  "id": "math-01",
+  "area": 1,
+  "areaName": "math",
+  "category": "math",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "A fair six-sided die is rolled four times. Compute the probability that the four results are strictly increasing (each roll strictly greater than the previous). Work step by step, then give the final probability as a decimal rounded to 5 decimal places on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 0.01157,
+    "match": "numeric",
+    "tolerance": 0.0005,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "Strictly increasing 4-tuples from {1..6} = C(6,4)=15 favorable ordered sequences; total 6^4=1296; 15/1296 = 0.0115740..."
+  }
+}

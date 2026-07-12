@@ -21,6 +21,10 @@
     "classify": { "mode": "single-agent", "maxInputTokens": 12000, "requiredChecks": ["non-empty"] },
     "summarize": { "mode": "single-agent", "maxInputTokens": 16000, "requiredChecks": ["non-empty"] },
     "code-review": { "mode": "review-only", "requiredChecks": ["non-empty"] },
-    "lateral": { "mode": "single-agent", "requiredChecks": ["non-empty"] }
+    "lateral": { "mode": "single-agent", "requiredChecks": ["non-empty"] },
+    "math": { "mode": "single-agent", "maxOutputTokens": 16000, "requiredChecks": ["non-empty"] },
+    "doc-qa": { "mode": "single-agent", "maxInputTokens": 24000, "requiredChecks": ["non-empty"] },
+    "reasoning": { "mode": "single-agent", "maxOutputTokens": 16000, "requiredChecks": ["non-empty"] },
+    "repo-change": { "mode": "single-agent", "maxOutputTokens": 16000, "requiredChecks": ["non-empty", "no-placeholders"] }
   }
 }

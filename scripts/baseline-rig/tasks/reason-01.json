@@ -1,0 +1,19 @@
+{
+  "id": "reason-01",
+  "area": 6,
+  "areaName": "multi-step-reasoning",
+  "category": "reasoning",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "A tank has three pipes. Pipe A alone fills it in 5 hours. Pipe B alone fills it in 7 hours. Drain C alone empties a full tank in 10 hours. The tank starts empty. At t=0 pipes A and B are opened. Exactly 1 hour later, drain C is also opened and all three run together until the tank is full. Determine the TOTAL time in hours from t=0 until the tank is full. Reason step by step, then give the total time as a decimal rounded to 4 decimal places on the last line in the form \\boxed{X}.",
+  "inputs": [],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "exact",
+    "answer": 3.7059,
+    "match": "numeric",
+    "tolerance": 0.002,
+    "extract": ["boxed", "answer-phrase", "last-number"],
+    "_solution": "First hour: A+B fill 1/5+1/7 = 12/35 (remaining 23/35). Then A+B-C = 1/5+1/7-1/10 = 17/70 per hour. Time to fill remaining = (23/35)/(17/70) = 46/17 = 2.70588 h. Total = 1 + 46/17 = 63/17 = 3.70588, rounded to 3.7059."
+  }
+}

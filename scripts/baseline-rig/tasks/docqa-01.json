@@ -1,0 +1,25 @@
+{
+  "id": "docqa-01",
+  "area": 3,
+  "areaName": "document-qa",
+  "category": "doc-qa",
+  "armAModel": "kimi-ikey",
+  "difficulty": "hard",
+  "prompt": "Using ONLY the provided policy document, answer: (1) If an employee based in Berlin buys a 220 EUR monitor for home use on 3 March, are they reimbursed, and by how much? (2) What is the single condition under which the answer to (1) would change? Cite the exact clause numbers you rely on. If the document does not determine something, say so explicitly rather than guessing.",
+  "inputs": [
+    {
+      "name": "expense-policy.md",
+      "content": "# Remote Equipment Reimbursement Policy (v3)\n\nClause 1. Eligible employees may claim reimbursement for home-office equipment.\nClause 2. Monitors, keyboards, and chairs are eligible categories. Laptops are NOT covered by this policy (see the separate IT Asset Policy).\nClause 3. The reimbursement ceiling per item is 200 EUR. Amounts above the ceiling are the employee's responsibility.\nClause 4. Claims must be submitted within 30 days of purchase.\nClause 5. Employees in the DACH region (Germany, Austria, Switzerland) receive a regional uplift of 10% applied to the CEILING (not the purchase price) for ergonomic categories.\nClause 6. Ergonomic categories are defined as: chairs and standing-desk converters ONLY. Monitors are not ergonomic for the purposes of Clause 5.\nClause 7. Reimbursement requires a manager's approval recorded in the system before payment."
+    }
+  ],
+  "settings": { "temperature": 0.2, "max_tokens": 8000, "top_p": 1 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "faithfulness", "reasoning"],
+    "guidance": "Correct answer: reimbursed 200 EUR (Clause 3 ceiling; the 220 EUR price is capped; the DACH 10% uplift in Clause 5 does NOT apply because Clause 6 excludes monitors from ergonomic categories; within the 30-day window per Clause 4 assuming timely submission). The condition that would change it: manager approval per Clause 7 not being recorded (would block payment entirely), OR the item being an ergonomic category. A 10 answers both parts correctly, cites Clauses 3, 5, 6 (and 7), and does NOT hallucinate a 220 or 20 EUR uplift. Penalize heavily any claim of a DACH uplift on the monitor (a common trap) and any unsupported number.",
+    "calibrationAnchors": [
+      { "answer": "They get 242 EUR because Berlin is in DACH so you add the 10% regional uplift to the 220 monitor.", "scores": { "correctness": 1, "completeness": 2, "faithfulness": 1, "reasoning": 2 } },
+      { "answer": "Reimbursed 200 EUR: Clause 3 caps items at 200 EUR and the 220 EUR price exceeds it. The Clause 5 DACH uplift does not apply because Clause 6 restricts ergonomic categories to chairs and standing-desk converters, excluding monitors. This assumes timely submission (Clause 4). The answer would change if manager approval (Clause 7) is not recorded, which would block payment.", "scores": { "correctness": 10, "completeness": 9, "faithfulness": 10, "reasoning": 9 } }
+    ]
+  }
+}

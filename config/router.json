@@ -40,7 +40,11 @@
       "classify":    {"plane":"workhorse","model":"deepseek-ikey"},
       "summarize":   {"plane":"workhorse","model":"kimi-ikey"},
       "code-review": {"plane":"workhorse","model":"deepseek-ikey"},
-      "lateral":     {"plane":"workhorse","model":"deepseek-ikey"}
+      "lateral":     {"plane":"workhorse","model":"deepseek-ikey"},
+      "math":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "doc-qa":      {"plane":"workhorse","model":"kimi-ikey"},
+      "reasoning":   {"plane":"workhorse","model":"deepseek-ikey"},
+      "repo-change": {"plane":"workhorse","model":"deepseek-ikey"}
     },
     "default": "__judgment__"
   },

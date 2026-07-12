@@ -1,0 +1,20 @@
+{
+  "id": "analysis-01",
+  "area": 4,
+  "areaName": "analysis",
+  "category": "analyze",
+  "armAModel": "kimi-ikey",
+  "difficulty": "hard",
+  "prompt": "A 5-person seed-stage startup (2 backend, 1 frontend, 1 designer, 1 founder-PM) is deciding whether to build their new B2B SaaS product as a modular monolith or as microservices from day one. They expect <1000 users in year one and need to ship an MVP in 10 weeks. Give a structured recommendation: (a) state your recommendation in one sentence, (b) give the three strongest reasons FOR it grounded in their specific constraints, (c) give the single strongest argument AGAINST your recommendation and why it does not change the decision here, (d) name one concrete signal that should trigger revisiting the decision later. Be specific to their team size, timeline, and scale — avoid generic textbook tradeoffs.",
+  "inputs": [],
+  "settings": { "temperature": 0.3, "max_tokens": 8000, "top_p": 1 },
+  "grading": {
+    "type": "rubric",
+    "dimensions": ["correctness", "completeness", "reasoning", "specificity"],
+    "guidance": "The defensible recommendation for this context is a modular monolith (microservices' operational overhead is unjustified at 5 people / <1000 users / 10-week MVP). A 9-10 recommends the monolith, ties each reason to the SPECIFIC constraints (team of 5 can't run distributed ops; sub-1000 users means no scale pressure; 10 weeks favors one deployable), gives a genuine strongest counter (e.g. a known future need to scale one component independently, or org/Conway boundaries) and correctly explains why it doesn't flip the call now, and names a concrete revisit trigger (e.g. a single service dominating load, team crossing ~15-20 engineers, or a component needing independent scaling/compliance isolation). Penalize generic tradeoff lists that ignore the team size/timeline, and penalize recommending full microservices from day one. Reward modular-monolith-with-clean-seams nuance.",
+    "calibrationAnchors": [
+      { "answer": "Microservices are the industry best practice for scalability and let teams work independently, so build microservices. Pros: scalability, fault isolation, independent deployment. Con: more complex, but worth it.", "scores": { "correctness": 2, "completeness": 3, "reasoning": 2, "specificity": 1 } },
+      { "answer": "Recommendation: build a modular monolith with clean internal module boundaries. Reasons specific to them: (1) a 5-person team has no capacity to run the CI/CD, observability, and on-call burden of many services; (2) <1000 users creates zero scale pressure that microservices would relieve; (3) a 10-week MVP is fastest as one deployable with in-process calls and no network/versioning overhead. Strongest counter: if they already know one component (e.g. a heavy ML scorer) will need independent scaling, that argues for extracting it — but it doesn't flip the decision because you can extract a single module from a well-seamed monolith later at low cost. Revisit trigger: when one module's load or deploy cadence clearly diverges from the rest, or the team passes ~15 engineers.", "scores": { "correctness": 10, "completeness": 9, "reasoning": 9, "specificity": 9 } }
+    ]
+  }
+}

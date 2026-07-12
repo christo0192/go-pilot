@@ -1,0 +1,28 @@
+{
+  "id": "repo-01",
+  "area": 7,
+  "areaName": "repo-change",
+  "category": "repo-change",
+  "armAModel": "deepseek-ikey",
+  "difficulty": "hard",
+  "prompt": "The repository contains calc.py with a broken `median` function. Fix it so ALL of these hold: (1) it returns the median of a list of numbers, sorting a copy first (never mutating the caller's list); (2) for an even number of elements it returns the average of the two middle values as a float; (3) it raises ValueError on an empty list; (4) the existing `mean` function must keep working unchanged. Return the COMPLETE corrected contents of calc.py using EXACTLY this format (the delimiters must be on their own lines):\n<<<FILE calc.py>>>\n<full file content here>\n<<<END>>>\nReturn nothing else.",
+  "inputs": [
+    {
+      "name": "calc.py (current, buggy)",
+      "content": "def mean(xs):\n    if not xs:\n        raise ValueError('empty')\n    return sum(xs) / len(xs)\n\n\ndef median(xs):\n    n = len(xs)\n    return xs[n // 2]\n"
+    }
+  ],
+  "settings": { "temperature": 0, "max_tokens": 16000, "top_p": 1 },
+  "grading": {
+    "type": "repo-change",
+    "language": "python",
+    "timeoutMs": 15000,
+    "files": [
+      { "path": "calc.py", "content": "def mean(xs):\n    if not xs:\n        raise ValueError('empty')\n    return sum(xs) / len(xs)\n\n\ndef median(xs):\n    n = len(xs)\n    return xs[n // 2]\n" }
+    ],
+    "testFiles": [
+      { "path": "test_calc.py", "content": "from calc import median, mean\n\nassert median([3, 1, 2]) == 2\nassert median([1, 2, 3, 4]) == 2.5\nassert median([7]) == 7\nassert median([5, 2, 9, 1]) == 3.5\n_src = [3, 1, 2]\n_ = median(_src)\nassert _src == [3, 1, 2], 'median must not mutate input'\ntry:\n    median([])\n    raise SystemExit('empty list should raise ValueError')\nexcept ValueError:\n    pass\nassert mean([2, 4]) == 3\nprint('ok')\n" }
+    ],
+    "testCommand": ["python3", "test_calc.py"]
+  }
+}
