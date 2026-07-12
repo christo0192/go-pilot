@@ -5,10 +5,14 @@ import {
   mean,
   median,
   percentile,
+  p75,
   p90,
+  p95,
   stdev,
   weightedMean,
   distribution,
+  mulberry32,
+  bootstrapCI,
 } from "./stats.mjs";
 
 test("mean of a known list", () => {
@@ -53,4 +57,50 @@ test("distribution bundles median/p90/stdev/sampleCount", () => {
   assert.equal(d.p90, 46);
   assert.equal(d.sampleCount, 5);
   assert.ok(Math.abs(d.stdev - Math.sqrt(200)) < 1e-9); // pop. stdev of that set
+});
+
+test("p75 and p95 use linear interpolation", () => {
+  // rank = (5-1)*0.75 = 3 → exactly 40; (5-1)*0.95 = 3.8 → 40 + 0.8*10 = 48
+  assert.equal(p75([10, 20, 30, 40, 50]), 40);
+  assert.equal(p95([10, 20, 30, 40, 50]), 48);
+});
+
+test("mulberry32 is deterministic for a given seed", () => {
+  const a = mulberry32(12345);
+  const b = mulberry32(12345);
+  const seqA = [a(), a(), a()];
+  const seqB = [b(), b(), b()];
+  assert.deepEqual(seqA, seqB);
+  seqA.forEach((x) => assert.ok(x >= 0 && x < 1));
+  // A different seed yields a different stream.
+  const c = mulberry32(54321);
+  assert.notEqual(c(), seqA[0]);
+});
+
+test("bootstrapCI is reproducible and brackets the point estimate", () => {
+  const data = [10, 12, 9, 11, 13, 8, 10, 12, 11, 9];
+  const r1 = bootstrapCI(data, { seed: 42, resamples: 1000 });
+  const r2 = bootstrapCI(data, { seed: 42, resamples: 1000 });
+  assert.equal(r1.lo, r2.lo); // deterministic
+  assert.equal(r1.hi, r2.hi);
+  assert.ok(Math.abs(r1.point - mean(data)) < 1e-9);
+  assert.ok(r1.lo <= r1.point && r1.point <= r1.hi); // point inside CI
+  assert.ok(r1.lo < r1.hi); // non-degenerate for spread data
+});
+
+test("bootstrapCI handles empty and singleton inputs", () => {
+  const empty = bootstrapCI([], { seed: 1 });
+  assert.ok(Number.isNaN(empty.point));
+  const one = bootstrapCI([5], { seed: 1 });
+  assert.equal(one.point, 5);
+  assert.equal(one.lo, 5);
+  assert.equal(one.hi, 5);
+});
+
+test("bootstrapCI accepts a custom statistic (median)", () => {
+  const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 100];
+  const r = bootstrapCI(data, { seed: 7, resamples: 500, statistic: median });
+  // Median is robust to the outlier — CI should sit well below the mean (~14.5).
+  assert.ok(r.point < 10);
+  assert.ok(r.lo <= r.point && r.point <= r.hi);
 });

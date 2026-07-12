@@ -1,0 +1,17 @@
+{
+  "_note": "Effective $/token rates for workhorse models, derived from a live calibration probe (scripts/baseline-rig/calibrate.mjs). Gateway /key/info.spend is async/batched (settles in ~2-7s), so these rates give a fast per-call ESTIMATE; the campaign reconciles the grand total against the settled cumulative spend and rescales the per-model split to sum exactly. Reasoning tokens are billed inside completion_tokens, so perTotalToken already includes the reasoning tax.",
+  "probedAt": "2026-07-12T18:30:16.614Z",
+  "gateway": "https://ikey-gateway.fly.dev",
+  "rates": {
+    "test/kimi-k2.6": {
+      "perTotalToken": 0.000003846824224519939,
+      "perMillionTotal": 3.847,
+      "sample": { "settledDelta": 0.0026043, "totalTokens": 677, "outputTokens": 643, "reasoningTokens": 467, "settleLatencyMs": 2270 }
+    },
+    "test/deepseek-v4-pro": {
+      "perTotalToken": 8.281211180124216e-7,
+      "perMillionTotal": 0.828,
+      "sample": { "settledDelta": 0.000266655, "totalTokens": 322, "outputTokens": 291, "reasoningTokens": 141, "settleLatencyMs": 7612 }
+    }
+  }
+}
