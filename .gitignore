@@ -41,3 +41,4 @@ deploy/.env
 
 # Live campaign run artifacts (raw ledgers with full outputs); the report is committed to docs/
 scripts/baseline-rig/out/
+scripts/baseline-rig/out.*.log
