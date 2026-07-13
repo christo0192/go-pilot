@@ -1,5 +1,7 @@
 # GSD State
 
+**S11 orchestrator framework LIVE (2026-07-13)**: production daily-driver flow shipped — repo-root `CLAUDE.md` (Claude Code = Opus orchestrator: risk-classify → route → delegate → verify → repair → assemble; hybrid writing policy w/ `workhorse-only` opt-out; billing invariants) + `.claude/skills/{orchestrate,pi-workers,herdr-panes}` + hardened `scripts/pi-delegate.sh` (flags `--raw/--repair/--class/--timeout/--max-tokens`, JSONL metrics ledger → `scripts/baseline-rig/out/delegate-log.jsonl`, exit codes 0/2/3/4/5, mechanical repair strict→sibling) + `scripts/gateway-call.mjs` (non-agentic worker, exact usage incl. reasoning tokens). All live-tested (raw both models, agentic pane w/ zero leak, forced repair ladder). DEFERRED by user decision: benchmark v3 rerun, extraction/spreadsheet/retrieval pipelines, multi-turn compression (Codex upgrade plan §3-5,§7,§10-11 — planned, not built).
+
 **Phase**: executing
 **Active Milestone**: M001 — Go-pilot build (PLAN.md sprints 0–7)
 **Active Slice**: S10 — Live-runtime foundation (Codex-built, then reviewed+fixed+committed). Integrates dispatch adapters, retrieval, prompt/cache builder, rules discovery, workspace checkpoints, execution contracts into run.mjs.
