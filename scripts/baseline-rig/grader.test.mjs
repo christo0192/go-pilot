@@ -94,7 +94,7 @@ test("parseJudgeScores handles fenced json, bare json, clamping, and garbage", (
   assert.equal(c.overall, 0);
 });
 
-test("gradeRubric averages two blind judges and flags disagreement", async () => {
+test("gradeRubric: Opus-only headline, co-judge diagnostic, disagreement flagged", async () => {
   const fx = { prompt: "task", grading: { dimensions: ["correctness", "completeness"] } };
   const replies = {
     frontier: '{"scores":{"correctness":9,"completeness":9},"rationale":"strong"}',   // overall 90
@@ -102,10 +102,27 @@ test("gradeRubric averages two blind judges and flags disagreement", async () =>
   };
   const dispatchJudge = async (req) => ({ result: { text: replies[req.plane] }, usage: { tokens: { total: 10 } } });
   const r = await gradeRubric(fx, "candidate", fx.grading, { dispatchJudge });
-  assert.equal(r.score, 72.5); // mean(90,55)
+  assert.equal(r.score, 90); // v3 headline = neutral Opus judge alone (Codex §10)
+  assert.equal(r.coScore, 55); // DeepSeek co-judge is diagnostic only
   assert.equal(r.perDimensionDelta.correctness, 4);
   assert.equal(r.flaggedDisagreement, true); // maxDelta 4 >= 2
   assert.equal(r.bothParsed, true);
+});
+
+test("gradeRubric: coJudge:false skips the co-judge entirely", async () => {
+  const fx = { prompt: "task", grading: { dimensions: ["correctness"] } };
+  let workhorseCalls = 0;
+  const dispatchJudge = async (req) => {
+    if (req.plane === "workhorse") workhorseCalls += 1;
+    return { result: { text: '{"scores":{"correctness":8},"rationale":"ok"}' }, usage: { tokens: { total: 10 } } };
+  };
+  const r = await gradeRubric(fx, "candidate", fx.grading, { dispatchJudge, coJudge: false });
+  assert.equal(r.score, 80);
+  assert.equal(r.coScore, null);
+  assert.equal(r.judges.deepseek, null);
+  assert.equal(r.maxDelta, null);
+  assert.equal(r.flaggedDisagreement, false);
+  assert.equal(workhorseCalls, 0);
 });
 
 test("grade() treats empty output as a hard fail", async () => {

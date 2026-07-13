@@ -315,7 +315,7 @@ export function parseJudgeScores(text, dimensions) {
  * {result:{text}, usage}. Opus is the primary judge, DeepSeek the co-judge.
  * Reports mean quality, per-dimension inter-judge |Δ|, and a disagreement flag.
  */
-export async function gradeRubric(fixture, output, grading, { dispatchJudge, judgeModels } = {}) {
+export async function gradeRubric(fixture, output, grading, { dispatchJudge, judgeModels, coJudge = true } = {}) {
   if (typeof dispatchJudge !== "function") throw new Error("gradeRubric requires opts.dispatchJudge");
   const dims = grading.dimensions || ["correctness", "completeness", "reasoning", "faithfulness"];
   const prompt = buildJudgePrompt(fixture, output, grading);
@@ -323,31 +323,35 @@ export async function gradeRubric(fixture, output, grading, { dispatchJudge, jud
 
   const [primaryRes, coRes] = await Promise.all([
     dispatchJudge({ ...models.primary, prompt, role: "judge" }),
-    dispatchJudge({ ...models.co, prompt, role: "judge" }),
+    coJudge ? dispatchJudge({ ...models.co, prompt, role: "judge" }) : Promise.resolve(null),
   ]);
   const primary = parseJudgeScores(primaryRes.result?.text || "", dims);
-  const co = parseJudgeScores(coRes.result?.text || "", dims);
+  const co = coRes ? parseJudgeScores(coRes.result?.text || "", dims) : null;
 
+  // HEADLINE = the neutral Opus judge alone (v3 methodology, Codex §10). The
+  // DeepSeek co-judge — a sibling of the graded models — is diagnostic only.
   const perDimensionDelta = {};
-  let maxDelta = 0;
-  for (const d of dims) {
-    const delta = Math.abs((primary.scores?.[d] ?? 0) - (co.scores?.[d] ?? 0));
-    perDimensionDelta[d] = delta;
-    if (delta > maxDelta) maxDelta = delta;
+  let maxDelta = null;
+  if (co) {
+    maxDelta = 0;
+    for (const d of dims) {
+      const delta = Math.abs((primary.scores?.[d] ?? 0) - (co.scores?.[d] ?? 0));
+      perDimensionDelta[d] = delta;
+      if (delta > maxDelta) maxDelta = delta;
+    }
   }
-  const overalls = [primary.overall, co.overall].filter((x) => Number.isFinite(x) && x > 0);
-  const quality = overalls.length ? overalls.reduce((a, b) => a + b, 0) / overalls.length : 0;
   return {
     type: "rubric",
-    score: quality,
+    score: Number.isFinite(primary.overall) ? primary.overall : 0,
+    coScore: co && Number.isFinite(co.overall) ? co.overall : null,
     judges: {
       opus: { ...primary, usage: primaryRes.usage },
-      deepseek: { ...co, usage: coRes.usage },
+      deepseek: co ? { ...co, usage: coRes.usage } : null,
     },
     perDimensionDelta,
     maxDelta,
-    flaggedDisagreement: maxDelta >= 2,
-    bothParsed: primary.ok && co.ok,
+    flaggedDisagreement: co ? maxDelta >= 2 : false,
+    bothParsed: co ? primary.ok && co.ok : primary.ok,
   };
 }
 

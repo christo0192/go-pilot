@@ -17,16 +17,50 @@ import { resolveModel } from "../../src/config/governance.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = process.env.CAMPAIGN_OUT || join(HERE, "out");
 const CALIBRATION = JSON.parse(readFileSync(join(HERE, "calibration.json"), "utf8"));
-const REPORT_PATH = process.env.REPORT_PATH || resolve(HERE, "..", "..", "docs", "live-test-results.md");
+const REPORT_PATH = process.env.REPORT_PATH || resolve(HERE, "..", "..", "docs", "live-test-results-v3.md");
 
 const readJsonl = (p) => (existsSync(p) ? readFileSync(p, "utf8").split("\n").filter((l) => l.trim()).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : []);
 
 // Effective per-run workhorse cost from calibrated rate x tokens (Opus uses its
-// reported total_cost_usd).
+// reported total_cost_usd). Failed attempts carry their projected cost — not free.
 function runCostUsd(rec) {
+  if (Number.isFinite(rec.projectedCostUsd) && !rec.tokens?.total) return rec.projectedCostUsd;
   if (rec.provider === "anthropic-cli") return Number.isFinite(rec.costUsd) ? rec.costUsd : 0;
   if (rec.gatewayModel) return estimateCallCost(rec.gatewayModel, rec.tokens || {}, CALIBRATION.rates);
   return Number.isFinite(rec.costUsd) ? rec.costUsd : 0;
+}
+
+// B2 "lean Opus" — ANALYTIC derivation from B runs (Codex §10): the Claude CLI
+// reports input/output tokens EXCLUDING the cached system-prompt tax, so B's
+// recorded tokens already are the lean token count; B2 cost = bare Opus API
+// rates on those tokens. Quality is identical to B by construction (same model,
+// same prompt, same output). B1 cost = CLI total_cost_usd (includes the tax).
+function b2CostUsd(rec) {
+  const r = CALIBRATION.opus?.apiRates || { inPerM: 5, outPerM: 25 };
+  const t = rec.tokens || {};
+  return ((t.input || 0) * r.inPerM + (t.output || 0) * r.outPerM) / 1e6;
+}
+
+// v3 reliability metrics per arm, computed from RAW runs (not medians).
+// success = graded with a real score and no hard failures.
+function armReliability(runs, costFn) {
+  const attempts = runs.length;
+  const hardFail = (r) => (r.failures || []).some((f) => ["empty", "timeout", "truncated", "error", "budget-skip"].includes(f));
+  const successes = runs.filter((r) => Number.isFinite(r.finalScore) && r.finalScore > 0 && !hardFail(r));
+  const successRate = attempts ? successes.length / attempts : NaN;
+  const qWhenCompleted = successes.length ? mean(successes.map((r) => r.finalScore)) : NaN;
+  const raq = Number.isFinite(qWhenCompleted) && Number.isFinite(successRate) ? qWhenCompleted * successRate : NaN;
+  const totalCost = runs.reduce((a, r) => a + (costFn(r) || 0), 0);
+  const totalTokens = runs.reduce((a, r) => a + (r.tokens?.total || 0), 0);
+  return {
+    attempts, successes: successes.length, successRate,
+    qualityWhenCompleted: qWhenCompleted, reliabilityAdjustedQuality: raq,
+    totalCostUsd: totalCost, totalTokens,
+    costPerSuccess: successes.length ? totalCost / successes.length : NaN,
+    tokensPerSuccess: successes.length ? totalTokens / successes.length : NaN,
+    qualityPerDollar: totalCost > 0 && Number.isFinite(raq) ? raq / totalCost : NaN,
+    qualityPer1kTokens: totalTokens > 0 && Number.isFinite(raq) ? raq / (totalTokens / 1000) : NaN,
+  };
 }
 
 // Median over trials of a per-(fixture,arm) metric selector.
@@ -109,6 +143,26 @@ function main() {
     };
   }
 
+  // v3: reliability metrics from raw runs + the derived B2 lean-Opus arm.
+  const rawByArm = { A: [], B: [], C: [] };
+  for (const r of runs) if (rawByArm[r.arm]) rawByArm[r.arm].push(r);
+  const v3 = {
+    A: armReliability(rawByArm.A, runCostUsd),
+    B: armReliability(rawByArm.B, runCostUsd),
+    B2: armReliability(rawByArm.B, b2CostUsd), // same runs/quality, lean API-rate cost
+    C: armReliability(rawByArm.C, runCostUsd),
+  };
+  // §11 pass gates (pre-registered).
+  const v3gates = {
+    meanQuality98: Number.isFinite(v3.A.qualityWhenCompleted) && v3.A.qualityWhenCompleted >= 98,
+    raq96: Number.isFinite(v3.A.reliabilityAdjustedQuality) && v3.A.reliabilityAdjustedQuality >= 96,
+    cost80vsB2: Number.isFinite(v3.A.costPerSuccess) && Number.isFinite(v3.B2.costPerSuccess) && v3.B2.costPerSuccess > 0
+      && v3.A.costPerSuccess <= 0.20 * v3.B2.costPerSuccess,
+    qp1kBeatsC: Number.isFinite(v3.A.qualityPer1kTokens) && Number.isFinite(v3.C.qualityPer1kTokens)
+      && v3.A.qualityPer1kTokens > v3.C.qualityPer1kTokens,
+    zeroUnresolved: (rawByArm.A.filter((r) => (r.failures || []).some((f) => ["empty", "timeout"].includes(f)))).length === 0,
+  };
+
   // Bootstrap CI over fixtures for the WITH-vs-WITHOUT ratio deltas.
   const ids = Object.keys(perFixture);
   function ratioCI(numSel, denSel, seed) {
@@ -153,13 +207,40 @@ function main() {
   }
   const judgeCorr = pearson(judgePairs);
 
-  const report = renderReport({ meta, runSummary, gradeSummary, overall, byArea, perFixture, fxById, gates, deltas: { costA_vs_B, tokA_vs_B, tokA_vs_C, qualA_vs_B }, failureBoard, judge: { corr: judgeCorr, pairs: judgePairs.length, disagreements: gradeSummary.rubricDisagreements, meanMaxDelta: gradeSummary.meanMaxDelta } });
+  const report = renderReport({ meta, runSummary, gradeSummary, overall, byArea, perFixture, fxById, gates, v3, v3gates, deltas: { costA_vs_B, tokA_vs_B, tokA_vs_C, qualA_vs_B }, failureBoard, judge: { corr: judgeCorr, pairs: judgePairs.length, disagreements: gradeSummary.rubricDisagreements, meanMaxDelta: gradeSummary.meanMaxDelta } });
   writeFileSync(REPORT_PATH, report);
   console.error(`Report written -> ${REPORT_PATH} (${runs.length} runs, ${graded.size} graded)`);
 }
 
+function renderV3(v3, g) {
+  const L = [];
+  L.push("## v3 scorecard — reliability-adjusted (raw runs, Opus-only judge)\n");
+  L.push("B2 = lean-Opus baseline, derived analytically from B: same runs and quality; cost at bare Opus API rates on the CLI-reported (cache-exclusive) tokens. B1 cost includes the measured ~65k-token Claude-Code session tax.\n");
+  L.push("| Metric | A (go-pilot) | B1 (Claude-Code Opus) | B2 (lean Opus) | C (naive) |");
+  L.push("|---|--:|--:|--:|--:|");
+  const row = (label, k, dec = 2) => L.push(`| ${label} | ${fmt(v3.A[k], dec)} | ${fmt(v3.B[k], dec)} | ${fmt(v3.B2[k], dec)} | ${fmt(v3.C[k], dec)} |`);
+  L.push(`| Attempts / successes | ${v3.A.attempts}/${v3.A.successes} | ${v3.B.attempts}/${v3.B.successes} | ${v3.B2.attempts}/${v3.B2.successes} | ${v3.C.attempts}/${v3.C.successes} |`);
+  row("Success rate", "successRate", 3);
+  row("Quality when completed", "qualityWhenCompleted", 1);
+  row("Reliability-adjusted quality", "reliabilityAdjustedQuality", 1);
+  row("Total cost $", "totalCostUsd", 4);
+  row("Cost per success $", "costPerSuccess", 4);
+  row("Tokens per success", "tokensPerSuccess", 0);
+  row("Quality per $ ", "qualityPerDollar", 1);
+  row("Quality per 1k tokens", "qualityPer1kTokens", 2);
+  L.push("");
+  L.push("**§11 pass gates:**\n");
+  L.push(`- A mean quality ≥ 98: ${g.meanQuality98 ? "✅" : "❌"}`);
+  L.push(`- A reliability-adjusted quality ≥ 96: ${g.raq96 ? "✅" : "❌"}`);
+  L.push(`- A cost/success ≤ 20% of B2 (≥80% cheaper): ${g.cost80vsB2 ? "✅" : "❌"}`);
+  L.push(`- A beats C on quality-per-1k-tokens: ${g.qp1kBeatsC ? "✅" : "❌"}`);
+  L.push(`- Zero unresolved empties/timeouts in A: ${g.zeroUnresolved ? "✅" : "❌"}`);
+  L.push("");
+  return L;
+}
+
 function renderReport(d) {
-  const { meta, runSummary, gradeSummary, overall, byArea, perFixture, fxById, gates, deltas, failureBoard, judge } = d;
+  const { meta, runSummary, gradeSummary, overall, byArea, perFixture, fxById, gates, v3, v3gates, deltas, failureBoard, judge } = d;
   const L = [];
   const arm = (x) => ({ A: "A (go-pilot)", B: "B (all-Opus)", C: "C (same-model naive)" }[x]);
   const opusCost = runSummary.opusCostUsd || 0;
@@ -175,6 +256,8 @@ function renderReport(d) {
   L.push(`- **Workhorse spend:** est $${fmt(runSummary.workhorseEstimate, 5)} · settled $${fmt(runSummary.workhorseSettledDelta, 5)} (reconcile scale ${fmt(runSummary.reconciliation?.scale, 3)})`);
   L.push(`- **Opus (Arm B) cost @ API rates:** $${fmt(opusCost, 4)} — includes the ~49k Claude-Code system-prompt tax per call (D32), low reasoning effort.`);
   L.push(`- **Judge tokens:** Opus ${gradeSummary.judgeTokens?.opus ?? "n/a"} · DeepSeek ${gradeSummary.judgeTokens?.deepseek ?? "n/a"}\n`);
+
+  if (v3) L.push(...renderV3(v3, v3gates));
 
   L.push("## Headline — WITH (Arm A) vs WITHOUT\n");
   L.push("| Metric | A (go-pilot) | B (all-Opus) | C (same-model naive) |");

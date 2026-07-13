@@ -40,6 +40,9 @@ function completedKeys(path) {
 }
 
 async function main() {
+  // v3 methodology (Codex §10): Opus is the sole HEADLINE judge; the DeepSeek
+  // co-judge is an optional secondary diagnostic, enabled with --co-judge.
+  const coJudge = process.argv.includes("--co-judge");
   mkdirSync(OUT_DIR, { recursive: true });
   const runsPath = join(OUT_DIR, "campaign-runs.jsonl");
   const gradedPath = join(OUT_DIR, "graded-runs.jsonl");
@@ -91,31 +94,38 @@ async function main() {
         rec.deterministic = true;
         rec.gradeDetail = { pass: g.pass, candidate: g.candidate ?? undefined, reason: g.reason ?? undefined };
       } else {
-        // Budget-guard the DeepSeek co-judge (Opus is Max-plan flat fee).
-        const projected = estimateCallCost(DEEPSEEK, { total: 1200 }, rates);
-        if (priorDeepseek + judgeDeepseekEst + projected > DEEPSEEK_CAP) {
-          rec.finalScore = null; rec.failures = ["budget-skip-judge"];
-          appendFileSync(gradedPath, JSON.stringify(rec) + "\n");
-          console.error(`  SKIP-JUDGE ${r.key}: DeepSeek cap`);
-          continue;
+        // Budget-guard the DeepSeek co-judge when enabled (Opus is Max-plan flat fee).
+        if (coJudge) {
+          const projected = estimateCallCost(DEEPSEEK, { total: 1200 }, rates);
+          if (priorDeepseek + judgeDeepseekEst + projected > DEEPSEEK_CAP) {
+            rec.finalScore = null; rec.failures = ["budget-skip-judge"];
+            appendFileSync(gradedPath, JSON.stringify(rec) + "\n");
+            console.error(`  SKIP-JUDGE ${r.key}: DeepSeek cap`);
+            continue;
+          }
         }
-        const res = await gradeRubric(fx, r.output, fx.grading, { dispatchJudge });
-        rec.finalScore = res.score;
+        const res = await gradeRubric(fx, r.output, fx.grading, { dispatchJudge, coJudge });
+        rec.finalScore = res.score;       // Opus-only headline
+        rec.coScore = res.coScore;        // diagnostic (null when co-judge off)
         rec.deterministic = false;
         rec.judges = {
           opus: { overall: res.judges.opus.overall, scores: res.judges.opus.scores, ok: res.judges.opus.ok },
-          deepseek: { overall: res.judges.deepseek.overall, scores: res.judges.deepseek.scores, ok: res.judges.deepseek.ok },
+          deepseek: res.judges.deepseek
+            ? { overall: res.judges.deepseek.overall, scores: res.judges.deepseek.scores, ok: res.judges.deepseek.ok }
+            : null,
         };
         rec.perDimensionDelta = res.perDimensionDelta;
         rec.maxDelta = res.maxDelta;
         rec.flaggedDisagreement = res.flaggedDisagreement;
         rec.bothParsed = res.bothParsed;
         const oTok = res.judges.opus.usage?.tokens?.total || 0;
-        const dTok = res.judges.deepseek.usage?.tokens?.total || 0;
+        const dTok = res.judges.deepseek?.usage?.tokens?.total || 0;
         judgeTokens.opus += oTok; judgeTokens.deepseek += dTok;
-        judgeDeepseekEst += res.judges.deepseek.usage?.estCostUsd || estimateCallCost(DEEPSEEK, { total: dTok }, rates);
+        if (res.judges.deepseek) {
+          judgeDeepseekEst += res.judges.deepseek.usage?.estCostUsd || estimateCallCost(DEEPSEEK, { total: dTok }, rates);
+        }
         if (res.flaggedDisagreement) disagreements += 1;
-        deltas.push(res.maxDelta);
+        if (res.maxDelta != null) deltas.push(res.maxDelta);
       }
       graded += 1;
       console.error(`  ${r.key} [${r.gradingType}] score=${rec.finalScore == null ? "n/a" : Number(rec.finalScore).toFixed(1)}${rec.flaggedDisagreement ? " (disagree Δ" + rec.maxDelta + ")" : ""}`);
@@ -126,9 +136,18 @@ async function main() {
     appendFileSync(gradedPath, JSON.stringify(rec) + "\n");
   }
 
+  // Adjudication queue (Codex §10): rubric runs where the judges disagreed by
+  // ≥2 on any dimension get queued for manual review.
+  const adjudication = readLedger(gradedPath).filter((g) => g.flaggedDisagreement).map((g) => ({
+    key: g.key, fixtureId: g.fixtureId, arm: g.arm, opus: g.judges?.opus?.overall, deepseek: g.judges?.deepseek?.overall, maxDelta: g.maxDelta,
+  }));
+  writeFileSync(join(OUT_DIR, "adjudication-queue.json"), JSON.stringify(adjudication, null, 2));
+
   const summary = {
     gradedThisPass: graded, totalGraded: completedKeys(gradedPath).size,
+    coJudge,
     rubricDisagreements: disagreements, meanMaxDelta: deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : null,
+    adjudicationQueue: adjudication.length,
     judgeTokens, judgeDeepseekEstUsd: judgeDeepseekEst, generatedAt: new Date().toISOString(),
   };
   writeFileSync(summaryPath, JSON.stringify(summary, null, 2));

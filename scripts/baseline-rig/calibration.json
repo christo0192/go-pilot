@@ -6,12 +6,37 @@
     "test/kimi-k2.6": {
       "perTotalToken": 0.000003846824224519939,
       "perMillionTotal": 3.847,
-      "sample": { "settledDelta": 0.0026043, "totalTokens": 677, "outputTokens": 643, "reasoningTokens": 467, "settleLatencyMs": 2270 }
+      "sample": {
+        "settledDelta": 0.0026043,
+        "totalTokens": 677,
+        "outputTokens": 643,
+        "reasoningTokens": 467,
+        "settleLatencyMs": 2270
+      }
     },
     "test/deepseek-v4-pro": {
       "perTotalToken": 8.281211180124216e-7,
       "perMillionTotal": 0.828,
-      "sample": { "settledDelta": 0.000266655, "totalTokens": 322, "outputTokens": 291, "reasoningTokens": 141, "settleLatencyMs": 7612 }
+      "sample": {
+        "settledDelta": 0.000266655,
+        "totalTokens": 322,
+        "outputTokens": 291,
+        "reasoningTokens": 141,
+        "settleLatencyMs": 7612
+      }
+    }
+  },
+  "opus": {
+    "apiRates": {
+      "inPerM": 5,
+      "outPerM": 25
+    },
+    "cliTax": {
+      "cacheWrite": 50050,
+      "cacheRead": 15166,
+      "probeCostUsd": 0.508193,
+      "note": "fresh claude -p (effort low) overhead; CLI usage.input/output EXCLUDE cache tokens, so recorded B tokens are lean; B1 cost = total_cost_usd (incl tax), B2 cost = apiRates on recorded tokens",
+      "measuredAt": "2026-07-13"
     }
   }
 }

@@ -318,6 +318,17 @@ async function main() {
       console.error(`  ${key0} ${r.arm}->${armMeta.model} tok=${usage.tokens?.total ?? "?"} ${scoreStr}${armMeta.repairUsed ? " [repaired]" : ""}${failures.length ? " FAIL:" + failures.join(",") : ""}`);
     } catch (e) {
       rec.failures = ["error"]; rec.error = String(e.message || e).slice(0, 400); rec.score = null;
+      // Failed attempts are NOT free (Codex §10): count the projected workhorse
+      // spend toward caps and record it so aggregation prices the failure.
+      if (r.arm !== "B") {
+        try {
+          const failAlias = r.arm === "A" ? (profileCats[fx.category]?.model || fx.armAModel) : (args.cModel || fx.armAModel);
+          const failModel = resolveModel(failAlias).version;
+          const projected = estimateCallCost(failModel, { total: fx.settings.max_tokens }, rates);
+          rec.projectedCostUsd = projected;
+          ledger.record({ model: failModel, tokens: {}, costUsd: projected });
+        } catch { /* projection is best-effort */ }
+      }
       fails["error"] = (fails["error"] || 0) + 1;
       console.error(`  ERROR ${key0}: ${rec.error}`);
     }
