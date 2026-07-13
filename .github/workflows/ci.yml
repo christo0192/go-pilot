@@ -58,6 +58,19 @@ jobs:
           shellcheck -S error install.sh scripts/*.sh
           echo "shellcheck ✓"
 
+  fresh-machine-doctor:
+    name: installer doctor (clean ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bash install.sh --doctor
+        # Verify-only on a box with no pi/herdr/key: must complete, report the
+        # missing pieces as TODOs, and exit 0 — proves the script runs clean
+        # on a machine that isn't the maintainer's.
+
   secrets:
     name: gitleaks (full history)
     runs-on: ubuntu-latest

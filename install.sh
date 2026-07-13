@@ -50,16 +50,49 @@ MEM0_SRC="deploy/mem0-src"
 FULL="${GOPILOT_FULL:-0}"
 # --tools flag OR GOPILOT_TOOLS=1 enables the trader doc-toolkit (user-local).
 TOOLS="${GOPILOT_TOOLS:-0}"
+# --doctor: verify-only mode — checks every piece, changes NOTHING, exit 0 with
+# a report (missing pieces become TODOs). Used by CI and for quick health checks.
+DOCTOR=0
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
     --tools) TOOLS=1 ;;
+    --doctor) DOCTOR=1 ;;
     -h|--help)
       grep -E '^#( |$)' "$0" | sed -E 's/^# ?//'
       exit 0 ;;
-    *) echo "Unknown argument: $arg (use --full, --tools or --help)" >&2; exit 2 ;;
+    *) echo "Unknown argument: $arg (use --full, --tools, --doctor or --help)" >&2; exit 2 ;;
   esac
 done
+
+# Known-good tool versions (reproducibility + supply chain). Override via env.
+PI_VERSION="${GOPILOT_PI_VERSION:-0.80.6}"
+
+run_doctor() {
+  log "Doctor: verify-only (nothing will be changed)"
+  local checks=0 okc=0
+  chk() { # $1 label, $2 command
+    checks=$((checks + 1))
+    if eval "$2" >/dev/null 2>&1; then okc=$((okc + 1)); info "OK   $1"
+    else warn "MISS $1"; add_todo "$1"; fi
+  }
+  chk "node >= 20"                       'have node && [ "$(node -e "console.log(process.versions.node.split(\".\")[0])")" -ge 20 ]'
+  chk "git present"                      'have git'
+  chk "docker present (Mem0/LiteLLM)"    'have docker'
+  chk "pi present (workhorse agents)"    'have pi'
+  chk "herdr present (pane orchestration)" 'have herdr'
+  chk "deploy/.env exists"               '[ -f deploy/.env ]'
+  chk "WORKHORSE_GATEWAY_KEY set in deploy/.env" 'grep -qE "^WORKHORSE_GATEWAY_KEY=.+" deploy/.env'
+  chk "deploy/.env permissions 600"      '[ "$(stat -c %a deploy/.env 2>/dev/null || stat -f %Lp deploy/.env)" = "600" ]'
+  chk "pi-delegate on PATH"              '[ -e "$HOME/.local/bin/pi-delegate" ]'
+  chk "Pi ikey provider registered"      'grep -q "\"ikey\"" "$HOME/.pi/agent/models.json"'
+  chk "global orchestrate skill"         '[ -f "$HOME/.claude/skills/gopilot-orchestrate/SKILL.md" ]'
+  chk "repo CLAUDE.md present"           '[ -f CLAUDE.md ]'
+  chk "unit tests pass"                  'node scripts/run-tests.mjs unit'
+  log "Doctor: $okc/$checks checks OK"
+  final_report
+  exit 0
+}
 
 # ---------------------------------------------------------------------------
 # Logging + small helpers.
@@ -213,8 +246,8 @@ ensure_full_rig() {
   if have pi; then
     info "pi present, skipping"
   else
-    info "installing Pi (pi-coding-agent)…"
-    npm i -g --ignore-scripts @earendil-works/pi-coding-agent
+    info "installing Pi (pi-coding-agent) @ ${PI_VERSION} (pinned; override GOPILOT_PI_VERSION)…"
+    npm i -g --ignore-scripts "@earendil-works/pi-coding-agent@${PI_VERSION}"
   fi
 
   if have herdr; then
@@ -565,6 +598,7 @@ final_report() {
 # ===========================================================================
 main() {
   log "Go-pilot installer — detected OS: $OS"
+  [[ "$DOCTOR" = "1" ]] && run_doctor
 
   ensure_node
   ensure_docker
