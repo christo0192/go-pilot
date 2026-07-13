@@ -4,9 +4,15 @@
 # workhorses produce content (scripts/pi-delegate.sh). The .pi/skills/orchestrate
 # skill loads from the repo cwd and tells Opus how to delegate.
 #
-# Requires: Claude Pro/Max login in Pi (`pi` then `/login` → Claude) for the
-# orchestrator model, the Ikey provider registered (scripts/pi-ikey.sh installs
-# it) for the workers, and herdr for the worker panes.
+# Requires: the Ikey provider registered (scripts/pi-ikey.sh installs it) for the
+# workers, and herdr for the worker panes.
+#
+# BILLING (important): running the orchestrator as `pi --model opus` uses Pi's
+# Claude provider, which draws from Claude "extra usage" (per-token, beyond your
+# plan) — it runs out. For the PLAN-INCLUDED path, orchestrate with Claude Code
+# itself (`claude`) driven inside a herdr pane instead of opus-via-Pi. This
+# launcher's opus default is the extra-usage path; prefer claude-in-herdr for
+# real runs. (Verified working: claude in herdr driving KIMI/DEEPSEEK worker panes.)
 #
 # Usage:
 #   ./scripts/pi-orchestrate.sh                     # Opus orchestrator (default)
