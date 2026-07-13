@@ -12,6 +12,14 @@ Full procedure + examples: `orchestrate` skill. Worker mechanics: `pi-workers` s
 
 ## Step 1 — classify risk (not just category)
 
+Run the deterministic classifier FIRST for each subtask; take its suggestion by default:
+
+```bash
+node scripts/classify.mjs "<subtask text>"   # → {risk, route, signals, confidence}
+```
+
+You may override with judgment, but then pass the classifier's route as `--suggested <route>` to pi-delegate so the ledger records suggestion vs actual (auditable routing). Risk classes:
+
 - **deterministic** — output is checkable (code w/ tests, math, extraction to schema, repo edits)
 - **evidence-grounded** — answer must cite provided material (doc-QA, data analysis)
 - **subjective/high-stakes** — quality judgment matters (executive insight, recommendations)
@@ -46,7 +54,16 @@ echo "<long subtask>" | scripts/pi-delegate.sh --repair --class coding deepseek 
 
 ## Step 4 — verify deterministically (mandatory)
 
-Never trust a worker's self-description; check the artifact: run the code/tests, `JSON.parse` + schema-check, verify the number, confirm citations point at real evidence. A subtask is done only when its check passes.
+Never trust a worker's self-description; check the artifact with the validation CLI (exit 0 = pass):
+
+```bash
+<output> | node scripts/validate.mjs json [--schema s.json]
+<output> | node scripts/validate.mjs numeric --expected 42 [--tolerance 0.01]
+<output> | node scripts/validate.mjs citations --ids doc1.s1,doc1.s2
+node scripts/validate.mjs code --run "node --test x.test.mjs" [--cwd dir]
+```
+
+Run code/tests for repo changes. A subtask is done only when its check passes.
 
 ## Step 5 — escalation ladder (no silent failures, no raw failed output)
 

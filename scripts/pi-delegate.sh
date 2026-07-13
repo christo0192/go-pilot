@@ -33,11 +33,12 @@ WORKDIR="${DELEGATE_CWD:-$PWD}"   # agentic workers run HERE (the caller's proje
 LOGDIR="$REPO/scripts/baseline-rig/out"
 export LOGFILE="$LOGDIR/delegate-log.jsonl"
 
-MODE=agentic REPAIR=0 CLASS="" TIMEOUT_S="" MAX_TOKENS=8000
+MODE=agentic REPAIR=0 CLASS="" TIMEOUT_S="" MAX_TOKENS=8000 SUGGESTED=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --raw) MODE=raw; shift ;;
     --repair) REPAIR=1; shift ;;
+    --suggested) SUGGESTED="${2:?--suggested needs a route}"; shift 2 ;;
     --class) CLASS="${2:?--class needs a value}"; shift 2 ;;
     --timeout) TIMEOUT_S="${2:?--timeout needs seconds}"; shift 2 ;;
     --max-tokens) MAX_TOKENS="${2:?--max-tokens needs a number}"; shift 2 ;;
@@ -73,7 +74,7 @@ printf '%s%s' "$STRICT_PREFIX" "$TASK" > "$DIR/task-strict.txt"
 log_metric() { # $1 model $2 attempt $3 outcome $4 latencyMs $5 outChars $6 usageJson
   mkdir -p "$LOGDIR"
   TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)" M="$1" ATT="$2" OUTCOME="$3" LAT="$4" OUTCH="$5" \
-  USAGE="${6:-null}" MODE="$MODE" CLASS="$CLASS" PROMPTCH="${#TASK}" REPAIR="$REPAIR" \
+  USAGE="${6:-null}" MODE="$MODE" CLASS="$CLASS" PROMPTCH="${#TASK}" REPAIR="$REPAIR" SUGG="$SUGGESTED" \
   node -e '
     const fs = require("fs");
     let usage = null; try { usage = JSON.parse(process.env.USAGE); } catch {}
@@ -82,6 +83,7 @@ log_metric() { # $1 model $2 attempt $3 outcome $4 latencyMs $5 outChars $6 usag
       model: process.env.M, attempt: Number(process.env.ATT), outcome: process.env.OUTCOME,
       latencyMs: Number(process.env.LAT), promptChars: Number(process.env.PROMPTCH),
       outChars: Number(process.env.OUTCH), usage, repairEnabled: process.env.REPAIR === "1",
+      suggested: process.env.SUGG || null,
     }) + "\n");
   ' 2>/dev/null || true
 }

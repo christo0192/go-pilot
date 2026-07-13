@@ -402,7 +402,8 @@ ensure_env() {
   fi
   [[ -f deploy/.env.example ]] || die "deploy/.env.example is missing — cannot template deploy/.env."
   cp deploy/.env.example deploy/.env
-  info "created deploy/.env — fill OPENAI_API_KEY (embedder key for Mem0 search)."
+  chmod 600 deploy/.env
+  info "created deploy/.env (chmod 600) — fill OPENAI_API_KEY (embedder key for Mem0 search)."
   add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
 }
 
