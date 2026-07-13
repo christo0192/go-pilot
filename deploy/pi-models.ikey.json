@@ -1,0 +1,16 @@
+{
+  "_note": "Pi custom-provider config for the Ikey test gateway. Install to ~/.pi/agent/models.json (merge if you already have other custom providers). The apiKey command reads WORKHORSE_GATEWAY_KEY from deploy/.env at runtime — no hardcoded secret. The absolute path below is machine-specific; update it if the repo moves. scripts/pi-ikey.sh installs this automatically when ~/.pi/agent/models.json is absent.",
+  "providers": {
+    "ikey": {
+      "baseUrl": "https://ikey-gateway.fly.dev/v1",
+      "api": "openai-completions",
+      "authHeader": true,
+      "apiKey": "!grep -E '^WORKHORSE_GATEWAY_KEY=' \"/mnt/c/Users/Admin/Claude projects/Go-pilot/deploy/.env\" | cut -d= -f2- | tr -d '[:space:]'",
+      "compat": { "supportsDeveloperRole": false, "supportsReasoningEffort": false },
+      "models": [
+        { "id": "test/kimi-k2.6", "name": "Kimi K2.6 (Ikey)", "reasoning": true, "input": ["text"], "contextWindow": 200000, "maxTokens": 16000 },
+        { "id": "test/deepseek-v4-pro", "name": "DeepSeek V4 Pro (Ikey)", "reasoning": true, "input": ["text"], "contextWindow": 128000, "maxTokens": 16000 }
+      ]
+    }
+  }
+}
