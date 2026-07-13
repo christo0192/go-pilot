@@ -31,13 +31,18 @@ export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 WORKDIR="${DELEGATE_CWD:-$PWD}"   # agentic workers run HERE (the caller's project)
 LOGDIR="$REPO/scripts/baseline-rig/out"
-export LOGFILE="$LOGDIR/delegate-log.jsonl"
+export LOGFILE="${DELEGATE_LOG:-$LOGDIR/delegate-log.jsonl}"
 
 MODE=agentic REPAIR=0 CLASS="" TIMEOUT_S="" MAX_TOKENS=8000 SUGGESTED=""
+SANDBOX=0 JOURNAL="" FORCE_MODEL=0 ALLOW_OVER=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --raw) MODE=raw; shift ;;
     --repair) REPAIR=1; shift ;;
+    --sandbox) SANDBOX=1; shift ;;
+    --force-model) FORCE_MODEL=1; shift ;;
+    --allow-over-budget) ALLOW_OVER=1; shift ;;
+    --journal) JOURNAL="${2:?--journal needs a dir}"; shift 2 ;;
     --suggested) SUGGESTED="${2:?--suggested needs a route}"; shift 2 ;;
     --class) CLASS="${2:?--class needs a value}"; shift 2 ;;
     --timeout) TIMEOUT_S="${2:?--timeout needs seconds}"; shift 2 ;;
@@ -62,6 +67,26 @@ esac
 default_timeout() { case "$1" in kimi) echo 360 ;; deepseek) echo 240 ;; *) echo 300 ;; esac; }
 EXPLICIT_TIMEOUT="${TIMEOUT_S:-${DELEGATE_TIMEOUT_S:-}}"
 TIMEOUT_S="${EXPLICIT_TIMEOUT:-$(default_timeout "$ALIAS")}"
+
+# --- Governance guards: circuit breaker + budget (ledger/gateway-derived) ----
+if [ "$FORCE_MODEL" != "1" ]; then
+  if ! node "$REPO/scripts/breaker-check.mjs" "$ALIAS" --log "$LOGFILE" >/dev/null 2>&1; then
+    if [ -n "$SIBLING" ] && node "$REPO/scripts/breaker-check.mjs" "$SIBLING" --log "$LOGFILE" >/dev/null 2>&1; then
+      echo "[delegate breaker] $ALIAS OPEN (repeated failures) -> rerouting to $SIBLING (--force-model overrides)" >&2
+      _SWAP="$ALIAS"; ALIAS="$SIBLING"; SIBLING="$_SWAP"
+      TIMEOUT_S="${EXPLICIT_TIMEOUT:-$(default_timeout "$ALIAS")}"
+    else
+      echo "[delegate breaker] $ALIAS OPEN and no healthy sibling — refusing (--force-model overrides)" >&2
+      exit 6
+    fi
+  fi
+fi
+_BUDGET_RC=0
+node "$REPO/scripts/spend-guard.mjs" >/dev/null 2>&1 || _BUDGET_RC=$?
+if [ "$_BUDGET_RC" = "7" ] && [ "$ALLOW_OVER" != "1" ]; then
+  echo "[delegate budget] settled gateway spend >= cap — refusing (--allow-over-budget overrides)" >&2
+  exit 7
+fi
 
 DIR="$(mktemp -d "${TMPDIR:-/tmp}/pi-deleg.XXXXXX")"
 trap 'rm -rf "$DIR"' EXIT
@@ -106,22 +131,51 @@ run_agentic() { # $1 model-alias $2 taskfile $3 attempt-tag
   fi
   if [ -z "${WORKER:-}" ]; then OUTCOME=error; LAT=0; USAGE=null; echo "[delegate error] could not create worker pane" >&2; return; fi
   herdr pane rename "$WORKER" "wk:$1" >/dev/null 2>&1 || true
+  # --sandbox: run the worker in a throwaway git worktree; orchestrator reviews
+  # the diff and merges only after validation (repo edits never land unreviewed).
+  local RUNDIR="$WORKDIR" WT=""
+  if [ "$SANDBOX" = "1" ]; then
+    if git -C "$WORKDIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      WT="${TMPDIR:-/tmp}/gopilot-wt/wt-$$-$3-$RANDOM"
+      mkdir -p "$(dirname "$WT")"
+      if git -C "$WORKDIR" worktree add --detach "$WT" HEAD >/dev/null 2>&1; then RUNDIR="$WT"
+      else WT=""; echo "[sandbox] worktree add failed — running direct in $WORKDIR" >&2; fi
+    else
+      echo "[sandbox] $WORKDIR is not a git repo — running direct" >&2
+    fi
+  fi
   t0="$(node -e 'process.stdout.write(String(Date.now()))')"
-  herdr pane run "$WORKER" "bash '$REPO/scripts/pi-worker.sh' '$1' '$2' '$OUTFILE' '$WORKDIR'" >/dev/null 2>&1
+  herdr pane run "$WORKER" "bash '$REPO/scripts/pi-worker.sh' '$1' '$2' '$OUTFILE' '$RUNDIR'" >/dev/null 2>&1
   local deadline=$(( $(date +%s) + TIMEOUT_S ))
   OUTCOME=ok
   while [ ! -f "$OUTFILE.done" ]; do
     [ "$(date +%s)" -ge "$deadline" ] && { OUTCOME=timeout; break; }
     sleep 2
   done
-  t1="$(node -e 'process.stdout.write(String(Date.now()))')"; LAT=$(( t1 - t0 )); USAGE=null; CONTENT="$OUTFILE"
+  t1="$(node -e 'process.stdout.write(String(Date.now()))')"; LAT=$(( t1 - t0 )); CONTENT="$OUTFILE"
+  # Exact usage recovered from Pi's session log by the worker (null if not found).
+  if [ -s "$OUTFILE.usage" ]; then USAGE="$(tr -d '\n' < "$OUTFILE.usage")"; else USAGE=null; fi
   # Pane cleanup ALWAYS (also on timeout — kills the stuck worker).
   if [ -n "$CLOSE_WS" ]; then herdr workspace close "$CLOSE_WS" >/dev/null 2>&1 || true
   else herdr pane close "$WORKER" >/dev/null 2>&1 || true; fi
-  [ "$OUTCOME" = "timeout" ] && return
-  if [ ! -s "$OUTFILE" ] || ! grep -q '[^[:space:]]' "$OUTFILE"; then OUTCOME=empty
-  # pi-worker appends its error marker as the LAST line (possibly after partial output)
-  elif tail -n 1 "$OUTFILE" | grep -q '^\[worker error'; then OUTCOME=error; fi
+  if [ "$OUTCOME" != "timeout" ]; then
+    if [ ! -s "$OUTFILE" ] || ! grep -q '[^[:space:]]' "$OUTFILE"; then OUTCOME=empty
+    # pi-worker appends its error marker as the LAST line (possibly after partial output)
+    elif tail -n 1 "$OUTFILE" | grep -q '^\[worker error'; then OUTCOME=error; fi
+  fi
+  # Sandbox outcome handling: keep the worktree for review on success; scrap it on failure.
+  if [ -n "$WT" ]; then
+    if [ "$OUTCOME" = "ok" ]; then
+      SANDBOX_WT="$WT"
+      {
+        echo "[sandbox worktree] $WT"
+        git -C "$WT" status --porcelain | head -20
+        echo "[sandbox] review: git -C '$WT' diff HEAD · merge: git -C '$WT' diff HEAD | git -C '$WORKDIR' apply · cleanup: git -C '$WORKDIR' worktree remove --force '$WT'"
+      } >&2
+    else
+      git -C "$WORKDIR" worktree remove --force "$WT" >/dev/null 2>&1 || true
+    fi
+  fi
 }
 
 run_raw() { # $1 model-or-alias $2 taskfile $3 attempt-tag
@@ -166,9 +220,25 @@ if [ "$OUTCOME" != "ok" ] && [ "$REPAIR" = "1" ]; then
   fi
 fi
 
+journal_append() { # $1 exitCode
+  [ -n "$JOURNAL" ] || return 0
+  mkdir -p "$JOURNAL"
+  TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)" M="$FINAL_MODEL" OUTCOME="$OUTCOME" MODE="$MODE" \
+  CLASS="$CLASS" EC="$1" JF="$JOURNAL/subtasks.jsonl" \
+  node -e '
+    require("fs").appendFileSync(process.env.JF, JSON.stringify({
+      ts: process.env.TS, class: process.env.CLASS || null, model: process.env.M,
+      mode: process.env.MODE, outcome: process.env.OUTCOME, exitCode: Number(process.env.EC),
+    }) + "\n");
+  ' 2>/dev/null || true
+}
+
 if [ "$OUTCOME" = "ok" ]; then
+  journal_append 0
   cat "$CONTENT"
   exit 0
 fi
 echo "[delegate failed] model=$FINAL_MODEL outcome=$OUTCOME mode=$MODE (repair=$REPAIR). Do NOT use any partial output; escalate per CLAUDE.md." >&2
-case "$OUTCOME" in empty) exit 2 ;; timeout) exit 3 ;; truncated) exit 5 ;; *) exit 4 ;; esac
+case "$OUTCOME" in empty) EC=2 ;; timeout) EC=3 ;; truncated) EC=5 ;; *) EC=4 ;; esac
+journal_append "$EC"
+exit "$EC"

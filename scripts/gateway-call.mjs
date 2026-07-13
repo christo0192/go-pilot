@@ -18,7 +18,9 @@ import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
-const ENDPOINT = 'https://ikey-gateway.fly.dev/v1/chat/completions';
+// WORKHORSE_GATEWAY_URL overrides the gateway (other deployments; fault-injection tests).
+const GW_BASE = (process.env.WORKHORSE_GATEWAY_URL || 'https://ikey-gateway.fly.dev').replace(/\/v1\/?$/, '');
+const ENDPOINT = `${GW_BASE}/v1/chat/completions`;
 const ALIASES = { kimi: 'test/kimi-k2.6', deepseek: 'test/deepseek-v4-pro' };
 
 function loadKey() {

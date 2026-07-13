@@ -16,8 +16,14 @@ Key: `WORKHORSE_GATEWAY_KEY` in gitignored `deploy/.env` (scripts load it themse
 
 ## Two worker flavors
 
-1. **Agentic** (default of `pi-delegate.sh`): `pi -a -p --model ikey/...` inside a herdr pane, run from repo root so `.pi/` loads. Has tools — can edit files and run commands. Token usage NOT surfaced (`pi -p` limitation); metrics log records latency/outcome only.
+1. **Agentic** (default of `pi-delegate.sh`): `pi -a -p --model ikey/...` inside a herdr pane, running in the CALLER's cwd. Has tools — can edit files and run commands. Exact token usage is recovered post-run from Pi's session logs (`scripts/pi-usage.mjs`) and logged to the ledger. Note the agentic scaffold costs ~3-4k input tokens per run — prefer `--raw` when no tools are needed. Use `--sandbox` for repo edits (worker gets a throwaway git worktree; review diff, then apply).
 2. **Raw** (`pi-delegate.sh --raw`, or directly `node scripts/gateway-call.mjs <alias> --json "<prompt>"`): direct HTTP chat completion. No tools, but returns exact `usage` including reasoning tokens, plus `finishReason` (`length` = truncated). Prefer for anything that's pure text/JSON production — better accounting, less overhead.
+
+## Governance (automatic in pi-delegate)
+
+- **Breaker**: `scripts/breaker-check.mjs <model>` — 3 consecutive failures in 10 min opens the model for 5 min; delegate auto-reroutes to the sibling or exits 6. `--force-model` bypasses.
+- **Budget**: `scripts/spend-guard.mjs` — settled cumulative gateway spend vs `GOPILOT_SPEND_CAP_USD` (default 7); delegate exits 7 when over. `--allow-over-budget` bypasses. Fail-open on gateway/infra errors, fail-closed on real over-budget.
+- **Journal**: `--journal <dir>` appends per-subtask outcomes to `<dir>/subtasks.jsonl` for resumable orchestrations.
 
 `scripts/pi-worker.sh <alias> <taskfile> <outfile>` is the agentic one-shot the pane runs (writes `<outfile>` + `<outfile>.done`).
 

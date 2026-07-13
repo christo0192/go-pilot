@@ -21,6 +21,11 @@ esac
 REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 cd "${WORKDIR:-$REPO}"                # caller's project (repo edits land there); Go-pilot if unset
 
+T0="$(node -e 'process.stdout.write(String(Date.now()))')"
 # -a trusts local resources so the worker can actually use tools; -p is headless.
 pi -a -p --model "$MODEL" "$(cat "$TASKFILE")" > "$OUTFILE" 2>&1 || echo "[worker error: pi exited $?]" >> "$OUTFILE"
+# Recover exact token usage from Pi's session log (pi -p prints none). Snippet
+# of the task text disambiguates our session from concurrent workers.
+SNIPPET="$(tr -c 'a-zA-Z0-9 ' ' ' < "$TASKFILE" | tr -s ' ' | head -c 60)"
+node "$REPO/scripts/pi-usage.mjs" "$T0" "$SNIPPET" > "$OUTFILE.usage" 2>/dev/null || rm -f "$OUTFILE.usage"
 touch "$OUTFILE.done"

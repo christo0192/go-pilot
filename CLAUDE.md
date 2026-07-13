@@ -42,13 +42,14 @@ Kimi k2.6 is a reasoning model whose reasoning CANNOT be disabled (verified): ex
 ## Step 3 — delegate
 
 ```bash
-scripts/pi-delegate.sh [--raw] [--repair] [--class <label>] <deepseek|kimi> "<subtask>"
+scripts/pi-delegate.sh [--raw] [--repair] [--sandbox] [--class <label>] <deepseek|kimi> "<subtask>"
 echo "<long subtask>" | scripts/pi-delegate.sh --repair --class coding deepseek -
 ```
 
-- Default = agentic Pi worker in a herdr pane (has tools: edits files, runs commands). Pane auto-closes. Use for repo changes.
-- `--raw` = direct gateway call, no tools, returns exact token usage. Use for draft/answer/extract subtasks.
+- Default = agentic Pi worker in a herdr pane (has tools: edits files, runs commands). Pane auto-closes. Use for repo changes — **with `--sandbox`**: the worker edits a throwaway git worktree; you review the diff (stderr prints the review/merge/cleanup commands) and apply it only after validation.
+- `--raw` = direct gateway call, no tools, exact token usage. Use for draft/answer/extract subtasks. (Agentic runs also log exact usage now, recovered from Pi session logs.)
 - ALWAYS pass `--repair` (mechanical retry: strict re-prompt → sibling model) and `--class` (metrics).
+- Governance is automatic: a **circuit breaker** reroutes/refuses after repeated model failures (exit 6; `--force-model` overrides) and a **budget guard** refuses when settled gateway spend ≥ cap (exit 7; `--allow-over-budget` overrides; cap = `GOPILOT_SPEND_CAP_USD`, default $7). For multi-subtask orchestrations pass `--journal <dir>` so outcomes accumulate in `<dir>/subtasks.jsonl` (resumable after interruption).
 - Subtask prompts are **self-contained** (workers share no memory with you) and **compact**: objective, minimal evidence/context, output contract ("output ONLY the code/JSON"), validation rule, token expectation. No policy boilerplate, no routing metadata, no repeated context across subtasks.
 - Every call is auto-logged to `scripts/baseline-rig/out/delegate-log.jsonl`.
 
