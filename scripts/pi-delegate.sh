@@ -27,7 +27,9 @@
 # Exit: 0 ok · 2 empty · 3 timeout · 4 error · 5 truncated  (after repairs, if enabled)
 set -uo pipefail
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# readlink -f: resolve symlinks so the ~/.local/bin/pi-delegate shim works from any repo
+REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+WORKDIR="${DELEGATE_CWD:-$PWD}"   # agentic workers run HERE (the caller's project)
 LOGDIR="$REPO/scripts/baseline-rig/out"
 export LOGFILE="$LOGDIR/delegate-log.jsonl"
 
@@ -103,7 +105,7 @@ run_agentic() { # $1 model-alias $2 taskfile $3 attempt-tag
   if [ -z "${WORKER:-}" ]; then OUTCOME=error; LAT=0; USAGE=null; echo "[delegate error] could not create worker pane" >&2; return; fi
   herdr pane rename "$WORKER" "wk:$1" >/dev/null 2>&1 || true
   t0="$(node -e 'process.stdout.write(String(Date.now()))')"
-  herdr pane run "$WORKER" "bash '$REPO/scripts/pi-worker.sh' '$1' '$2' '$OUTFILE'" >/dev/null 2>&1
+  herdr pane run "$WORKER" "bash '$REPO/scripts/pi-worker.sh' '$1' '$2' '$OUTFILE' '$WORKDIR'" >/dev/null 2>&1
   local deadline=$(( $(date +%s) + TIMEOUT_S ))
   OUTCOME=ok
   while [ ! -f "$OUTFILE.done" ]; do
