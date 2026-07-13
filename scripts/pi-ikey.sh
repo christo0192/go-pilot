@@ -28,7 +28,8 @@ fi
 PICFG="$HOME/.pi/agent/models.json"
 if [ ! -f "$PICFG" ]; then
   mkdir -p "$HOME/.pi/agent"
-  cp "$REPO/deploy/pi-models.ikey.json" "$PICFG"
+  # Template -> real config: substitute this machine's repo path (portable installs).
+  sed "s|__GOPILOT_REPO__|$REPO|g" "$REPO/deploy/pi-models.ikey.json" > "$PICFG"
   echo "Installed Ikey provider -> $PICFG" >&2
 elif ! grep -q '"ikey"' "$PICFG"; then
   echo "NOTE: $PICFG exists without an \"ikey\" provider — merge deploy/pi-models.ikey.json into it." >&2

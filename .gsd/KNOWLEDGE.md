@@ -35,7 +35,7 @@ LEAN WORKER CONFIG (D15): `claude -p --setting-sources project --strict-mcp-conf
 - Verified: workspace create/list, api snapshot, pane split, and the FULL LOOP:
   `pane run` (dispatch) → `wait output --match <marker>` (block till done) → `pane read --source recent-unwrapped` (clean result).
 - `herdr wait output/agent-status` is the built-in boomerang/completion primitive — no polling/sleep needed. `herdr agent start/send/wait/read` for wrapped-agent panes.
-- `herdr integration install claude` writes a hook to /mnt/c/Users/Admin/.claude/hooks/herdr-agent-state.sh (+ likely settings.json). User has a heavy existing hook setup → inspect + back up before installing (T02).
+- `herdr integration install claude` writes a hook to ~/.claude/hooks/herdr-agent-state.sh (+ likely settings.json). User has a heavy existing hook setup → inspect + back up before installing (T02).
 - Server running in background this session (task bg7g5a10h). Full command reference: panes/herdr-orchestration.md.
 - DESIGN: worker one-shots = lean `claude -p` via `pane run` (deterministic, token-accounted, cheapest). Interactive orchestrator pane = `agent start -- claude` + integration for TUI state.
 

@@ -36,19 +36,34 @@ reduction, ≤5% quality tolerance, tracked retries, router overhead as its own 
 
 ---
 
-## Quickstart
+## Quickstart — plug and play
 
 ```bash
+git clone https://github.com/christo0192/go-pilot.git && cd go-pilot
 ./install.sh                       # idempotent bootstrap (macOS/WSL); Windows: install.ps1
-# → ensures Node + Docker, templates deploy/.env, fetches the Mem0 build context
+# → ensures Node + Docker, templates deploy/.env, fetches the Mem0 build context,
+#   puts `pi-delegate` on PATH, registers the Pi workhorse provider, installs the
+#   global orchestration skill
 
-# then edit deploy/.env:
+# then plug in YOUR key (the only required edit) in deploy/.env:
+#   WORKHORSE_GATEWAY_KEY=...  # your workhorse-gateway key (Ikey, or any
+#                              # OpenAI-compatible gateway — change LITELLM_BASE_URL too)
+
+claude                             # in this repo — CLAUDE.md turns Claude Code into the
+                                   # orchestrator: it routes subtasks to Kimi/DeepSeek worker
+                                   # panes automatically and assembles verified results
+```
+
+**That's the daily driver.** Give `claude` a substantial task and watch `wk:deepseek` / `wk:kimi`
+panes spawn, work, report back, and close. Optional extras:
+
+```bash
+# other keys in deploy/.env (all optional):
 #   OPENAI_API_KEY=...       # Mem0's embedder (pure-anthropic has no embeddings API; ~free)
-#   OPENROUTER_API_KEY=...   # activates the LiteLLM workhorse — one key reaches every open model
-#                            #   (leave blank for pure-anthropic — the gateway still boots)
+#   OPENROUTER_API_KEY=...   # activates the LOCAL LiteLLM workhorse — one key, every open model
 
-docker compose -f deploy/docker-compose.yml up -d   # Mem0 (+ LiteLLM for hybrid/open-first)
-node --test                                          # 172 pass
+docker compose -f deploy/docker-compose.yml up -d   # Mem0 memory (+ LiteLLM for local gateway)
+node --test                                          # full suite must pass
 node scripts/verify-litellm.mjs                      # probes each workhorse model (SKIP if no key)
 ```
 

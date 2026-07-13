@@ -406,6 +406,45 @@ ensure_env() {
   add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
 }
 
+ensure_orchestrator() {
+  log "Orchestrator: pi-delegate on PATH + Pi provider + global skill"
+
+  # 1) pi-delegate shim (idempotent symlink) — lets ANY repo delegate to workhorses.
+  mkdir -p "$HOME/.local/bin"
+  ln -sf "$PWD/scripts/pi-delegate.sh" "$HOME/.local/bin/pi-delegate"
+  info "symlinked ~/.local/bin/pi-delegate -> scripts/pi-delegate.sh"
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) : ;;
+    *) add_todo "Add ~/.local/bin to PATH (pi-delegate lives there)." ;;
+  esac
+
+  # 2) Pi "ikey" provider config (never clobbers an existing models.json).
+  local picfg="$HOME/.pi/agent/models.json"
+  if [[ -f deploy/pi-models.ikey.json ]]; then
+    if [[ ! -f "$picfg" ]]; then
+      mkdir -p "$HOME/.pi/agent"
+      sed "s|__GOPILOT_REPO__|$PWD|g" deploy/pi-models.ikey.json > "$picfg"
+      info "installed Pi workhorse provider -> $picfg"
+    elif ! grep -q '"ikey"' "$picfg"; then
+      warn "$picfg exists without an \"ikey\" provider"
+      add_todo "Merge deploy/pi-models.ikey.json into ~/.pi/agent/models.json (replace __GOPILOT_REPO__ with $PWD)."
+    else
+      info "Pi provider already registered, leaving as-is"
+    fi
+  fi
+
+  # 3) Global Claude Code skill — orchestration from ANY repo (idempotent overwrite:
+  #    the template is the source of truth; re-running install updates it).
+  if [[ -f deploy/global-skill.gopilot-orchestrate.md ]]; then
+    mkdir -p "$HOME/.claude/skills/gopilot-orchestrate"
+    sed "s|__GOPILOT_REPO__|$PWD|g" deploy/global-skill.gopilot-orchestrate.md \
+      > "$HOME/.claude/skills/gopilot-orchestrate/SKILL.md"
+    info "installed global skill -> ~/.claude/skills/gopilot-orchestrate/SKILL.md"
+  fi
+  add_todo "Optional: paste deploy/global-claude-md-snippet.md into ~/.claude/CLAUDE.md for auto-orchestration in every repo (in-repo it works without this)."
+  add_todo "Fill WORKHORSE_GATEWAY_KEY in deploy/.env — the one key the workhorse plane needs."
+}
+
 # ===========================================================================
 # SECTION 4 — Mem0 build context (sparse clone, guarded).
 # ===========================================================================
@@ -534,6 +573,7 @@ main() {
   ensure_herdr_config
 
   ensure_env
+  ensure_orchestrator
   ensure_mem0_src
   bring_up_services
 

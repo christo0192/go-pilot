@@ -24,7 +24,7 @@ verification: repo initialized; env inventory recorded; dir tree present
 Created the Go-pilot repo skeleton and captured the toolchain inventory.
 
 **Done:**
-- `git init` (user Chris / christo.b@interviewkickstart.com).
+- `git init` (user Chris).
 - Directory tree: `docs/ config/ scripts/ panes/ metrics/ src/` + `.gsd/` state machine.
 - `README.md`, `.gitignore` (ignores .env/secrets/data/LOCK), `.env.example` (profile + optional keys).
 - `docs/environments.md` populated with detected versions for Windows/WSL2.
