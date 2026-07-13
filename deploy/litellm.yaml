@@ -83,6 +83,23 @@ model_list:
       model: openrouter/moonshotai/kimi-k2-0905
       api_key: os.environ/OPENROUTER_API_KEY
 
+  # ---- kimi-ikey / deepseek-ikey : Ikey TEST gateway (S11 benchmarked models)
+  # Hosted OpenAI-compatible gateway that also supports tool-calling.
+  # WORKHORSE_GATEWAY_KEY activates. These are the EXACT models the S11 live
+  # A/B/C benchmark used (test/kimi-k2.6, test/deepseek-v4-pro). Reachable either
+  # directly (scripts/pi-ikey.sh — no docker) or through this local LiteLLM when
+  # the local-litellm profile runs with WORKHORSE_GATEWAY_KEY in its env.
+  - model_name: kimi-ikey
+    litellm_params:
+      model: openai/test/kimi-k2.6
+      api_base: https://ikey-gateway.fly.dev/v1
+      api_key: os.environ/WORKHORSE_GATEWAY_KEY
+  - model_name: deepseek-ikey
+    litellm_params:
+      model: openai/test/deepseek-v4-pro
+      api_base: https://ikey-gateway.fly.dev/v1
+      api_key: os.environ/WORKHORSE_GATEWAY_KEY
+
   # ---- deepseek : DeepSeek V3.2 — reasoning / summarize / review / triage ---
   - model_name: deepseek
     litellm_params:
