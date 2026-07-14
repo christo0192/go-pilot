@@ -61,6 +61,8 @@ if (existsSync(ledgerPath)) {
         in: ms.reduce((a, e) => a + (e.usage?.in || 0), 0),
         out: ms.reduce((a, e) => a + (e.usage?.out || 0), 0),
         reasoning: ms.reduce((a, e) => a + (e.usage?.reasoning || 0), 0),
+        // raw path logs `cached`, agentic path logs `cacheRead` — same thing
+        cached: ms.reduce((a, e) => a + (e.usage?.cached || e.usage?.cacheRead || 0), 0),
       },
       routingOverrides: ms.filter((e) => e.suggested && e.suggested !== e.model).length,
     };
@@ -107,7 +109,8 @@ if (asJson) {
   const d = status.delegations;
   console.log(`  delegates ${d.attempts ?? 0} attempts`);
   for (const [m, s] of Object.entries(d.models)) {
-    console.log(`    ${m.padEnd(9)} ok ${(s.okRate * 100).toFixed(1)}% · p50 ${s.latencyMs.p50}ms p95 ${s.latencyMs.p95}ms · repairs ${s.repairAttempts} · tok in/out/reason ${s.tokens.in}/${s.tokens.out}/${s.tokens.reasoning}${s.routingOverrides ? ` · overrides ${s.routingOverrides}` : ""}`);
+    const hitPct = s.tokens.in + s.tokens.cached > 0 ? ((100 * s.tokens.cached) / (s.tokens.in + s.tokens.cached)).toFixed(1) : "0.0";
+    console.log(`    ${m.padEnd(9)} ok ${(s.okRate * 100).toFixed(1)}% · p50 ${s.latencyMs.p50}ms p95 ${s.latencyMs.p95}ms · repairs ${s.repairAttempts} · tok in/out/reason/cached ${s.tokens.in}/${s.tokens.out}/${s.tokens.reasoning}/${s.tokens.cached} (cache hit ${hitPct}%)${s.routingOverrides ? ` · overrides ${s.routingOverrides}` : ""}`);
   }
   for (const [m, b] of Object.entries(status.breakers)) {
     console.log(`  breaker   ${m}: ${b.open ? `OPEN until ${b.until}` : "closed"}`);

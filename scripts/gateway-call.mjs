@@ -86,6 +86,8 @@ const usage = {
   in: u.prompt_tokens ?? null,
   out: u.completion_tokens ?? null,
   reasoning: u.completion_tokens_details?.reasoning_tokens ?? null,
+  // Provider cache hits (DeepSeek/Kimi bill these at ~1/10th input price).
+  cached: u.prompt_tokens_details?.cached_tokens ?? null,
 };
 const res = { ok: true, content, model, latencyMs, finishReason, usage };
 if (!content) { res.ok = false; emit(res, 2); }

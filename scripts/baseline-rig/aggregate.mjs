@@ -52,8 +52,12 @@ function armReliability(runs, costFn) {
   const raq = Number.isFinite(qWhenCompleted) && Number.isFinite(successRate) ? qWhenCompleted * successRate : NaN;
   const totalCost = runs.reduce((a, r) => a + (costFn(r) || 0), 0);
   const totalTokens = runs.reduce((a, r) => a + (r.tokens?.total || 0), 0);
+  const cachedTokens = runs.reduce((a, r) => a + (r.tokens?.cached || r.tokens?.cacheRead || 0), 0);
+  const freshInput = runs.reduce((a, r) => a + (r.tokens?.input || 0), 0);
   return {
     attempts, successes: successes.length, successRate,
+    cachedTokens,
+    cacheHitPct: freshInput + cachedTokens > 0 ? (100 * cachedTokens) / (freshInput + cachedTokens) : 0,
     qualityWhenCompleted: qWhenCompleted, reliabilityAdjustedQuality: raq,
     totalCostUsd: totalCost, totalTokens,
     costPerSuccess: successes.length ? totalCost / successes.length : NaN,
@@ -226,6 +230,8 @@ function renderV3(v3, g) {
   row("Total cost $", "totalCostUsd", 4);
   row("Cost per success $", "costPerSuccess", 4);
   row("Tokens per success", "tokensPerSuccess", 0);
+  row("Cached tokens (provider cache hits)", "cachedTokens", 0);
+  row("Cache hit % of input", "cacheHitPct", 1);
   row("Quality per $ ", "qualityPerDollar", 1);
   row("Quality per 1k tokens", "qualityPer1kTokens", 2);
   L.push("");
