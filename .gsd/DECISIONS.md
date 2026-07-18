@@ -210,3 +210,13 @@ campaign.mjs (reusable if a K2.5-as-synthesizer hybrid is ever worth testing —
 would require swapping synthModel to kimi-k2.5-ikey and re-running clean). Partial
 gitignored output (out-v3-hybrid) removed. Ablation doc kept as a shelved-experiment
 record: docs/live-test-results-v3-hybrid.md.
+
+## D39 — multi-agent efficiency sign-off stays REVERT-to-single (2026-07-18, assessed)
+Ran the D17 per-class sign-off (`signoff.mjs`) across the 5 risk classes: all
+revert-to-single (no qualifying data). No efficiency campaign is warranted because
+the framework's multi-pane modes don't make a token-reduction claim — `candidate-race`
+is cost-opt-in (D37, ~N× tokens for reliability) and decomposition adds overhead — so
+the gate can only ever revert them, which is the active default. Also blocked by the
+degraded live Pi-usage recovery (no paired token counts). Status doc:
+docs/multi-agent-signoff-status.md. Re-open only if a genuinely token-reducing
+multi-agent mode is added.

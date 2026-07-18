@@ -75,8 +75,21 @@ jobs:
       - run: bash install.sh --doctor
         # Verify-only on a box with no pi/herdr/key: must complete, report the
         # missing pieces as TODOs, and exit 0 — proves the script runs clean
-        # on a machine that isn't the maintainer's (now on clean ubuntu AND macOS
-        # runners; Windows install.ps1 has no --doctor mode yet — see S06/6.5).
+        # on a machine that isn't the maintainer's (clean ubuntu + macOS).
+
+  windows-installer-doctor:
+    name: installer doctor (clean windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pwsh -File install.ps1 -Doctor
+        shell: pwsh
+        # install.ps1 -Doctor is the Windows parity of install.sh --doctor:
+        # verify-only, reports missing pieces as TODOs, exits 0 — closes the
+        # clean-Windows install acceptance (S06/6.5).
 
   secrets:
     name: gitleaks (full history)

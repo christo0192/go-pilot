@@ -43,7 +43,8 @@
 [CmdletBinding()]
 param(
     [switch]$Full,
-    [switch]$Tools
+    [switch]$Tools,
+    [switch]$Doctor
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,6 +79,52 @@ function Test-Command {
 function Write-Ok   { param([string]$M) Write-Host "  [ok]   $M"   -ForegroundColor Green }
 function Write-Info { param([string]$M) Write-Host "  [info] $M"   -ForegroundColor Gray  }
 function Write-Warn { param([string]$M) Write-Host "  [warn] $M"   -ForegroundColor Yellow }
+
+# Verify-only mode (parity with install.sh --doctor): checks every piece, changes
+# NOTHING, reports missing pieces as TODOs, and ALWAYS exits 0. Proves install.ps1
+# runs clean on a machine that isn't the maintainer's (validated on clean Windows CI).
+function Invoke-Doctor {
+    Write-Section 'Doctor: verify-only (nothing will be changed)'
+    $envFile  = Join-Path $RepoRoot 'deploy\.env'
+    $piModels = Join-Path $HOME '.pi\agent\models.json'
+    $skill    = Join-Path $HOME '.claude\skills\gopilot-orchestrate\SKILL.md'
+    $envText  = if (Test-Path $envFile)  { Get-Content $envFile  -Raw } else { '' }
+    $piText   = if (Test-Path $piModels) { Get-Content $piModels -Raw } else { '' }
+
+    $nodeMajor = -1
+    if (Test-Command 'node') {
+        try { $nodeMajor = [int](node -e "process.stdout.write(process.versions.node.split('.')[0])") } catch { $nodeMajor = -1 }
+    }
+    node scripts/run-tests.mjs unit *> $null
+    $testsPass = ($LASTEXITCODE -eq 0)
+
+    $checks = @(
+        @{ label = 'node >= 20';                               pass = ($nodeMajor -ge 20) },
+        @{ label = 'git present';                              pass = (Test-Command 'git') },
+        @{ label = 'pi present (workhorse agents)';            pass = (Test-Command 'pi') },
+        @{ label = 'deploy/.env exists';                       pass = (Test-Path $envFile) },
+        @{ label = 'WORKHORSE_GATEWAY_KEY set in deploy/.env'; pass = ($envText -match '(?m)^WORKHORSE_GATEWAY_KEY=.+') },
+        @{ label = 'Pi ikey provider registered';              pass = ($piText -match '"ikey"') },
+        @{ label = 'global orchestrate skill';                 pass = (Test-Path $skill) },
+        @{ label = 'repo CLAUDE.md present';                   pass = (Test-Path (Join-Path $RepoRoot 'CLAUDE.md')) },
+        @{ label = 'unit tests pass';                          pass = $testsPass }
+    )
+    $okc = 0
+    foreach ($c in $checks) {
+        if ($c.pass) { Write-Ok $c.label; $okc++ } else { Write-Warn "MISS $($c.label)" }
+    }
+    Write-Section "Doctor: $okc/$($checks.Count) checks OK"
+    $miss = @($checks | Where-Object { -not $_.pass })
+    if ($miss.Count -gt 0) {
+        Write-Host '  TODO:' -ForegroundColor Yellow
+        foreach ($m in $miss) { Write-Host "    - $($m.label)" -ForegroundColor Yellow }
+    } else {
+        Write-Host '  No outstanding TODOs. The rig verifies clean.' -ForegroundColor Green
+    }
+    exit 0
+}
+
+if ($Doctor) { Invoke-Doctor }
 
 # Install a package via winget (preferred) or choco (fallback). Returns $true if
 # an install was attempted, $false if neither package manager is available (the
