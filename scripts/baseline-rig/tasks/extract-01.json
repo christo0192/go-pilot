@@ -12,14 +12,83 @@
       "content": "From: Priya Menon <priya@northwind.example>\nSubject: URGENT - dashboards down since Tuesday\n\nHi, this is Priya from Northwind (account NW-4821). Our analytics dashboards have been completely unavailable since Tuesday the 8th of July and it is blocking our month-end close. This is now business-critical for us. I'm not asking for money back at this stage, I just need it fixed today. Please escalate.\n\nThanks,\nPriya"
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 0.95 },
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 8000,
+    "top_p": 0.95
+  },
   "grading": {
     "type": "rubric",
-    "dimensions": ["correctness", "completeness", "faithfulness"],
+    "dimensions": [
+      "correctness",
+      "completeness",
+      "faithfulness"
+    ],
     "guidance": "Gold JSON: {\"customer_name\":\"Priya Menon\",\"account_id\":\"NW-4821\",\"issue_category\":\"outage\",\"severity\":\"critical\",\"affected_since\":\"2025-07-08\",\"requested_refund\":false}. (Year 2025 is the reasonable inference from context; accept 2025-07-08; 'business-critical'/'URGENT' => critical; explicitly not asking for refund => false.) A 10 matches all six fields with correct types and the exact enum values, uses false for refund, and resolves 'Tuesday the 8th of July' to 2025-07-08. Penalize any hallucinated refund=true, wrong category (e.g. bug), severity below high, or inventing an account/date not in the text. Slightly penalize extra keys or prose outside the JSON.",
     "calibrationAnchors": [
-      { "answer": "{\"customer_name\":\"Priya\",\"account_id\":null,\"issue_category\":\"bug\",\"severity\":\"medium\",\"affected_since\":null,\"requested_refund\":true}", "scores": { "correctness": 2, "completeness": 3, "faithfulness": 2 } },
-      { "answer": "{\"customer_name\":\"Priya Menon\",\"account_id\":\"NW-4821\",\"issue_category\":\"outage\",\"severity\":\"critical\",\"affected_since\":\"2025-07-08\",\"requested_refund\":false}", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10 } }
+      {
+        "answer": "{\"customer_name\":\"Priya\",\"account_id\":null,\"issue_category\":\"bug\",\"severity\":\"medium\",\"affected_since\":null,\"requested_refund\":true}",
+        "scores": {
+          "correctness": 2,
+          "completeness": 3,
+          "faithfulness": 2
+        }
+      },
+      {
+        "answer": "{\"customer_name\":\"Priya Menon\",\"account_id\":\"NW-4821\",\"issue_category\":\"outage\",\"severity\":\"critical\",\"affected_since\":\"2025-07-08\",\"requested_refund\":false}",
+        "scores": {
+          "correctness": 10,
+          "completeness": 10,
+          "faithfulness": 10
+        }
+      }
     ]
+  },
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "customer_name",
+      "account_id",
+      "issue_category",
+      "severity",
+      "requested_refund"
+    ],
+    "properties": {
+      "customer_name": {
+        "type": "string"
+      },
+      "account_id": {
+        "type": "string"
+      },
+      "issue_category": {
+        "type": "string",
+        "enum": [
+          "billing",
+          "outage",
+          "feature_request",
+          "bug"
+        ]
+      },
+      "severity": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ]
+      },
+      "affected_since": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "requested_refund": {
+        "type": "boolean"
+      }
+    }
   }
 }
