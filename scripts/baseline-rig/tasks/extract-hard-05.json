@@ -12,14 +12,109 @@
       "content": "Subject: Re: URGENT? exports broken again\nFrom: Priya N. <priya@halcyon.example>\nAccount: HCY-7781 / Halcyon Clinics Group\n\nWe have 43 clinic admins who cannot download the monthly compliance export. The dashboard itself loads. This started after yesterday's release. Please do not call this a total outage; scheduling and patient reminders are fine. We need the April and May compliance CSVs by Friday or our audit prep slips.\n\n--- Internal triage, Support ---\nLooks like only Compliance Export v2 is affected for tenant HCY-7781 and maybe two others. Workaround: run export_v1 manually. Not security related.\n\n--- Reply from Vendor, 2026-06-10 ---\nPriya, sorry. Maya from Support will send the April and May CSV exports by end of day 2026-06-11. Leo from Engineering will patch the v2 export job by 2026-06-14. We classify this as high severity because a regulated workflow is blocked for 43 admins, but core app availability is not down.\n\n--- Customer reply ---\nThanks. We'd also like a roadmap for PDF exports someday. No need to commit now."
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 12000, "top_p": 0.95 },
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 12000,
+    "top_p": 0.95
+  },
   "grading": {
     "type": "rubric",
-    "dimensions": ["correctness", "completeness", "faithfulness"],
+    "dimensions": [
+      "correctness",
+      "completeness",
+      "faithfulness"
+    ],
     "guidance": "Gold: account_id HCY-7781; customer_name Halcyon Clinics Group; primary_issue Compliance Export v2/monthly compliance export cannot be downloaded; severity high; affected_users 43; requested_resolution April and May compliance CSVs by Friday/audit prep need; commitments exactly two: Maya send April and May CSV exports due 2026-06-11; Leo patch v2 export job due 2026-06-14. Exclude PDF export roadmap because no commitment. Do not label as total outage or security issue. Use null only where unknown; here most fields are known.",
     "calibrationAnchors": [
-      { "answer": "{\"account_id\":\"HCY-7781\",\"customer_name\":\"Halcyon Clinics Group\",\"primary_issue\":\"total outage\",\"severity\":\"critical\",\"affected_users\":43,\"requested_resolution\":\"PDF exports\",\"commitments\":[{\"owner\":null,\"task\":\"Create PDF export roadmap\",\"due_date\":null}]}", "scores": { "correctness": 2, "completeness": 2, "faithfulness": 2 } },
-      { "answer": "{\"account_id\":\"HCY-7781\",\"customer_name\":\"Halcyon Clinics Group\",\"primary_issue\":\"Compliance Export v2/monthly compliance CSV downloads are broken\",\"severity\":\"high\",\"affected_users\":43,\"requested_resolution\":\"Provide April and May compliance CSVs for audit preparation\",\"commitments\":[{\"owner\":\"Maya\",\"task\":\"Send the April and May CSV exports\",\"due_date\":\"2026-06-11\"},{\"owner\":\"Leo\",\"task\":\"Patch the v2 export job\",\"due_date\":\"2026-06-14\"}]}", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10 } }
+      {
+        "answer": "{\"account_id\":\"HCY-7781\",\"customer_name\":\"Halcyon Clinics Group\",\"primary_issue\":\"total outage\",\"severity\":\"critical\",\"affected_users\":43,\"requested_resolution\":\"PDF exports\",\"commitments\":[{\"owner\":null,\"task\":\"Create PDF export roadmap\",\"due_date\":null}]}",
+        "scores": {
+          "correctness": 2,
+          "completeness": 2,
+          "faithfulness": 2
+        }
+      },
+      {
+        "answer": "{\"account_id\":\"HCY-7781\",\"customer_name\":\"Halcyon Clinics Group\",\"primary_issue\":\"Compliance Export v2/monthly compliance CSV downloads are broken\",\"severity\":\"high\",\"affected_users\":43,\"requested_resolution\":\"Provide April and May compliance CSVs for audit preparation\",\"commitments\":[{\"owner\":\"Maya\",\"task\":\"Send the April and May CSV exports\",\"due_date\":\"2026-06-11\"},{\"owner\":\"Leo\",\"task\":\"Patch the v2 export job\",\"due_date\":\"2026-06-14\"}]}",
+        "scores": {
+          "correctness": 10,
+          "completeness": 10,
+          "faithfulness": 10
+        }
+      }
     ]
+  },
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "commitments"
+    ],
+    "properties": {
+      "account_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "customer_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "primary_issue": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "severity": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "affected_users": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "requested_resolution": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "commitments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "owner": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "task": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "due_date": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            }
+          }
+        }
+      }
+    }
   }
 }

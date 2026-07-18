@@ -12,14 +12,88 @@
       "content": "Product Sync - Notes\nDate: Monday, 3 June 2024\nPresent: Dana (PM), Raj (eng lead), Meera (design), Tom (guest, sales)\n\nDiscussion:\n- Dana confirmed the export feature ships in the June release. Decision made: v2 export ships in June, CSV only, no PDF for now.\n- Raj will finalize the export API spec by Wednesday this week.\n- The onboarding redesign mockups need a second review round; someone needs to own scheduling that - we'll sort the owner offline, no name assigned yet.\n- Meera to deliver the updated icon set by next Monday.\n- Tom raised that two enterprise customers asked about PDF export. Noted for the backlog. No action."
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 8000, "top_p": 0.95 },
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 8000,
+    "top_p": 0.95
+  },
   "grading": {
     "type": "rubric",
-    "dimensions": ["correctness", "completeness", "faithfulness"],
+    "dimensions": [
+      "correctness",
+      "completeness",
+      "faithfulness"
+    ],
     "guidance": "Gold JSON: {\"meeting_title\":\"Product Sync\",\"meeting_date\":\"2024-06-03\",\"decision\":\"v2 export ships in June, CSV only, no PDF for now\",\"action_items\":[{\"task\":\"Finalize the export API spec\",\"owner\":\"Raj\",\"due_date\":\"2024-06-05\"},{\"task\":\"Own/schedule a second review round of the onboarding redesign mockups\",\"owner\":null,\"due_date\":null},{\"task\":\"Deliver the updated icon set\",\"owner\":\"Meera\",\"due_date\":\"2024-06-10\"}]}. Date resolution: meeting is Monday 2024-06-03, so 'Wednesday this week' = 2024-06-05 and 'next Monday' = 2024-06-10. Two deliberate traps: (1) the onboarding-mockups item has NO owner and NO date ('no name assigned yet') — owner and due_date MUST both be null, not a guessed name/date. (2) Tom's PDF-export remark is explicitly 'No action' and is a discussion/backlog note — it MUST NOT appear as an action item, and Tom (a sales guest) is never assigned a task. A 10 has exactly THREE action items, correct owners (Raj, null, Meera), correctly resolved dates (2024-06-05, null, 2024-06-10), the exact decision string, and excludes Tom's item. Heavily penalize inventing an owner or date for the mockups item, including Tom's 'No action' remark as a task, assigning Tom any task, missing an item, wrong date arithmetic, or prose outside the JSON.",
     "calibrationAnchors": [
-      { "answer": "{\"meeting_title\":\"Product Sync\",\"meeting_date\":\"2024-06-03\",\"decision\":null,\"action_items\":[{\"task\":\"Finalize export API spec\",\"owner\":\"Raj\",\"due_date\":\"2024-06-04\"},{\"task\":\"Schedule mockup review\",\"owner\":\"Dana\",\"due_date\":\"2024-06-05\"},{\"task\":\"Deliver icon set\",\"owner\":\"Meera\",\"due_date\":\"2024-06-10\"},{\"task\":\"Follow up on PDF export for enterprise customers\",\"owner\":\"Tom\",\"due_date\":null}]}", "scores": { "correctness": 3, "completeness": 4, "faithfulness": 2 } },
-      { "answer": "{\"meeting_title\":\"Product Sync\",\"meeting_date\":\"2024-06-03\",\"decision\":\"v2 export ships in June, CSV only, no PDF for now\",\"action_items\":[{\"task\":\"Finalize the export API spec\",\"owner\":\"Raj\",\"due_date\":\"2024-06-05\"},{\"task\":\"Own/schedule a second review round of the onboarding redesign mockups\",\"owner\":null,\"due_date\":null},{\"task\":\"Deliver the updated icon set\",\"owner\":\"Meera\",\"due_date\":\"2024-06-10\"}]}", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10 } }
+      {
+        "answer": "{\"meeting_title\":\"Product Sync\",\"meeting_date\":\"2024-06-03\",\"decision\":null,\"action_items\":[{\"task\":\"Finalize export API spec\",\"owner\":\"Raj\",\"due_date\":\"2024-06-04\"},{\"task\":\"Schedule mockup review\",\"owner\":\"Dana\",\"due_date\":\"2024-06-05\"},{\"task\":\"Deliver icon set\",\"owner\":\"Meera\",\"due_date\":\"2024-06-10\"},{\"task\":\"Follow up on PDF export for enterprise customers\",\"owner\":\"Tom\",\"due_date\":null}]}",
+        "scores": {
+          "correctness": 3,
+          "completeness": 4,
+          "faithfulness": 2
+        }
+      },
+      {
+        "answer": "{\"meeting_title\":\"Product Sync\",\"meeting_date\":\"2024-06-03\",\"decision\":\"v2 export ships in June, CSV only, no PDF for now\",\"action_items\":[{\"task\":\"Finalize the export API spec\",\"owner\":\"Raj\",\"due_date\":\"2024-06-05\"},{\"task\":\"Own/schedule a second review round of the onboarding redesign mockups\",\"owner\":null,\"due_date\":null},{\"task\":\"Deliver the updated icon set\",\"owner\":\"Meera\",\"due_date\":\"2024-06-10\"}]}",
+        "scores": {
+          "correctness": 10,
+          "completeness": 10,
+          "faithfulness": 10
+        }
+      }
     ]
+  },
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "meeting_title",
+      "meeting_date",
+      "action_items"
+    ],
+    "properties": {
+      "meeting_title": {
+        "type": "string"
+      },
+      "meeting_date": {
+        "type": "string",
+        "format": "date"
+      },
+      "decision": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "action_items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "task"
+          ],
+          "properties": {
+            "task": {
+              "type": "string"
+            },
+            "owner": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "due_date": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            }
+          }
+        }
+      }
+    }
   }
 }

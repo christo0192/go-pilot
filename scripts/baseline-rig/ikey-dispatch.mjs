@@ -70,7 +70,11 @@ export function createBenchmarkDispatcher(opts = {}) {
     }
 
     // Workhorse: resolve alias -> gateway model id, forward settings, POST.
-    const gatewayModel = resolveModel(request.model).version;
+    // run.mjs (coordinator) now passes the pinned VERSION as `model` plus the
+    // alias as `modelAlias`; older callers pass the alias as `model`. Prefer the
+    // alias, and accept a version id (contains "/") directly so both work.
+    const modelRef = request.modelAlias || request.model;
+    const gatewayModel = String(modelRef).includes("/") ? modelRef : resolveModel(modelRef).version;
     const s = request.settings || {};
     const body = {
       model: gatewayModel,

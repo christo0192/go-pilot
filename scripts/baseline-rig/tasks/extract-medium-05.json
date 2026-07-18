@@ -12,14 +12,134 @@
       "content": "INVOICE\nSeller: Northstar Data Tools LLC\nBill To: Meridian Foods Inc.\nInvoice No: NS-2026-0441\nDate Issued: 07/03/2026\nPayment Terms: Net 30\nCurrency: USD\n\nItems:\n1. Data cleanup package | Qty 2 | Unit $1,250.00 | Line $2,500.00\n2. Migration support | Qty 6 | Unit $175.00 | Line $1,050.00\n3. Discount - partner credit | Qty 1 | Unit -$300.00 | Line -$300.00\n\nSubtotal: $3,250.00\nSales Tax: $260.00\nAmount Due: $3,510.00\nNote: PO number was requested but not provided."
     }
   ],
-  "settings": { "temperature": 0, "max_tokens": 10000, "top_p": 0.95 },
+  "settings": {
+    "temperature": 0,
+    "max_tokens": 10000,
+    "top_p": 0.95
+  },
   "grading": {
     "type": "rubric",
-    "dimensions": ["correctness", "completeness", "faithfulness"],
+    "dimensions": [
+      "correctness",
+      "completeness",
+      "faithfulness"
+    ],
     "guidance": "Gold: vendor_name Northstar Data Tools LLC; invoice_number NS-2026-0441; invoice_date 2026-07-03 if interpreting MM/DD/YYYY from US-style invoice; due_date 2026-08-02 from Net 30; currency USD; subtotal 3250.00; tax 260.00; total 3510.00; bill_to Meridian Foods Inc.; 3 line items including negative discount amount -300. PO number absent and should not be added because not requested. Penalize prose, wrong vendor/bill-to reversal, missing negative discount, string money, or wrong due date.",
     "calibrationAnchors": [
-      { "answer": "{\"vendor_name\":\"Meridian Foods Inc.\",\"invoice_number\":\"NS-2026-0441\",\"invoice_date\":\"2026-03-07\",\"due_date\":null,\"currency\":\"USD\",\"subtotal\":3550,\"tax\":260,\"total\":3510,\"bill_to\":\"Northstar Data Tools LLC\",\"line_items\":[]}", "scores": { "correctness": 2, "completeness": 3, "faithfulness": 2 } },
-      { "answer": "{\"vendor_name\":\"Northstar Data Tools LLC\",\"invoice_number\":\"NS-2026-0441\",\"invoice_date\":\"2026-07-03\",\"due_date\":\"2026-08-02\",\"currency\":\"USD\",\"subtotal\":3250,\"tax\":260,\"total\":3510,\"bill_to\":\"Meridian Foods Inc.\",\"line_items\":[{\"description\":\"Data cleanup package\",\"quantity\":2,\"unit_price\":1250,\"amount\":2500},{\"description\":\"Migration support\",\"quantity\":6,\"unit_price\":175,\"amount\":1050},{\"description\":\"Discount - partner credit\",\"quantity\":1,\"unit_price\":-300,\"amount\":-300}]}", "scores": { "correctness": 10, "completeness": 10, "faithfulness": 10 } }
+      {
+        "answer": "{\"vendor_name\":\"Meridian Foods Inc.\",\"invoice_number\":\"NS-2026-0441\",\"invoice_date\":\"2026-03-07\",\"due_date\":null,\"currency\":\"USD\",\"subtotal\":3550,\"tax\":260,\"total\":3510,\"bill_to\":\"Northstar Data Tools LLC\",\"line_items\":[]}",
+        "scores": {
+          "correctness": 2,
+          "completeness": 3,
+          "faithfulness": 2
+        }
+      },
+      {
+        "answer": "{\"vendor_name\":\"Northstar Data Tools LLC\",\"invoice_number\":\"NS-2026-0441\",\"invoice_date\":\"2026-07-03\",\"due_date\":\"2026-08-02\",\"currency\":\"USD\",\"subtotal\":3250,\"tax\":260,\"total\":3510,\"bill_to\":\"Meridian Foods Inc.\",\"line_items\":[{\"description\":\"Data cleanup package\",\"quantity\":2,\"unit_price\":1250,\"amount\":2500},{\"description\":\"Migration support\",\"quantity\":6,\"unit_price\":175,\"amount\":1050},{\"description\":\"Discount - partner credit\",\"quantity\":1,\"unit_price\":-300,\"amount\":-300}]}",
+        "scores": {
+          "correctness": 10,
+          "completeness": 10,
+          "faithfulness": 10
+        }
+      }
     ]
+  },
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "line_items"
+    ],
+    "properties": {
+      "vendor_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "invoice_number": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "invoice_date": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "due_date": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "currency": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "subtotal": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "tax": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "total": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "bill_to": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "line_items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "quantity": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "unit_price": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "amount": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
   }
 }

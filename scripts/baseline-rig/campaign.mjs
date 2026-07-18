@@ -286,6 +286,9 @@ async function runArm(arm, fx, dispatch, opts = {}) {
         plane: "workhorse", model: routedAlias, provider: usage.provider || "ikey-gateway", gatewayModel,
         contextTier: res?.plan?.contextTier, promptTokens: res?.boundary?.promptTokens,
         validated: res?.validated, verdict: res?.verdict, retries: res?.usage?.retries?.count || 0,
+        // Production validation+fallback outcome (runTask): K2.5 primary vs
+        // DeepSeek fallback, so the campaign can report the fallback rate.
+        fallbackUsed: res?.fallbackUsed || false, fallbackAttempted: res?.fallbackAttempted || false,
         repairUsed, repairErrored, timedOut,
       },
     };
@@ -506,6 +509,7 @@ async function main() {
         latencyMs: usage.latencyMs ?? null, finishReason: usage.finishReason ?? null,
         outputChars: output.length, output,
         overhead: r.arm === "A" ? { promptTokens: armMeta.promptTokens, contextTier: armMeta.contextTier, retries: armMeta.retries, validated: armMeta.validated } : null,
+        fallbackUsed: armMeta.fallbackUsed || false, fallbackAttempted: armMeta.fallbackAttempted || false,
         repairUsed: armMeta.repairUsed || false, repairErrored: armMeta.repairErrored || false,
         stages: armMeta.stages || null, packChars: armMeta.packChars ?? null,
         grade: gradeResult, score: gradeResult ? gradeResult.score : null, failures,
