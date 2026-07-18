@@ -122,13 +122,27 @@ export function buildReport() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const report = buildReport();
   const path = join(HERE, "..", "..", "docs", "production-metrics.md");
+  const check = process.argv.includes("--check");
+  let report;
+  try {
+    report = buildReport();
+  } catch (err) {
+    // The benchmark ledgers are gitignored, so a clean checkout (CI) has no data
+    // to regenerate from. Freshness is a pre-commit/local gate where the ledgers
+    // exist; skip cleanly instead of failing where they don't.
+    if (check && /missing benchmark ledger/.test(err.message)) {
+      process.stdout.write("production metrics: skipped (benchmark ledgers not present)\n");
+      process.exit(0);
+    }
+    throw err;
+  }
   if (process.argv.includes("--write")) {
     writeFileSync(path, report);
     process.stdout.write(`${path}\n`);
-  } else if (process.argv.includes("--check")) {
-    if (readFileSync(path, "utf8") !== report) throw new Error("docs/production-metrics.md is stale; run npm run metrics:production");
+  } else if (check) {
+    // Line-ending-insensitive so a CRLF checkout (Windows CI) is not read as stale.
+    if (readFileSync(path, "utf8").replace(/\r\n/g, "\n") !== report.replace(/\r\n/g, "\n")) throw new Error("docs/production-metrics.md is stale; run npm run metrics:production");
     process.stdout.write("production metrics: current\n");
   } else {
     process.stdout.write(report);

@@ -67,7 +67,8 @@ async function main() {
   const output = renderProductionRouting(inputs);
   const target = join(ROOT, "docs", "production-routing.md");
   if (process.argv.includes("--write")) writeFileSync(target, output);
-  else if (readFileSync(target, "utf8") !== output) throw new Error("docs/production-routing.md is stale; run with --write");
+  // Compare line-ending-insensitive: a CRLF checkout (Windows CI) must not read as stale.
+  else if (readFileSync(target, "utf8").replace(/\r\n/g, "\n") !== output.replace(/\r\n/g, "\n")) throw new Error("docs/production-routing.md is stale; run with --write");
   console.log(`routing consistency: OK (${inputs.runtime.productionProfile})`);
 }
 
