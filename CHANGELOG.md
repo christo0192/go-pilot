@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.0 — 2026-07-13
+## v1.0.0 — 2026-07-18
 
 First tagged release: the production orchestration rig, hardened and measured.
 
@@ -21,11 +21,23 @@ First tagged release: the production orchestration rig, hardened and measured.
 - Evidence-pack retrieval with chunk-id citations.
 - Multi-turn session-state compression (≥50% reduction, consistency-checked).
 
-### Benchmark v3
+### Benchmark v3 + model routing (evidence-based)
 - Honest accounting (failed attempts cost money), Opus-only headline judge,
   adjudication queue, reliability-adjusted metrics, analytic lean-Opus baseline
   (measured Claude-Code session tax: ~65k tokens ≈ $0.51/call).
-- Results: `docs/live-test-results-v3.md`.
+- **Honest outcome:** the pre-registered §11 gates (go-pilot cheaper *and* at
+  quality parity with Opus across the board) did NOT pass — the blanket
+  "beats-Opus-everywhere" claim was too strong. What the benchmark *did* produce
+  is a validated **per-task-type routing policy**, which is the real deliverable.
+- **Workhorse routing (`config/router.json` `ikey-prod`):** DeepSeek V4 Pro is the
+  default workhorse (cheapest, most reliable); **Kimi K2.5** for document-QA
+  (confirmed 3-trial: median 97.1, beats DeepSeek every fixture) and extraction
+  (average win +2.2, kept as a validated-candidate); analysis / spreadsheet /
+  creative → DeepSeek; Opus for orchestration + high-risk escalation. Kimi K2.6
+  retired (K2.5 strictly dominates it); Kimi K3 evaluated and rejected (~$15/M,
+  at/above lean-Opus cost).
+- Result docs: `docs/live-test-results-v3-{trim,deepseek,k25-extraction}.md`
+  (`-hybrid` = a shelved experiment, see `.gsd/DECISIONS.md` D38).
 
 ### Security & production
 - Full-history secret audit + PII scrub; GitHub secret scanning, push protection,
