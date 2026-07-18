@@ -82,11 +82,18 @@ export function createBenchmarkDispatcher(opts = {}) {
     // Model-specific parameter constraints. Kimi (Moonshot) rejects any top_p
     // other than 0.95 with a hard 400 — coerce so a stray value never aborts a run.
     if (/kimi/i.test(gatewayModel) && body.top_p != null && body.top_p !== 0.95) body.top_p = 0.95;
+    // Kimi K3 rejects any temperature != 1 with a hard 400 (verified). The
+    // fixtures request temperature 0 for determinism; coerce to 1 for K3 only so
+    // the swap never aborts a run (K2.6 keeps its requested temperature).
+    if (/kimi-k3/i.test(gatewayModel)) body.temperature = 1;
     const res = await fetch(`${GATEWAY}/v1/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: request.signal || AbortSignal.timeout(200000),
+      // 300s default: reasoning models (Kimi K2.5/K3) hit 180-200s on hard
+      // fixtures, so the old 200s cap aborted valid slow calls. Callers can still
+      // pass a shorter/longer request.signal.
+      signal: request.signal || AbortSignal.timeout(300000),
     });
     if (!res.ok) throw new Error(`gateway ${gatewayModel} HTTP ${res.status}: ${(await res.text()).slice(-400)}`);
     const j = await res.json();

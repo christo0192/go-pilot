@@ -81,5 +81,62 @@
       "lateral":     {"plane":"workhorse","model":"kimi"}
     },
     "default": "__judgment__"
+  },
+  "ikey-k3": {
+    "categories": {
+      "orchestrate": {"plane":"frontier","model":"opus"},
+      "plan":        {"plane":"frontier","model":"opus"},
+      "code":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "analyze":     {"plane":"workhorse","model":"kimi-k3-ikey"},
+      "draft":       {"plane":"workhorse","model":"kimi-k3-ikey"},
+      "extract":     {"plane":"workhorse","model":"kimi-k3-ikey"},
+      "classify":    {"plane":"workhorse","model":"deepseek-ikey"},
+      "summarize":   {"plane":"workhorse","model":"kimi-k3-ikey"},
+      "code-review": {"plane":"workhorse","model":"deepseek-ikey"},
+      "lateral":     {"plane":"workhorse","model":"deepseek-ikey"},
+      "math":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "doc-qa":      {"plane":"workhorse","model":"kimi-k3-ikey"},
+      "reasoning":   {"plane":"workhorse","model":"deepseek-ikey"},
+      "repo-change": {"plane":"workhorse","model":"deepseek-ikey"}
+    },
+    "default": "__judgment__"
+  },
+  "ikey-k25": {
+    "categories": {
+      "orchestrate": {"plane":"frontier","model":"opus"},
+      "plan":        {"plane":"frontier","model":"opus"},
+      "code":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "analyze":     {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "draft":       {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "extract":     {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "classify":    {"plane":"workhorse","model":"deepseek-ikey"},
+      "summarize":   {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "code-review": {"plane":"workhorse","model":"deepseek-ikey"},
+      "lateral":     {"plane":"workhorse","model":"deepseek-ikey"},
+      "math":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "doc-qa":      {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "reasoning":   {"plane":"workhorse","model":"deepseek-ikey"},
+      "repo-change": {"plane":"workhorse","model":"deepseek-ikey"}
+    },
+    "default": "__judgment__"
+  },
+  "ikey-prod": {
+    "categories": {
+      "orchestrate": {"plane":"frontier","model":"opus"},
+      "plan":        {"plane":"frontier","model":"opus"},
+      "code":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "analyze":     {"plane":"workhorse","model":"deepseek-ikey"},
+      "draft":       {"plane":"workhorse","model":"deepseek-ikey"},
+      "extract":     {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "classify":    {"plane":"workhorse","model":"deepseek-ikey"},
+      "summarize":   {"plane":"workhorse","model":"deepseek-ikey"},
+      "code-review": {"plane":"workhorse","model":"deepseek-ikey"},
+      "lateral":     {"plane":"workhorse","model":"deepseek-ikey"},
+      "math":        {"plane":"workhorse","model":"deepseek-ikey"},
+      "doc-qa":      {"plane":"workhorse","model":"kimi-k2.5-ikey"},
+      "reasoning":   {"plane":"workhorse","model":"deepseek-ikey"},
+      "repo-change": {"plane":"workhorse","model":"deepseek-ikey"}
+    },
+    "default": "__judgment__"
   }
 }

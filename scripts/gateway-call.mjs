@@ -21,7 +21,7 @@ const ROOT = resolve(HERE, '..');
 // WORKHORSE_GATEWAY_URL overrides the gateway (other deployments; fault-injection tests).
 const GW_BASE = (process.env.WORKHORSE_GATEWAY_URL || 'https://ikey-gateway.fly.dev').replace(/\/v1\/?$/, '');
 const ENDPOINT = `${GW_BASE}/v1/chat/completions`;
-const ALIASES = { kimi: 'test/kimi-k2.6', deepseek: 'test/deepseek-v4-pro' };
+const ALIASES = { kimi: 'test/kimi-k2.6', kimi25: 'test/kimi-k2.5', kimi3: 'test/kimi-k3', deepseek: 'test/deepseek-v4-pro' };
 
 function loadKey() {
   if (process.env.WORKHORSE_GATEWAY_KEY) return process.env.WORKHORSE_GATEWAY_KEY;

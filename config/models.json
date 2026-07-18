@@ -50,6 +50,22 @@
       "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
       "active": true
     },
+    "kimi-k3-ikey": {
+      "provider": "ikey-gateway",
+      "version": "test/kimi-k3",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
+      "active": true,
+      "_note": "Kimi K3 via Ikey. Gateway REJECTS temperature != 1 (400) — dispatcher coerces. Reasoning always on. Output priced ~$15/M (much pricier than K2.6); rate calibrated separately in calibration.json."
+    },
+    "kimi-k2.5-ikey": {
+      "provider": "ikey-gateway",
+      "version": "test/kimi-k2.5",
+      "plane": "workhorse",
+      "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
+      "active": true,
+      "_note": "Kimi K2.5 via Ikey. Accepts temperature 0 (no coercion needed, unlike K3). Reasoning always on. Rate calibrated separately in calibration.json. Requires the sk-6WzeJk... key (old key had no K2.5 access)."
+    },
     "deepseek-ikey": {
       "provider": "ikey-gateway",
       "version": "test/deepseek-v4-pro",

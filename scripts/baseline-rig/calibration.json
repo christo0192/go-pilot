@@ -24,6 +24,26 @@
         "reasoningTokens": 141,
         "settleLatencyMs": 7612
       }
+    },
+    "test/kimi-k2.5": {
+      "perTotalToken": 2.835e-6,
+      "perMillionTotal": 2.835,
+      "_calibration": "Settled-measured 2026-07-18 (metered, unlike K3). 3 probes: analysis-02 delta $0.010517/3744tok=$2.809/M, docqa-hard-05 $0.021425/7572tok=$2.829/M, data-hard-01 $0.023929/8393tok=$2.851/M. Blended $2.835/M over 19709 tokens. Cheaper than K2.6 ($3.847/M), ~3.4x DeepSeek. Latency high on hard fixtures (180-200s). Requires the sk-6WzeJk... key.",
+      "sample": {
+        "settledDelta": 0.05587,
+        "totalTokens": 19709,
+        "outputTokens": 18352,
+        "reasoningTokens": 15883
+      }
+    },
+    "test/kimi-k3": {
+      "perTotalToken": 1.5e-5,
+      "perMillionTotal": 15.0,
+      "_calibration": "NOT settled-measured: the Ikey TEST gateway currently meters kimi-k3 at $0 (2 probes = ~6000 output tokens moved cumulative spend by exactly $0.000000 on 2026-07-18). This rate is the PUBLISHED output price ($15/M) applied as a conservative blended upper bound (output+reasoning dominate ~90% of tokens; input assumed cheaper, so real blend ~13-14/M). Used so the cost gate reflects REAL K3 economics, not the free test tier. Refine if the gateway starts metering or the input price is confirmed.",
+      "sample": {
+        "note": "probes analysis-02 (3943 tok), docqa-hard-05 (3106 tok), data-hard-01 (8756 tok, 7024 reasoning, 236s latency); settledDelta 0 on all — unmetered.",
+        "settledDelta": 0
+      }
     }
   },
   "opus": {

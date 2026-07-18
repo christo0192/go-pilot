@@ -63,6 +63,73 @@ export function repairPrompt(fx) {
   ].join("\n");
 }
 
+/** Distinct normalized numeric tokens in a string (commas stripped, % kept).
+ *  Used for pack-vs-source grounding and synth-vs-pack preservation checks. */
+export function numTokens(text) {
+  const out = new Set();
+  for (const m of String(text || "").matchAll(/\d[\d,]*\.?\d*\s*%?/g)) {
+    const norm = m[0].replace(/,/g, "").replace(/\s+/g, "").replace(/\.$/, "");
+    if (/\d/.test(norm)) out.add(norm);
+  }
+  return out;
+}
+
+/** Fraction of `a`'s numeric tokens also present in `b` (1 if `a` is empty). */
+export function numPreservation(a, b) {
+  const A = numTokens(a);
+  if (!A.size) return 1;
+  const B = numTokens(b);
+  let hit = 0;
+  for (const n of A) if (B.has(n)) hit += 1;
+  return hit / A.size;
+}
+
+/** Stage-1 (DeepSeek) evidence-pack prompt for the hybrid arm D.
+ *  DeepSeek does the expensive reading/extraction/computation; the writer
+ *  (Kimi) will see ONLY this pack, never the source. */
+export function evidencePrompt(fx) {
+  const inp = inputsText(fx);
+  return [
+    "You are the RESEARCH stage of a two-stage pipeline. Another model will write the final answer using ONLY your notes — it will NOT see the source below. Do NOT write the final answer yourself.",
+    "",
+    "TASK the writer must eventually satisfy:",
+    fx.prompt,
+    "",
+    inp ? "SOURCE MATERIAL:\n" + inp : "(no source material — this is a generative task; capture the constraints and required facts instead)",
+    "",
+    "Produce a COMPACT evidence pack the writer can rely on. Use these sections (omit any that don't apply):",
+    "- FACTS: every number, name, date, and citation the answer needs — copied EXACTLY, each with a one-phrase label.",
+    "- COMPUTED: perform any arithmetic/aggregation the task requires NOW; show the result and how you got it.",
+    "- SOURCE SPANS: short verbatim quotes (with any id/label) for claims that must be grounded.",
+    "- STRUCTURE: the findings/points/outline the final answer should cover, in order.",
+    "- UNCERTAINTY: anything ambiguous, missing, or not answerable from the source — state it plainly.",
+    "",
+    "Be terse and structured (headings + bullets). Preserve exact values. Do not pad. Target <= 700 tokens.",
+  ].join("\n");
+}
+
+/** Stage-2 (Kimi) synthesis prompt: writes the final answer from the pack ONLY,
+ *  under hard preservation constraints (no re-compute, no invention). */
+export function synthPrompt(fx, pack) {
+  return [
+    "You are the WRITER stage. Write the final answer to the task below using ONLY the evidence pack. You do NOT have the original source.",
+    "",
+    "HARD RULES:",
+    "- Preserve every fact, number, citation, and uncertainty marker from the pack EXACTLY. Do not alter, round, reorder, or omit numbers.",
+    "- Do NOT invent, add, or recompute any fact not in the pack. If the pack didn't provide something, do not supply it.",
+    "- If the pack marks something uncertain or missing, reflect that faithfully — do not paper over it.",
+    "- Follow the task's required format and length exactly.",
+    "",
+    "TASK:",
+    fx.prompt,
+    "",
+    "EVIDENCE PACK:",
+    pack,
+    "",
+    "Write the polished final answer now. Output only the answer.",
+  ].join("\n");
+}
+
 /** Sum two usage objects so a repair attempt's tokens/cost are COUNTED, not free. */
 export function mergeUsage(a = {}, b = {}) {
   const t = (x) => x?.tokens || {};
@@ -166,6 +233,9 @@ async function runArm(arm, fx, dispatch, opts = {}) {
       res = await runTask(task, {
         profile,
         dispatch: (req) => dispatch({ ...req, settings: fx.settings }),
+        // Honor the fixture's declared output budget: the contract default
+        // (8000) must never silently undercut a fixture that budgeted more.
+        contract: { maxOutputTokens: Math.max(fx.settings.max_tokens || 0, 8000) },
         retrieve: false, rules: false, captureWorkspace: false,
       });
     } catch (e) {
@@ -179,16 +249,26 @@ async function runArm(arm, fx, dispatch, opts = {}) {
     const gatewayModel = resolveModel(routedAlias).version;
     let repairUsed = false;
     const truncated = usage.finishReason === "length";
+    let repairErrored = false;
     if (opts.repair && (timedOut || !output.trim() || truncated)) {
       // Framework-preserving repair: SAME workhorse model, stricter prompt, generous budget. No Opus.
-      const rep = await dispatch({
-        plane: "workhorse", model: routedAlias, prompt: repairPrompt(fx),
-        settings: { ...fx.settings, max_tokens: Math.max(fx.settings.max_tokens || 8000, 16000) },
-        contract: { maxOutputTokens: 16000 }, signal: AbortSignal.timeout(300000),
-      }).catch(() => null);
+      let rep = null;
+      try {
+        rep = await dispatch({
+          plane: "workhorse", model: routedAlias, prompt: repairPrompt(fx),
+          settings: { ...fx.settings, max_tokens: Math.max(fx.settings.max_tokens || 8000, 16000) },
+          contract: { maxOutputTokens: 16000 }, signal: AbortSignal.timeout(300000),
+        });
+      } catch { repairErrored = true; }
+      // A repair attempt is NEVER free (Codex §10): count its tokens even when
+      // the answer is unusable, and price an errored attempt at its projected cost.
+      if (rep?.usage) usage = mergeUsage(usage, rep.usage);
+      if (repairErrored && opts.rates) {
+        const proj = estimateCallCost(gatewayModel, { total: 16000 }, opts.rates);
+        usage = mergeUsage(usage, { tokens: {}, costUsd: proj, estCostUsd: proj });
+      }
       if (rep?.result?.text?.trim()) {
         output = rep.result.text;
-        usage = mergeUsage(usage, rep.usage);
         repairUsed = true;
       }
     }
@@ -198,7 +278,97 @@ async function runArm(arm, fx, dispatch, opts = {}) {
         plane: "workhorse", model: routedAlias, provider: usage.provider || "ikey-gateway", gatewayModel,
         contextTier: res?.plan?.contextTier, promptTokens: res?.boundary?.promptTokens,
         validated: res?.validated, verdict: res?.verdict, retries: res?.usage?.retries?.count || 0,
-        repairUsed, timedOut,
+        repairUsed, repairErrored, timedOut,
+      },
+    };
+  }
+  if (arm === "D") {
+    // Hybrid pipeline (production-shaped):
+    //   1. DeepSeek candidate answer   (the fallback + pre-synthesis baseline)
+    //   2. DeepSeek evidence pack       (facts/spans/computed/uncertainty)
+    //   3. Kimi synthesis from pack ONLY
+    // Then VALIDATE the synthesis; if it fails (empty/truncated/drops the pack's
+    // numbers) fall back to the DeepSeek candidate. Kimi's tokens/cost are counted
+    // either way, but a Kimi failure never becomes an unresolved campaign failure.
+    const evModel = opts.evidenceModel || "deepseek-ikey";
+    const synthModel = opts.synthModel || "kimi-ikey";
+    const evGw = resolveModel(evModel).version;
+    const synthGw = resolveModel(synthModel).version;
+    const dsCap = Math.max(fx.settings.max_tokens || 8000, 8000);
+
+    // Stage 1: DeepSeek candidate (naive prompt) — this is the fallback answer.
+    const candRes = await dispatch({
+      plane: "workhorse", model: evModel, prompt: naive,
+      settings: { ...fx.settings, max_tokens: dsCap }, contract: { maxOutputTokens: dsCap },
+      signal: AbortSignal.timeout(240000),
+    }).catch(() => null);
+    const candidate = candRes?.result?.text || "";
+    const candUsage = candRes?.usage || {};
+
+    // Stage 2: DeepSeek evidence pack.
+    const evRes = await dispatch({
+      plane: "workhorse", model: evModel, prompt: evidencePrompt(fx),
+      settings: { ...fx.settings, max_tokens: 2000 }, contract: { maxOutputTokens: 2000 },
+      signal: AbortSignal.timeout(240000),
+    }).catch(() => null);
+    const pack = evRes?.result?.text || "";
+    const evUsage = evRes?.usage || {};
+
+    // Stage 3: Kimi synthesis from the pack only (+ one stricter repair).
+    let synth = "";
+    let synthUsage = {};
+    let synthRepaired = false;
+    if (pack.trim()) {
+      const sRes = await dispatch({
+        plane: "workhorse", model: synthModel, prompt: synthPrompt(fx, pack),
+        settings: { ...fx.settings, max_tokens: dsCap }, contract: { maxOutputTokens: dsCap },
+        signal: AbortSignal.timeout(300000),
+      }).catch(() => null);
+      synth = sRes?.result?.text || "";
+      synthUsage = sRes?.usage || {};
+      if (opts.repair && (!synth.trim() || synthUsage.finishReason === "length")) {
+        const rep = await dispatch({
+          plane: "workhorse", model: synthModel,
+          prompt: synthPrompt(fx, pack) + "\n\nIMPORTANT: your previous attempt was empty or cut off. Give the COMPLETE final answer directly and concisely now.",
+          settings: { ...fx.settings, max_tokens: Math.max(dsCap, 16000) }, contract: { maxOutputTokens: Math.max(dsCap, 16000) },
+          signal: AbortSignal.timeout(300000),
+        }).catch(() => null);
+        if (rep?.usage) synthUsage = mergeUsage(synthUsage, rep.usage);
+        else if (opts.rates) { const p = estimateCallCost(synthGw, { total: dsCap }, opts.rates); synthUsage = mergeUsage(synthUsage, { tokens: {}, costUsd: p, estCostUsd: p }); }
+        if (rep?.result?.text?.trim()) { synth = rep.result.text; synthRepaired = true; }
+      }
+    }
+
+    // Validate the synthesis. numPreserved = fraction of the pack's numbers that
+    // survive into the synthesis (drift guard). packGrounding = fraction of the
+    // pack's numbers actually present in the SOURCE (truth guard, diagnostic).
+    const synthTruncated = synthUsage.finishReason === "length";
+    const synthEmpty = !synth.trim();
+    const numPreserved = numPreservation(pack, synth);
+    const packGrounding = numPreservation(pack, inputsText(fx));
+    const synthValid = !synthEmpty && !synthTruncated && numPreserved >= 0.8;
+
+    // Fallback: use the synthesis only when valid; else the DeepSeek candidate.
+    const usedFallback = !synthValid;
+    const output = synthValid ? synth : candidate;
+
+    // ALL three legs are real pipeline cost — count every one.
+    const usage = mergeUsage(mergeUsage(candUsage, evUsage), synthUsage);
+    usage.finishReason = usedFallback ? candUsage.finishReason : synthUsage.finishReason;
+    return {
+      output, usage,
+      meta: {
+        plane: "workhorse", model: usedFallback ? `${evModel}(fallback)` : `${evModel}->${synthModel}`,
+        provider: "ikey-gateway", gatewayModel: usedFallback ? evGw : synthGw,
+        stages: [
+          { stage: "candidate", model: evGw, tokens: candUsage.tokens || {}, costUsd: candUsage.estCostUsd ?? candUsage.costUsd },
+          { stage: "evidence", model: evGw, tokens: evUsage.tokens || {}, costUsd: evUsage.estCostUsd ?? evUsage.costUsd },
+          { stage: "synth", model: synthGw, tokens: synthUsage.tokens || {}, costUsd: synthUsage.estCostUsd ?? synthUsage.costUsd },
+        ],
+        candidate, pack, packChars: pack.length,
+        usedFallback, synthValid, synthEmpty, synthTruncated, synthRepaired,
+        numPreserved, packGrounding,
+        repairUsed: synthRepaired,
       },
     };
   }
@@ -228,6 +398,13 @@ async function main() {
   if (args.only) fixtures = fixtures.filter((f) => args.only.includes(f.id));
 
   const plan = buildRunPlan(fixtures, { trials: args.trials, seed: args.seed });
+  // Arm D (hybrid DeepSeek->Kimi) is additive and not part of the tested A/B/C
+  // permutation — append its runs directly so buildRunPlan/ARMS stay frozen.
+  if (args.arms && args.arms.includes("D")) {
+    for (const fx of fixtures) {
+      for (let trial = 1; trial <= args.trials; trial += 1) plan.push({ fixtureId: fx.id, trial, arm: "D", armOrder: "D" });
+    }
+  }
   const completed = completedFromLedger(ledgerPath);
   let pending = pendingRuns(plan, completed);
   if (args.arms) pending = pending.filter((r) => args.arms.includes(r.arm));
@@ -261,6 +438,7 @@ async function main() {
   const byId = Object.fromEntries(fixtures.map((f) => [f.id, f]));
   let done = 0;
   let opusCostUsd = 0;
+  let fallbacks = 0;
   const fails = {};
 
   for (const r of pending) {
@@ -268,11 +446,15 @@ async function main() {
     const key0 = runKey(r.fixtureId, r.trial, r.arm);
     const rec = { key: key0, fixtureId: fx.id, area: fx.area, areaName: fx.areaName, gradingType: fx.grading.type, arm: r.arm, trial: r.trial, armOrder: r.armOrder, ts: Date.now() };
 
-    // Budget guard for workhorse arms (A routes to workhorse; C is workhorse).
-    if (r.arm === "A" || r.arm === "C") {
-      const armAlias = r.arm === "A" ? (profileCats[fx.category]?.model || fx.armAModel) : (args.cModel || fx.armAModel);
+    // Budget guard for workhorse arms (A routes to workhorse; C is workhorse;
+    // D is a DeepSeek evidence call + a Kimi synth call — guard the pricier Kimi leg).
+    if (r.arm === "A" || r.arm === "C" || r.arm === "D") {
+      const armAlias = r.arm === "A" ? (profileCats[fx.category]?.model || fx.armAModel)
+        : r.arm === "D" ? "kimi-ikey"
+          : (args.cModel || fx.armAModel);
       const gwModel = resolveModel(armAlias).version;
-      const projected = estimateCallCost(gwModel, { total: fx.settings.max_tokens }, rates);
+      const projTokens = r.arm === "D" ? Math.max(fx.settings.max_tokens || 8000, 8000) : fx.settings.max_tokens;
+      const projected = estimateCallCost(gwModel, { total: projTokens }, rates);
       const check = ledger.wouldExceed(gwModel, projected);
       if (check.blocked) {
         rec.failures = ["budget-skip"]; rec.error = check.reason; rec.score = null;
@@ -285,13 +467,16 @@ async function main() {
 
     try {
       const routedAlias = profileCats[fx.category]?.model || fx.armAModel;
-      const { output, usage, meta: armMeta } = await runArm(r.arm, fx, dispatch, { profile: args.profile, cModel: args.cModel, repair: args.repair, routedAlias });
+      const { output, usage, meta: armMeta } = await runArm(r.arm, fx, dispatch, { profile: args.profile, cModel: args.cModel, repair: args.repair, routedAlias, rates });
       const failures = [];
       if (!output.trim()) failures.push("empty");
       if (usage.finishReason === "length") failures.push("truncated");
 
-      // Account workhorse spend (A + C) toward caps via calibrated estimate.
-      if (armMeta.gatewayModel && armMeta.provider === "ikey-gateway") {
+      // Account workhorse spend toward caps via calibrated estimate. Arm D has
+      // two workhorse legs — record each stage against its own model.
+      if (r.arm === "D" && Array.isArray(armMeta.stages)) {
+        for (const st of armMeta.stages) ledger.record({ model: st.model, tokens: st.tokens || {}, costUsd: st.costUsd });
+      } else if (armMeta.gatewayModel && armMeta.provider === "ikey-gateway") {
         ledger.record({ model: armMeta.gatewayModel, tokens: usage.tokens || {}, costUsd: usage.estCostUsd });
       }
       if (r.arm === "B") opusCostUsd += Number.isFinite(usage.costUsd) ? usage.costUsd : 0;
@@ -309,13 +494,36 @@ async function main() {
         latencyMs: usage.latencyMs ?? null, finishReason: usage.finishReason ?? null,
         outputChars: output.length, output,
         overhead: r.arm === "A" ? { promptTokens: armMeta.promptTokens, contextTier: armMeta.contextTier, retries: armMeta.retries, validated: armMeta.validated } : null,
-        repairUsed: armMeta.repairUsed || false,
+        repairUsed: armMeta.repairUsed || false, repairErrored: armMeta.repairErrored || false,
+        stages: armMeta.stages || null, packChars: armMeta.packChars ?? null,
         grade: gradeResult, score: gradeResult ? gradeResult.score : null, failures,
       });
+      // Hybrid (arm D): retain the pack + fallback/validation diagnostics, and
+      // emit a companion `Dcand` record holding the pre-synthesis DeepSeek
+      // candidate so the paired candidate-vs-synthesis delta can be graded.
+      if (r.arm === "D") {
+        rec.hybrid = {
+          usedFallback: armMeta.usedFallback, synthValid: armMeta.synthValid,
+          synthEmpty: armMeta.synthEmpty, synthTruncated: armMeta.synthTruncated,
+          synthRepaired: armMeta.synthRepaired,
+          numPreserved: armMeta.numPreserved, packGrounding: armMeta.packGrounding,
+        };
+        rec.pack = armMeta.pack;
+        if (armMeta.usedFallback) fallbacks += 1;
+        const candRec = {
+          key: runKey(fx.id, r.trial, "Dcand"), fixtureId: fx.id, area: fx.area, areaName: fx.areaName,
+          gradingType: fx.grading.type, arm: "Dcand", trial: r.trial, armOrder: "Dcand", ts: Date.now(),
+          model: "deepseek-ikey", provider: "ikey-gateway", plane: "workhorse",
+          outputChars: (armMeta.candidate || "").length, output: armMeta.candidate || "",
+          failures: (armMeta.candidate || "").trim() ? [] : ["empty"],
+        };
+        appendFileSync(ledgerPath, JSON.stringify(candRec) + "\n");
+      }
       for (const f of failures) fails[f] = (fails[f] || 0) + 1;
       done += 1;
       const scoreStr = gradeResult ? `score=${gradeResult.score}` : "score=deferred";
-      console.error(`  ${key0} ${r.arm}->${armMeta.model} tok=${usage.tokens?.total ?? "?"} ${scoreStr}${armMeta.repairUsed ? " [repaired]" : ""}${failures.length ? " FAIL:" + failures.join(",") : ""}`);
+      const fbStr = r.arm === "D" ? (armMeta.usedFallback ? " [FALLBACK->ds]" : ` [synth ok, numPres=${(armMeta.numPreserved ?? 1).toFixed(2)}]`) : "";
+      console.error(`  ${key0} ${r.arm}->${armMeta.model} tok=${usage.tokens?.total ?? "?"} ${scoreStr}${armMeta.repairUsed ? " [repaired]" : ""}${fbStr}${failures.length ? " FAIL:" + failures.join(",") : ""}`);
     } catch (e) {
       rec.failures = ["error"]; rec.error = String(e.message || e).slice(0, 400); rec.score = null;
       // Failed attempts are NOT free (Codex §10): count the projected workhorse
@@ -348,14 +556,14 @@ async function main() {
   const summary = {
     manifestHash: manifest.hash, seed: args.seed, trials: args.trials,
     plannedRuns: plan.length, completedThisPass: done, totalRecords: completedFromLedger(ledgerPath).size,
-    failures: fails,
+    failures: fails, hybridFallbacks: fallbacks,
     baselineSpend: meta.baselineSpend, settledSpend: settled, workhorseSettledDelta: settledDelta,
     workhorseEstimate: ledger.totalEstUsd(), workhorsePerModel: ledger.snapshot(), reconciliation,
     opusCostUsd, generatedAt: new Date().toISOString(),
   };
   writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
   console.error(`\nPass complete: ${done} runs. Workhorse est $${ledger.totalEstUsd().toFixed(5)}${settledDelta != null ? ` · settled $${settledDelta.toFixed(5)}` : ""} · Opus $${opusCostUsd.toFixed(4)}`);
-  console.error(`Failures: ${JSON.stringify(fails)} · summary -> ${summaryPath}`);
+  console.error(`Failures: ${JSON.stringify(fails)}${fallbacks ? ` · Kimi->DS fallbacks: ${fallbacks}` : ""} · summary -> ${summaryPath}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

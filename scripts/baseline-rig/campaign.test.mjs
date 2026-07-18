@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   inputsText, naivePrompt, runKey, hashSeed, armOrderFor, buildRunPlan, pendingRuns,
+  numTokens, numPreservation, evidencePrompt, synthPrompt,
   repairPrompt, mergeUsage,
 } from "./campaign.mjs";
 
@@ -78,4 +79,26 @@ test("pendingRuns removes completed keys (resume)", () => {
   const pending = pendingRuns(plan, completed);
   assert.equal(pending.length, 2); // B and C remain
   assert.ok(!pending.some((r) => r.arm === "A"));
+});
+
+test("numTokens extracts and normalizes distinct numeric tokens", () => {
+  const s = "Activation 41% -> 58% over 6 weeks; tickets +22%. Revenue 1,117 vs 1117.";
+  const t = numTokens(s);
+  assert.ok(t.has("41%") && t.has("58%") && t.has("22%"), "keeps percents");
+  assert.ok(t.has("6"), "keeps bare integer");
+  assert.ok(t.has("1117"), "strips commas so 1,117 == 1117");
+});
+
+test("numPreservation is fraction of a's numbers present in b (1 when a empty)", () => {
+  assert.equal(numPreservation("", "anything"), 1);
+  assert.equal(numPreservation("41% 58% 22%", "we hit 41% then 58%"), 2 / 3);
+  assert.equal(numPreservation("41%", "41% preserved"), 1);
+});
+
+test("evidencePrompt withholds the final answer; synthPrompt forbids invention", () => {
+  const fx = { prompt: "Summarize.", inputs: [{ name: "src", content: "value 42" }] };
+  assert.match(evidencePrompt(fx), /Do NOT write the final answer/);
+  assert.match(evidencePrompt(fx), /value 42/);
+  assert.match(synthPrompt(fx, "PACK"), /ONLY the evidence pack/);
+  assert.match(synthPrompt(fx, "PACK"), /Do NOT invent/);
 });

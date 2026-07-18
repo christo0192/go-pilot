@@ -105,6 +105,15 @@ async function main() {
           }
         }
         const res = await gradeRubric(fx, r.output, fx.grading, { dispatchJudge, coJudge });
+        // An unparseable judge reply is a JUDGE failure, not a zero-quality
+        // output — record it as a retryable grade-error, never as score 0.
+        if (!res.judges.opus.ok) {
+          rec.finalScore = null; rec.failures = ["grade-error"];
+          rec.error = `judge reply unparseable: ${String(res.judges.opus.raw || "").slice(0, 200)}`;
+          appendFileSync(gradedPath, JSON.stringify(rec) + "\n");
+          console.error(`  GRADE-ERROR ${r.key}: judge reply unparseable`);
+          continue;
+        }
         rec.finalScore = res.score;       // Opus-only headline
         rec.coScore = res.coScore;        // diagnostic (null when co-judge off)
         rec.deterministic = false;

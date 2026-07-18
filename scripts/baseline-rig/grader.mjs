@@ -295,7 +295,21 @@ export function parseJudgeScores(text, dimensions) {
   for (const c of candidates) {
     try { obj = JSON.parse(c); break; } catch { /* try next */ }
   }
-  if (!obj || !obj.scores) return { ok: false, scores: null, rationale: null, overall: 0, raw: text.slice(0, 200) };
+  // Fallback: whole-object parse can fail if the judge's rationale is truncated
+  // or contains an unescaped quote. The `scores` block is small, self-closing,
+  // and comes first — recover it alone so a verbose rationale never zeroes a
+  // real score. (Headline = scores; rationale is diagnostic.)
+  if (!obj || !obj.scores) {
+    const sm = text.match(/"scores"\s*:\s*(\{[^{}]*\})/);
+    if (sm) {
+      try {
+        const scoresOnly = JSON.parse(sm[1]);
+        const rm = text.match(/"rationale"\s*:\s*"([^"]*)/);
+        obj = { scores: scoresOnly, rationale: rm ? rm[1] : "" };
+      } catch { /* fall through to failure */ }
+    }
+  }
+  if (!obj || !obj.scores) return { ok: false, scores: null, rationale: null, overall: 0, raw: text.slice(0, 400) };
   const scores = {};
   let sum = 0;
   let count = 0;
