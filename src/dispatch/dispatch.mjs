@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { estimateCallCost } from "../metrics/cost-model.mjs";
 
 // Cap child output so a runaway/huge provider response can't OOM the
 // orchestrator: the timeout bounds TIME, this bounds BYTES.
@@ -21,11 +23,14 @@ export function redactSecrets(text) {
 
 function runProcess(command, args, opts = {}) {
   return new Promise((resolvePromise, reject) => {
+    const startedAt = Date.now();
+    const timeoutMs = opts.timeoutMs || 900000;
     const child = spawn(command, args, {
       cwd: opts.cwd || process.cwd(),
       env: { ...process.env, ...(opts.env || {}) },
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
+      detached: process.platform !== "win32",
     });
     let stdout = "";
     let stderr = "";
@@ -38,14 +43,20 @@ function runProcess(command, args, opts = {}) {
       clearTimeout(timer);
       fn();
     };
-    const overflow = (stream) => {
+    const stopChild = () => {
+      if (process.platform !== "win32" && child.pid) {
+        try { process.kill(-child.pid, "SIGTERM"); return; } catch { /* fall back */ }
+      }
       child.kill("SIGTERM");
+    };
+    const overflow = (stream) => {
+      stopChild();
       finish(() => reject(new Error(`${command} ${stream} exceeded ${MAX_OUTPUT_BYTES} bytes`)));
     };
     const timer = setTimeout(() => {
-      child.kill("SIGTERM");
-      finish(() => reject(new Error(`dispatcher timed out after ${opts.timeoutMs}ms`)));
-    }, opts.timeoutMs || 900000);
+      stopChild();
+      finish(() => reject(new Error(`dispatcher timed out after ${timeoutMs}ms`)));
+    }, timeoutMs);
     child.stdout.on("data", (chunk) => {
       outLen += chunk.length;
       if (outLen > MAX_OUTPUT_BYTES) return overflow("stdout");
@@ -59,7 +70,7 @@ function runProcess(command, args, opts = {}) {
     child.on("error", (error) => finish(() => reject(error)));
     child.on("close", (code) => finish(() => {
       if (code !== 0) reject(new Error(`${command} exited ${code}: ${redactSecrets((stderr || stdout).slice(-4000))}`));
-      else resolvePromise({ stdout, stderr, code });
+      else resolvePromise({ stdout, stderr, code, startedAt, latencyMs: Date.now() - startedAt });
     }));
     if (opts.stdin) child.stdin.end(opts.stdin);
     else child.stdin.end();
@@ -102,34 +113,59 @@ function parseCodex(raw) {
 
 export function createProcessDispatcher(opts = {}) {
   const root = opts.root || process.cwd();
+  const runner = opts.runner || runProcess;
+  let rates = opts.rates;
+  if (!rates) {
+    try { rates = JSON.parse(readFileSync(resolve(root, "scripts", "baseline-rig", "calibration.json"), "utf8")).rates; }
+    catch { rates = {}; }
+  }
   return async function dispatch(request) {
     if (!request.plane || !request.model) throw new Error("dispatcher requires a resolved plane and model");
     if (typeof request.model !== "string" || !SAFE_MODEL.test(request.model)) {
       throw new Error(`dispatcher: unsafe model alias "${request.model}"`);
     }
     const timeoutMs = request.contract?.timeoutMs || opts.timeoutMs || 900000;
-    if (request.plane === "frontier" && ["opus", "sonnet", "haiku"].includes(request.model)) {
+    const alias = request.modelAlias || request.model;
+    if (request.plane === "frontier" && ["opus", "sonnet", "haiku"].includes(alias)) {
       const script = opts.claudeScript || resolve(root, "scripts", "lean-worker.sh");
-      const out = await runProcess(script, [request.model, "--max-turns", String(request.contract?.maxTurns || 20)], {
+      const out = await runner(script, [alias, "--max-turns", String(request.contract?.maxTurns || 20)], {
         cwd: request.cwd || root,
         stdin: request.prompt,
         timeoutMs,
       });
       return parseClaude(out.stdout);
     }
-    if (request.plane === "frontier" && request.model === "codex") {
+    if (request.plane === "frontier" && alias === "codex") {
       const script = opts.codexScript || resolve(root, "scripts", "lean-codex-worker.sh");
-      const out = await runProcess(script, [request.prompt], { cwd: request.cwd || root, timeoutMs });
+      const out = await runner(script, [request.prompt], { cwd: request.cwd || root, timeoutMs });
       return parseCodex(out.stdout);
     }
     if (request.plane === "workhorse") {
       const script = opts.piScript || resolve(root, "scripts", "pi-gopilot.sh");
-      const out = await runProcess(script, ["--model", request.model, "--print", request.prompt], {
+      const out = await runner(script, ["--model", request.model, "--print", request.prompt], {
         cwd: request.cwd || root,
         timeoutMs,
         env: { GOPILOT_MODEL: request.model },
       });
-      return { result: { text: out.stdout.trim(), raw: out.stdout }, usage: {} };
+      let tokens;
+      const usageScript = opts.piUsageScript || resolve(root, "scripts", "pi-usage.mjs");
+      const snippet = String(request.prompt).replace(/[^a-zA-Z0-9 ]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+      try {
+        const usageOut = await runner(process.execPath, [usageScript, String(out.startedAt), snippet], { cwd: root, timeoutMs: 10000 });
+        const parsed = JSON.parse(usageOut.stdout);
+        tokens = {
+          input: parsed.in ?? 0,
+          output: parsed.out ?? 0,
+          reasoning: parsed.reasoning ?? 0,
+          cacheRead: parsed.cacheRead ?? 0,
+          total: parsed.total ?? (parsed.in ?? 0) + (parsed.out ?? 0),
+        };
+      } catch { /* usage remains unavailable and contracts may fail closed */ }
+      const costUsd = tokens ? estimateCallCost(request.model, tokens, rates) : undefined;
+      return {
+        result: { text: out.stdout.trim(), raw: out.stdout },
+        usage: { tokens, costUsd, costEstimated: Number.isFinite(costUsd), latencyMs: out.latencyMs },
+      };
     }
     throw new Error(`no dispatcher for ${request.plane}/${request.model}`);
   };

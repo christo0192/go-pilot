@@ -54,7 +54,7 @@ claude                             # in this repo — CLAUDE.md turns Claude Cod
                                    # panes automatically and assembles verified results
 ```
 
-**That's the daily driver.** Give `claude` a substantial task and watch `wk:deepseek` / `wk:kimi`
+**That's the daily driver.** Give `claude` a substantial task and watch `wk:deepseek` / `wk:kimi25`
 panes spawn, work, report back, and close. Optional extras:
 
 ```bash
@@ -99,12 +99,15 @@ workspace diff. Herdr remains the pane substrate for interactive and parallel wo
 
 | Profile | Orchestrator | Workers | Needs |
 |---|---|---|---|
-| **`pure-anthropic`** *(recommended start)* | Opus (claude) | Sonnet/Haiku subagents + Codex/GPT lateral | Claude Max + ChatGPT subs only — **no workhorse plane** |
+| **`pure-anthropic`** *(subscription-only option)* | Opus (claude) | Sonnet/Haiku subagents + Codex/GPT lateral | Claude Max + ChatGPT subs only — **no workhorse plane** |
 | `hybrid` | Claude/Opus | open models via Pi/LiteLLM for cheap parallel fan-out | + Docker, OpenRouter (or vendor) key |
 | `open-first` | GLM/Kimi | open models end-to-end | API keys only (most portable) |
+| **`ikey-prod`** *(production policy)* | Opus | DeepSeek default; Kimi K2.5 extraction/doc-QA | Workhorse gateway key |
 
-`pure-anthropic` skips Sprint 2 entirely (no LiteLLM/open-model plane); its savings are
-quota/rate-limit relief since everything is flat-rate. `GOPILOT_PROFILE` lives in `deploy/.env`.
+The default profile is declared in `config/runtime.json`; CLI `--profile` and `GOPILOT_PROFILE`
+override it. The generated active routing table is [`docs/production-routing.md`](docs/production-routing.md).
+The replicated quality, token, cost, reliability, and latency evidence is
+[`docs/production-metrics.md`](docs/production-metrics.md).
 
 ---
 

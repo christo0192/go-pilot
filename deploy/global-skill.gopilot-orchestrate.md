@@ -21,19 +21,20 @@ You (Claude Code, Max subscription) own **control flow** — classify, decompose
 
 | Subtask | Route |
 |---|---|
-| coding, repo edits, math/reasoning, extraction, data shaping, summarize | **deepseek** |
+| coding, repo edits, math/reasoning, data shaping, summarize, creative draft | **deepseek** |
 | spreadsheet/data: compute stats locally (node/bash) first | derived tables → **deepseek**, you synthesize |
-| long-doc QA/synthesis (send evidence chunks + IDs, never full docs) | **kimi**, fallback deepseek |
-| creative drafting, brainstorming, lateral | **kimi** draft |
+| extraction | **kimi25**, schema validation, fallback deepseek |
+| long-doc QA/synthesis (send evidence chunks + IDs, never full docs) | **kimi25**, fallback deepseek |
+| creative drafting, brainstorming, lateral | **deepseek** draft |
 | subjective/creative/executive FINAL pass | **you** (unless user says `workhorse-only`) |
 | unsure | **deepseek** |
 
-Kimi k2.6: reasoning can't be disabled → 3–140s latency variance; creative/lateral only; cap output. DeepSeek self-IDs as "Claude" — ignore self-ID.
+Kimi K2.5 is the production Kimi for validated extraction and doc-QA; `kimi26` is historical only. DeepSeek self-IDs as "Claude" — ignore self-ID.
 
 ## Delegate
 
 ```bash
-pi-delegate [--raw] --repair --class <label> <deepseek|kimi> "<subtask>"     # on PATH (~/.local/bin)
+pi-delegate [--raw] --repair --class <label> <deepseek|kimi25> "<subtask>"     # on PATH (~/.local/bin)
 echo "<long subtask>" | pi-delegate --repair --class coding deepseek -
 ```
 

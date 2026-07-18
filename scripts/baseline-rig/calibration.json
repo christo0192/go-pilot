@@ -28,7 +28,7 @@
     "test/kimi-k2.5": {
       "perTotalToken": 2.835e-6,
       "perMillionTotal": 2.835,
-      "_calibration": "Settled-measured 2026-07-18 (metered, unlike K3). 3 probes: analysis-02 delta $0.010517/3744tok=$2.809/M, docqa-hard-05 $0.021425/7572tok=$2.829/M, data-hard-01 $0.023929/8393tok=$2.851/M. Blended $2.835/M over 19709 tokens. Cheaper than K2.6 ($3.847/M), ~3.4x DeepSeek. Latency high on hard fixtures (180-200s). Requires the sk-6WzeJk... key.",
+      "_calibration": "Settled-measured 2026-07-18 (metered, unlike K3). 3 probes: analysis-02 delta $0.010517/3744tok=$2.809/M, docqa-hard-05 $0.021425/7572tok=$2.829/M, data-hard-01 $0.023929/8393tok=$2.851/M. Blended $2.835/M over 19709 tokens. Cheaper than K2.6 ($3.847/M), ~3.4x DeepSeek. Latency high on hard fixtures (180-200s).",
       "sample": {
         "settledDelta": 0.05587,
         "totalTokens": 19709,

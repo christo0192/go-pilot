@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeBackoff, withRetry, createCircuitBreaker } from "./retry.mjs";
+import { computeBackoff, withRetry, createCircuitBreaker, isTransientError } from "./retry.mjs";
+
+test("isTransientError retries timeouts, rate limits, and 5xx but not auth/schema failures", () => {
+  assert.equal(isTransientError(Object.assign(new Error("rate limited"), { status: 429 })), true);
+  assert.equal(isTransientError(Object.assign(new Error("upstream"), { status: 503 })), true);
+  assert.equal(isTransientError(Object.assign(new Error("socket"), { code: "ECONNRESET" })), true);
+  assert.equal(isTransientError(Object.assign(new Error("unauthorized"), { status: 401 })), false);
+  assert.equal(isTransientError(new Error("invalid JSON schema")), false);
+});
 
 // ── Test doubles ────────────────────────────────────────────────────────────
 // All hermetic: no real timers, no wall clock, no randomness.

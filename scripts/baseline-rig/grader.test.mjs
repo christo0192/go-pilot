@@ -92,6 +92,8 @@ test("parseJudgeScores handles fenced json, bare json, clamping, and garbage", (
   const c = parseJudgeScores("no json here", dims);
   assert.equal(c.ok, false);
   assert.equal(c.overall, 0);
+  const incomplete = parseJudgeScores('{"scores":{"correctness":9}}', dims);
+  assert.equal(incomplete.ok, false, "a missing dimension is a judge error, not an implicit score of 1");
 });
 
 test("gradeRubric: Opus-only headline, co-judge diagnostic, disagreement flagged", async () => {

@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: 22
       - run: npm run test:unit
+      - run: npm run check:routing
+      - run: npm run check:metrics
 
   integration:
     name: integration (ubuntu)

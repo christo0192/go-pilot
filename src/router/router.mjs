@@ -106,6 +106,7 @@ export function route(task = {}, opts = {}) {
     category,
     plane: rule.plane,
     model: rule.model,
+    ...(rule.fallback ? { fallback: { ...rule.fallback } } : {}),
     deterministic: true,
   };
 }

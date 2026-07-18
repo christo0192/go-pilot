@@ -50,7 +50,9 @@ aliases (below) are encoded from
 |---|---|---|
 | `glm` | GLM 5.2 | orchestrate, analyze |
 | `glm-flash` | GLM 4.7 Flash | plan, classify |
-| `kimi` | Kimi K2.6 | draft, lateral |
+| `kimi` (local LiteLLM) | Kimi K2.6 | legacy/local draft, lateral |
+| `kimi25` (Ikey production) | Kimi K2.5 | validated extraction, document-QA |
+| `kimi26` (Ikey historical) | Kimi K2.6 | benchmark reproduction only |
 | `kimi-lite` | Kimi K2 0905 | cheaper Kimi (drafts, coding plans) |
 | `deepseek` | DeepSeek V3.2 | summarize, code-review |
 | `deepseek-flash` | DeepSeek V4 Flash | very cheap high-volume extract |
@@ -61,6 +63,10 @@ aliases (below) are encoded from
 `hybrid` keeps high-stakes categories (orchestrate, plan, code-review, lateral)
 on the **frontier** plane and offloads the rest to the workhorse; `open-first`
 runs everything on the workhorse.
+
+The runtime default is `ikey-prod`; see the generated
+[`production-routing.md`](production-routing.md) rather than inferring production
+behavior from the legacy/local LiteLLM aliases above.
 
 ## Per-worker tool subsets (Step 2.3)
 

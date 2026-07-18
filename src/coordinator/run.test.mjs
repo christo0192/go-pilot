@@ -183,6 +183,73 @@ test("dry-run returns the plan, invokes NO dispatch, verdict 'dry-run'", async (
   assert.equal(res.plan.signedOff, false);
 });
 
+test("prose extraction does not require JSON when no structured format was requested", async () => {
+  const res = await runTask(
+    { category: "extract", prompt: "Extract and summarize the main obligations." },
+    {
+      profile: "ikey-prod",
+      dispatch: () => ({ result: { text: "The supplier must deliver by Friday." }, usage: {} }),
+      retrieve: false, rules: false, captureWorkspace: false,
+    },
+  );
+  assert.equal(res.validated, true);
+  assert.equal(res.fallbackAttempted, false);
+});
+
+test("a transiently failed K2.5 dispatch falls back to pinned DeepSeek and counts fallback usage", async () => {
+  const calls = [];
+  const res = await runTask(
+    { category: "extract", prompt: "Return JSON with a name.", outputFormat: "json" },
+    {
+      profile: "ikey-prod",
+      dispatch: (req) => {
+        calls.push(req);
+        if (req.modelAlias === "kimi-k2.5-ikey") throw new Error("ETIMEDOUT upstream");
+        return { result: { text: '{"name":"Ada"}' }, usage: { tokens: { input: 10, output: 5, total: 15 }, costUsd: 0.002 } };
+      },
+      contract: { maxRetries: 0 }, retrieve: false, rules: false, captureWorkspace: false,
+    },
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].modelAlias, "kimi-k2.5-ikey");
+  assert.equal(calls[1].modelAlias, "deepseek-ikey");
+  assert.equal(res.validated, true);
+  assert.equal(res.fallbackAttempted, true);
+  assert.equal(res.fallbackUsed, true);
+  assert.equal(res.usage.tokens.total, 15);
+});
+
+test("fallback accounting sums tokens without applying the per-answer cap to both attempts", async () => {
+  let calls = 0;
+  const res = await runTask(
+    { category: "extract", prompt: "Return JSON.", outputFormat: "json" },
+    {
+      profile: "ikey-prod",
+      dispatch: () => {
+        calls += 1;
+        return calls === 1
+          ? { result: { text: "not-json" }, usage: { tokens: { input: 1, output: 6, total: 7 } } }
+          : { result: { text: '{"ok":true}' }, usage: { tokens: { input: 1, output: 6, total: 7 } } };
+      },
+      contract: { maxOutputTokens: 8, requireUsageReport: true },
+      retrieve: false, rules: false, captureWorkspace: false,
+    },
+  );
+  assert.equal(res.validated, true);
+  assert.equal(res.usage.tokens.output, 12, "aggregate usage includes both attempts");
+  assert.equal(res.fallbackUsed, true);
+});
+
+test("live doc-QA refuses source-less dispatch because citations cannot be validated", async () => {
+  await assert.rejects(
+    runTask(
+      { category: "doc-qa", prompt: "What is the renewal date?" },
+      { profile: "ikey-prod", dispatch: () => assert.fail("must not dispatch"), retrieve: false, rules: false },
+    ),
+    /requires task\.context/,
+  );
+});
+
 test("validation failure: a 'TODO' result is NOT promoted and verdict is 'failed'", async () => {
   const adapter = makeSpyAdapter();
   const dispatch = () => ({
@@ -344,4 +411,43 @@ test("plan-then-execute performs separate planner and executor calls", async () 
   );
   assert.deepEqual(roles, ["planner", "executor"]);
   assert.equal(res.verdict, "ok");
+});
+
+test("ikey-prod extraction dispatches pinned K2.5 then validated DeepSeek fallback", async () => {
+  const calls = [];
+  const dispatch = ({ model, modelAlias }) => {
+    calls.push({ model, modelAlias });
+    if (modelAlias === "kimi-k2.5-ikey") {
+      return { result: { text: "not json" }, usage: { tokens: { input: 10, output: 4, total: 14 }, costUsd: 0.01 } };
+    }
+    return { result: { text: '{"name":"Ada"}' }, usage: { tokens: { input: 8, output: 3, total: 11 }, costUsd: 0.002 } };
+  };
+  const res = await runTask(
+    { category: "extract", prompt: "extract name", context: "Name: Ada", schema: { type: "object", required: ["name"], additionalProperties: false, properties: { name: { type: "string" } } } },
+    { profile: "ikey-prod", dispatch, retrieve: false, rules: false, captureWorkspace: false, contract: { maxRetries: 0 } },
+  );
+  assert.deepEqual(calls, [
+    { model: "test/kimi-k2.5", modelAlias: "kimi-k2.5-ikey" },
+    { model: "test/deepseek-v4-pro", modelAlias: "deepseek-ikey" },
+  ]);
+  assert.equal(res.fallbackUsed, true);
+  assert.equal(res.verdict, "ok");
+  assert.equal(res.usage.tokens.total, 25);
+  assert.equal(res.usage.costUsd, 0.012);
+});
+
+test("doc-QA builds an evidence pack and enforces known citations", async () => {
+  let dispatchedPrompt = "";
+  const dispatch = ({ prompt }) => {
+    dispatchedPrompt = prompt;
+    return { result: { text: "The limit is 10 users [e1]." }, usage: {} };
+  };
+  const res = await runTask(
+    { category: "doc-qa", prompt: "What is the user limit?", context: "# Limits\nThe account supports 10 users." },
+    { profile: "ikey-prod", dispatch, retrieve: false, rules: false, captureWorkspace: false, contract: { maxRetries: 0 } },
+  );
+  assert.match(dispatchedPrompt, /<evidence>/);
+  assert.match(dispatchedPrompt, /\[e1\]/);
+  assert.equal(res.verdict, "ok");
+  assert.equal(res.fallbackUsed, false);
 });

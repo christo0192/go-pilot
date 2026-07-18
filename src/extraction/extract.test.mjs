@@ -126,7 +126,7 @@ test("extractRecord: hallucinated field gets nulled and reported", async () => {
   assert.equal(report.dispatchCalls, 1);
 });
 
-test("extractRecord: missing field is nulled and counted, but doesn't fail ok", async () => {
+test("extractRecord: a required null field fails closed", async () => {
   const schema = {
     type: "object",
     required: ["name", "age"],
@@ -137,14 +137,15 @@ test("extractRecord: missing field is nulled and counted, but doesn't fail ok", 
 
   const { ok, record, report } = await extractRecord({ sourceText, schema, dispatch });
 
-  assert.equal(ok, true);
+  assert.equal(ok, false);
   assert.equal(record.name, "Bob Smith");
   assert.equal(record.age, null);
-  assert.equal(report.schemaValid, true);
+  assert.equal(report.schemaValid, false);
   assert.deepEqual(report.missingFields, ["age"]);
+  assert.deepEqual(report.missingRequired, ["age"]);
   assert.deepEqual(report.hallucinatedFields, []);
   assert.equal(report.evidenceSupport, 1);
-  assert.equal(report.dispatchCalls, 1);
+  assert.equal(report.dispatchCalls, 2);
 });
 
 test("extractRecord: repairs exhausted still returns a nulled record with schemaValid false", async () => {

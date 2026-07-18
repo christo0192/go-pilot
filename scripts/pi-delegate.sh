@@ -12,13 +12,13 @@
 #     returns EXACT token usage (incl. reasoning tokens). Use for draft/answer work.
 #
 # Usage:
-#   scripts/pi-delegate.sh [flags] <deepseek|kimi|provider/id> "<subtask>"
+#   scripts/pi-delegate.sh [flags] <deepseek|kimi|kimi25|provider/id> "<subtask>"
 #   scripts/pi-delegate.sh [flags] <model> -          # subtask from stdin (long prompts)
 # Flags:
 #   --raw              non-agentic gateway call (exact token usage)
 #   --repair           on MECHANICAL failure (empty/timeout/truncated/error):
 #                      retry once with a stricter prompt, then once on the sibling
-#                      model (deepseek<->kimi). Semantic repair stays orchestrator-side.
+#                      model (deepseek<->kimi25). Semantic repair stays orchestrator-side.
 #   --class <label>    task class recorded in the metrics log (e.g. coding, extraction)
 #   --timeout <s>      per-attempt timeout (defaults: deepseek 240s, kimi 360s, other 300s)
 #   --max-tokens <n>   raw mode output cap (default 8000)
@@ -60,11 +60,11 @@ TASK="${2:-}"
 
 # Alias -> sibling for --repair reassignment. Custom provider/ids have no sibling.
 case "$ALIAS" in
-  deepseek) SIBLING="kimi" ;;
-  kimi)     SIBLING="deepseek" ;;
+  deepseek)     SIBLING="kimi25" ;;
+  kimi|kimi25) SIBLING="deepseek" ;;
   *)        SIBLING="" ;;
 esac
-default_timeout() { case "$1" in kimi) echo 360 ;; deepseek) echo 240 ;; *) echo 300 ;; esac; }
+default_timeout() { case "$1" in kimi|kimi25) echo 240 ;; deepseek) echo 240 ;; *) echo 300 ;; esac; }
 EXPLICIT_TIMEOUT="${TIMEOUT_S:-${DELEGATE_TIMEOUT_S:-}}"
 TIMEOUT_S="${EXPLICIT_TIMEOUT:-$(default_timeout "$ALIAS")}"
 
@@ -139,9 +139,19 @@ run_agentic() { # $1 model-alias $2 taskfile $3 attempt-tag
       WT="${TMPDIR:-/tmp}/gopilot-wt/wt-$$-$3-$RANDOM"
       mkdir -p "$(dirname "$WT")"
       if git -C "$WORKDIR" worktree add --detach "$WT" HEAD >/dev/null 2>&1; then RUNDIR="$WT"
-      else WT=""; echo "[sandbox] worktree add failed — running direct in $WORKDIR" >&2; fi
+      else
+        WT=""; OUTCOME=error; LAT=0; USAGE=null
+        echo "[sandbox] worktree add failed — refusing direct execution" >&2
+        if [ -n "$CLOSE_WS" ]; then herdr workspace close "$CLOSE_WS" >/dev/null 2>&1 || true
+        else herdr pane close "$WORKER" >/dev/null 2>&1 || true; fi
+        return
+      fi
     else
-      echo "[sandbox] $WORKDIR is not a git repo — running direct" >&2
+      OUTCOME=error; LAT=0; USAGE=null
+      echo "[sandbox] $WORKDIR is not a git repo — refusing direct execution" >&2
+      if [ -n "$CLOSE_WS" ]; then herdr workspace close "$CLOSE_WS" >/dev/null 2>&1 || true
+      else herdr pane close "$WORKER" >/dev/null 2>&1 || true; fi
+      return
     fi
   fi
   t0="$(node -e 'process.stdout.write(String(Date.now()))')"

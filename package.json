@@ -12,6 +12,9 @@
     "test:integration": "node scripts/run-tests.mjs integration",
     "test:live": "node scripts/run-tests.mjs live",
     "test:all": "node scripts/run-tests.mjs all",
+    "check:routing": "node scripts/routing-consistency.mjs",
+    "check:metrics": "node scripts/baseline-rig/production-metrics.mjs --check",
+    "metrics:production": "node scripts/baseline-rig/production-metrics.mjs --write",
     "gopilot": "node bin/gopilot.mjs",
     "run:task": "node bin/gopilot.mjs run"
   }
