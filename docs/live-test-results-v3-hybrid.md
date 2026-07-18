@@ -1,64 +1,45 @@
-# Hybrid experiment — DeepSeek→Kimi synthesis
+# Hybrid experiment (DeepSeek→Kimi synthesis) — SHELVED
 
-_Generated from out-v3-hybrid (arm D/Dcand), out-v3-deepseek (A/B), out-v3-trim (Kimi A). Seed 20260713, 3 trials (Kimi/Opus frozen at 1)._
+**Status: DROPPED (2026-07-18). See `.gsd/DECISIONS.md` D38.**
 
-## Report 1 — All-task ablation (does unconditional synthesis help or hurt?)
+This documents an experiment that was designed, built, partially run, and then
+formally shelved — kept as a record so the reasoning isn't lost.
 
-Quality = Opus-judge mean per area. HYB = final hybrid (synth-or-fallback). CAND = DeepSeek candidate (pre-synthesis). Δsynth = HYB − CAND (Kimi's isolated contribution).
+## What it was
 
-| Area | Kimi-only | DeepSeek-only | Cand (DS pre-synth) | Hybrid final | Δsynth (HYB−CAND) | Opus |
-|---|--:|--:|--:|--:|--:|--:|
-| analysis | 89.4 | 88.1 | n/a | n/a | n/a | 95 |
-| creative-writing | 85 | 86.3 | n/a | n/a | n/a | 92.5 |
-| document-qa | 80.8 | 94.6 | n/a | n/a | n/a | 99.6 |
-| extraction | 88.9 | 87.2 | n/a | n/a | n/a | 96.1 |
-| spreadsheet-analysis | 58.3 | 91.7 | n/a | n/a | n/a | 98.3 |
+A two-stage "arm D" pipeline added to `scripts/baseline-rig/campaign.mjs`:
 
-### Tokens per area (Σ fixture medians)
+1. **DeepSeek** produces a candidate answer (the fallback baseline).
+2. **DeepSeek** produces a compact evidence pack (facts / spans / computed / uncertainty).
+3. **Kimi** writes the final answer from the pack ONLY.
+4. **Validate** the synthesis (non-empty, not truncated, ≥80% of the pack's numbers
+   preserved). If it fails, **fall back to the DeepSeek candidate** — so a Kimi
+   failure never becomes a campaign failure, while its tokens/cost are still counted.
 
-| Area | Kimi-only | DeepSeek-only | Hybrid |
-|---|--:|--:|--:|
-| analysis | 21371 | 11024 | 0 |
-| creative-writing | 7608 | 6791 | 0 |
-| document-qa | 27187 | 12932 | 0 |
-| extraction | 11267 | 7956 | 0 |
-| spreadsheet-analysis | 14507 | 10278 | 0 |
+A companion `Dcand` record captured the pre-synthesis DeepSeek candidate so the
+paired `HYB − CAND` delta isolates Kimi's contribution despite DeepSeek nondeterminism.
 
-### Per-dimension Kimi contribution (HYB − CAND, judge points ×10)
+## Why it was dropped (not finished)
 
-- **analysis**: n/a
-- **creative-writing**: n/a
-- **document-qa**: n/a
-- **extraction**: n/a
-- **spreadsheet-analysis**: n/a
+Run to **11/63** (analysis fixtures only) before being shelved. Formally dropped because:
 
-### Hybrid reliability & fidelity
+1. **Stale synthesizer.** Arm D hardcodes `kimi-ikey` (K2.6) as the writer. K2.6 was
+   subsequently retired in favor of K2.5, which strictly dominated it (90.0 vs 81.9
+   mean quality, cheaper, more reliable). Finishing arm D would have benchmarked the
+   *weaker* Kimi as the synthesizer.
+2. **Poor early economics.** **9 of the 11** analysis runs (82%) failed synthesis
+   validation and fell back to the DeepSeek candidate — i.e. the hybrid paid for
+   three model calls to ship DeepSeek's own answer. On analysis the extra Kimi pass
+   was almost pure overhead.
+3. **Superseded.** The K2.5 selective-routing result — doc-QA and extraction → K2.5,
+   a single call — already captures "use the better Kimi where it measurably helps,"
+   without the three-call cost or the reliability tax of a mandatory synthesis leg.
 
-- Runs: 0 · synth used: 0 · **fell back to DeepSeek: 0** (NaN%)
-- Numeric preservation on synth-used finals: mean 0% · numeric regressions vs candidate: 0 · citation regressions: 0
-- Pack-vs-source grounding (numbers in pack found in source): mean 0%
+## What was kept
 
-## Report 2 — Selective production policy
-
-Policy = **hybrid synthesis for analysis/creative/doc-qa; DeepSeek-only for extraction/spreadsheet.**
-
-| Variant | Mean quality | Total tokens | Total cost $ |
-|---|--:|--:|--:|
-| Kimi-only (all) | 81.9 | 81940 | $0.3152 |
-| DeepSeek-only (all) | 90 | 48981 | $0.0406 |
-| Hybrid everywhere | n/a | 0 | $0.0000 |
-| **Selective policy** | **88.7** | **18234** | **$0.0151** |
-
-## Promotion gates
-
-| Gate | Value | Verdict |
-|---|--:|:-:|
-| Narrative Δquality (HYB−CAND) ≥ 2 | null | ❌ |
-| No category loses > 1 pt | 0 | ✅ |
-| Zero numeric/citation regressions | 0num/0cit | ✅ |
-| Hybrid reliability-adjusted quality ≥ 92 | null | ❌ |
-| Total tokens below Kimi-only | 0 vs 81940 | ✅ |
-| Cost ≥ 50% below Kimi-only | $0.0000 vs $0.3152 | ✅ |
-| Failed Kimi falls back to DeepSeek (cost counted) | 0 fallbacks | ✅ |
-
-**5/7 gates pass.**
+- The **arm-D harness** remains in `campaign.mjs` (with `numTokens` / `numPreservation`
+  helpers and unit tests). If a K2.5-as-synthesizer hybrid is ever worth testing, swap
+  `synthModel` to `kimi-k2.5-ikey` and re-run clean into a fresh output dir.
+- `compare-hybrid.mjs` remains (degrades gracefully when the output dir is absent).
+- The partial gitignored output (`out-v3-hybrid`, 11 analysis records, ungraded) was
+  removed to avoid a future session mistaking it for a resumable run.

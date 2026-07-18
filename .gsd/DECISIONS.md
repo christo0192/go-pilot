@@ -194,3 +194,19 @@ CLI `--allow-parallel-cost` — on a LIVE run so 2x spend is never accidental
 cost when providers report it. Taxonomy codified in `src/runtime/contracts.mjs`
 `modeGovernance()`. Also corrected `downgraded` to mean "execution actually
 changed", not "not signed off".
+
+## D38 — hybrid arm-D (DeepSeek→Kimi synthesis) experiment DROPPED (2026-07-18, decision)
+The arm-D pipeline (DeepSeek candidate + evidence pack → Kimi synthesis, validate,
+fall back to DeepSeek) was run to 11/63 (analysis only) then shelved when the model
+work pivoted to evaluating K2.5. Formally DROPPED rather than finished, because:
+(1) STALE — arm-D hardcodes `kimi-ikey` (K2.6) as the synthesizer, but K2.6 was
+retired in favor of K2.5 (D-doc-QA/extraction routing); finishing would benchmark
+the weaker Kimi as synthesizer. (2) POOR EARLY SIGNAL — 9/11 analysis runs (82%)
+failed synth validation and fell back to DeepSeek, i.e. the hybrid paid for 3 calls
+to ship DeepSeek's own answer. (3) SUPERSEDED — the K2.5 selective-routing result
+(doc-QA + extraction → K2.5, single call) already captures "use the better Kimi
+where it measurably helps" without the 3-call cost. The arm-D HARNESS stays in
+campaign.mjs (reusable if a K2.5-as-synthesizer hybrid is ever worth testing —
+would require swapping synthModel to kimi-k2.5-ikey and re-running clean). Partial
+gitignored output (out-v3-hybrid) removed. Ablation doc kept as a shelved-experiment
+record: docs/live-test-results-v3-hybrid.md.
