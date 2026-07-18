@@ -1,38 +1,40 @@
 #!/usr/bin/env bash
-# Launch the Pi terminal inside the Go-pilot repo with our skills + extensions
-# loaded (.pi/skills/, .pi/extensions/). Uses OpenAI as the test provider until
-# the LiteLLM workhorse gateway has a provider key; once OPENROUTER_API_KEY is set
-# you'll instead point Pi at LiteLLM (http://localhost:4000).
+# Non-interactive workhorse dispatch for the governed coordinator
+# (src/dispatch/dispatch.mjs -> this script). Runs ONE headless Pi agent turn on
+# the Ikey workhorse gateway and prints the result to stdout.
 #
-# Usage:  bash scripts/pi-gopilot.sh          # from anywhere
-#         ./scripts/pi-gopilot.sh
+# Called as:  pi-gopilot.sh --model <gateway-id> --print "<prompt>"
+#   <gateway-id> is the pinned model version, e.g. test/deepseek-v4-pro. Bare
+#   gateway ids (test/*) are referenced through the registered "ikey" Pi provider
+#   (see deploy/pi-models.ikey.json; its key is read from deploy/.env at runtime),
+#   which is why the working delegation path (pi-worker.sh) uses the ikey/ prefix.
+#   The prior version forced `--provider openai`, which 400s on gateway ids — the
+#   coordinator's live workhorse path never worked until this fix.
 set -euo pipefail
-
 export PATH="$HOME/.npm-global/bin:$PATH"
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 cd "$REPO"                       # .pi/skills + .pi/extensions discover from cwd
+
+MODEL=""; PROMPT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --model) MODEL="${2:?--model needs a value}"; shift 2 ;;
+    --print) PROMPT="${2:?--print needs a prompt}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+[ -n "$MODEL" ] || { echo "pi-gopilot: --model <gateway-id> required" >&2; exit 2; }
+[ -n "$PROMPT" ] || { echo "pi-gopilot: --print <prompt> required" >&2; exit 2; }
+
+# Bare Ikey gateway ids resolve through the registered "ikey" provider.
+case "$MODEL" in
+  test/*) MODEL="ikey/$MODEL" ;;
+esac
 
 if ! command -v pi >/dev/null 2>&1; then
   echo "pi not found. Install: npm install -g --ignore-scripts @earendil-works/pi-coding-agent" >&2
   exit 1
 fi
 
-# Load the gitignored deployment environment without exporting arbitrary shell
-# syntax. The workhorse uses LiteLLM's OpenAI-compatible endpoint when present.
-if [ -f deploy/.env ]; then
-  openai_key="$(grep -E '^OPENAI_API_KEY=' deploy/.env | cut -d= -f2- || true)"
-  litellm_key="$(grep -E '^LITELLM_MASTER_KEY=' deploy/.env | cut -d= -f2- || true)"
-  litellm_url="$(grep -E '^LITELLM_BASE_URL=' deploy/.env | cut -d= -f2- || true)"
-  [ -n "${openai_key:-}" ] && export OPENAI_API_KEY="$openai_key"
-  if [ -n "${litellm_url:-}" ]; then
-    export OPENAI_BASE_URL="$litellm_url"
-    export OPENAI_API_KEY="${litellm_key:-${OPENAI_API_KEY:-}}"
-  fi
-fi
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-  echo "No OPENAI_API_KEY (set it in deploy/.env). Starting Pi anyway — set a --provider/--api-key yourself." >&2
-fi
-
-# -a trusts project-local resources (.pi/skills + .pi/extensions). The caller's
-# trailing --model wins, allowing the governed router to select the alias.
-exec pi -a --provider openai --model "${GOPILOT_MODEL:-gpt-4o-mini}" "$@"
+# -a trusts project-local resources (.pi/skills + .pi/extensions); -p is headless.
+exec pi -a -p --model "$MODEL" "$PROMPT"
