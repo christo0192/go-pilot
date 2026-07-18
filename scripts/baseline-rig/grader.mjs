@@ -315,7 +315,7 @@ export function parseJudgeScores(text, dimensions) {
   let count = 0;
   for (const d of dims) {
     let v = Number(obj.scores[d]);
-    if (!Number.isFinite(v)) v = 1;
+    if (!Number.isFinite(v)) return { ok: false, scores: null, rationale: null, overall: 0, raw: text.slice(0, 400) };
     v = Math.min(10, Math.max(1, v));
     scores[d] = v;
     sum += v;

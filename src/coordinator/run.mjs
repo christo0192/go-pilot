@@ -16,10 +16,12 @@ import { validateRecord, computeRun, recordRun } from "../metrics/metrics.mjs";
 import { resolveContract, modeGovernance } from "../runtime/contracts.mjs";
 import { retrieveContext } from "../context/retrieve.mjs";
 import { createJournal } from "../reliability/journal.mjs";
-import { createCircuitBreaker, withRetry } from "../reliability/retry.mjs";
+import { createCircuitBreaker, withRetry, isTransientError } from "../reliability/retry.mjs";
 import { createEventLog } from "../observability/events.mjs";
 import { discoverInstructions } from "../instructions/rules.mjs";
 import { captureWorkspace, workspaceDelta } from "../runtime/workspace.mjs";
+import { validateJson, validateCitations } from "../validation/validate.mjs";
+import { buildEvidencePack } from "../context/evidence.mjs";
 
 // Process-global by design: a circuit breaker must persist across runs to trip.
 // The registry is injectable (opts.breakers) so tests get isolation instead of
@@ -37,12 +39,35 @@ function resultText(result) {
   return JSON.stringify(result ?? "");
 }
 
-function defaultChecks(names) {
+function defaultChecks(names, task, evidenceIds = []) {
   return names.map((name) => {
     if (name === "non-empty") return { name, run: (result) => resultText(result).trim().length > 0 };
     if (name === "no-placeholders") return noPlaceholders();
+    if (name === "structured-output") return {
+      name,
+      run: (result) => {
+        if (!task.schema && task.outputFormat !== "json") return true;
+        return validateJson(resultText(result), { schema: task.schema }).ok;
+      },
+    };
+    if (name === "citations") return { name, run: (result) => validateCitations(resultText(result), { evidenceIds, minCitations: 1 }).ok };
     throw new Error(`unknown required validation check "${name}"`);
   });
+}
+
+function mergeUsage(a = {}, b = {}) {
+  const at = a.tokens || {};
+  const bt = b.tokens || {};
+  const keys = ["input", "output", "reasoning", "cached", "cacheRead", "cacheWrite", "total"];
+  const tokens = Object.fromEntries(keys.map((key) => [key, (Number(at[key]) || 0) + (Number(bt[key]) || 0)]));
+  return {
+    ...b,
+    tokens,
+    costUsd: (Number(a.costUsd) || 0) + (Number(b.costUsd) || 0),
+    latencyMs: (Number(a.latencyMs) || 0) + (Number(b.latencyMs) || 0),
+    toolCalls: (Number(a.toolCalls) || 0) + (Number(b.toolCalls) || 0),
+    attempts: [...(a.attempts || [a]).filter((x) => Object.keys(x).length), ...(b.attempts || [b]).filter((x) => Object.keys(x).length)],
+  };
 }
 
 function normalizeUsage(usage = {}) {
@@ -109,6 +134,8 @@ export async function runTask(task = {}, opts = {}) {
   if (!decision?.plane || !decision?.model) throw new Error("routing did not resolve plane and model");
   const resolved = resolveModel(decision.model, { registryPath: opts.registryPath });
   if (resolved.plane !== decision.plane) throw new Error(`resolved model plane mismatch for ${decision.model}`);
+  const resolvedFallback = decision.fallback ? resolveModel(decision.fallback.model, { registryPath: opts.registryPath }) : null;
+  if (resolvedFallback && resolvedFallback.plane !== decision.fallback.plane) throw new Error(`resolved fallback plane mismatch for ${decision.fallback.model}`);
   const tools = piToolArgs(category, { profiles: toolProfiles });
   const discoveredRules = opts.rules === false ? { text: "", files: [], tokens: 0 } :
     discoverInstructions(opts.cwd || process.cwd(), { root: opts.rulesRoot || opts.cwd || process.cwd() });
@@ -121,7 +148,16 @@ export async function runTask(task = {}, opts = {}) {
       maxFiles: contract.maxRetrievalFiles,
       maxTokens: contract.maxRetrievalTokens,
     }));
-  const context = [memoryContext.text, retrieval.text, typeof task.context === "string" ? task.context : ""].filter(Boolean).join("\n\n");
+  let evidenceIds = [];
+  let governedTaskContext = typeof task.context === "string" ? task.context : "";
+  if (category === "doc-qa" && governedTaskContext) {
+    const evidence = buildEvidencePack(governedTaskContext, task.prompt || "", {
+      maxChars: Math.min(12000, contract.maxRetrievalTokens * 4),
+    });
+    evidenceIds = evidence.ids;
+    governedTaskContext = evidence.block;
+  }
+  const context = [memoryContext.text, retrieval.text, governedTaskContext].filter(Boolean).join("\n\n");
   const promptBase = buildPrompt({
     policy: withYagni(""),
     rules: typeof opts.rules === "string" ? opts.rules : discoveredRules.text,
@@ -144,11 +180,22 @@ export async function runTask(task = {}, opts = {}) {
   }
   if (prompt.tokens > inputBudget) throw new Error(`composed prompt exceeds input budget (${prompt.tokens} > ${inputBudget})`);
   const boundary = { ...contextBoundary, promptTokens: prompt.tokens, inputBudget };
-  const safePrompt = prompt.text;
+  let safePrompt = prompt.text;
+  if (category === "extract" && (task.schema || task.outputFormat === "json")) {
+    const schemaInstruction = task.schema
+      ? `\n\nReturn ONLY JSON matching this schema exactly:\n${JSON.stringify(task.schema)}`
+      : "\n\nReturn ONLY valid JSON. Do not wrap it in prose.";
+    safePrompt += schemaInstruction;
+  }
+  if (category === "doc-qa") {
+    safePrompt += "\n\nCite supporting evidence with the exact [chunk-id] markers supplied in the context. Do not cite identifiers that are not present.";
+  }
 
   const plan = {
     runId, profile, category: category ?? null, plane: decision.plane, model: decision.model,
-    provider: resolved.provider, version: resolved.version, tools, execution,
+    provider: resolved.provider, version: resolved.version,
+    fallback: decision.fallback ? { ...decision.fallback, provider: resolvedFallback.provider, version: resolvedFallback.version } : null,
+    tools, execution,
     requestedMode, signedOff, downgraded, contextTier: boundary.tier, contract,
     retrieval: { files: retrieval.files?.map((f) => f.file) || [], tokens: retrieval.tokens || 0 },
     cache: prompt.cache, needsJudgment,
@@ -164,6 +211,9 @@ export async function runTask(task = {}, opts = {}) {
     plan, dispatched: false, validated: true, promoted: false, verdict: "ok", metrics: null,
     failures: [], result: retrieval, boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),
   };
+  if (category === "doc-qa" && evidenceIds.length === 0) {
+    throw new Error("doc-qa requires task.context so answers can be validated against evidence citations");
+  }
   if (typeof opts.dispatch !== "function") throw new Error("runTask: opts.dispatch is required for a live run");
 
   // Cost-opt-in modes (candidate-race) run multiple parallel panes and multiply
@@ -196,17 +246,19 @@ export async function runTask(task = {}, opts = {}) {
     if (inflight.length) events.emit({ runId, kind: "run.reconcile", inflight });
   }
   const breakerRegistry = opts.breakers || globalBreakers;
-  const breaker = opts.breaker || breakerFor(breakerRegistry, `${decision.plane}/${decision.model}`, opts.breakerOptions);
+  const breaker = opts.breaker || breakerFor(breakerRegistry, `${decision.plane}/${resolved.version}`, opts.breakerOptions);
   const started = Date.now();
-  const checks = [...defaultChecks(contract.requiredChecks), ...(Array.isArray(task.checks) ? task.checks : [])];
+  const checks = [...defaultChecks(contract.requiredChecks, task, evidenceIds), ...(Array.isArray(task.checks) ? task.checks : [])];
   const executeAttempt = (key, attemptPrompt, role) => journal.dispatchOnce(key, () => breaker.run(() => withRetry(
     () => opts.dispatch({
-      runId, plane: decision.plane, model: decision.model, tools, prompt: attemptPrompt,
+      runId, plane: decision.plane, model: decision.plane === "workhorse" ? resolved.version : decision.model,
+      modelAlias: decision.model, provider: resolved.provider, tools, prompt: attemptPrompt,
       category, mode: execution, role, contract, cwd: opts.cwd,
     }),
-    { retries: contract.maxRetries, signal: opts.signal, shouldRetry: opts.shouldRetry || (() => true) },
+    { retries: contract.maxRetries, signal: opts.signal, shouldRetry: opts.shouldRetry || isTransientError },
   )));
   let dispatched;
+  let primaryError = null;
   let parallelCostUsd = null; // total observed cost across parallel panes, if any
   try {
     if (execution === "plan-only") {
@@ -242,9 +294,41 @@ export async function runTask(task = {}, opts = {}) {
     }
   } catch (error) {
     events.emit({ runId, kind: "dispatch.failed", ok: false, error: error.message, latencyMs: Date.now() - started, model: decision.model, provider: resolved.provider });
-    throw error;
+    if (!decision.fallback || !resolvedFallback) throw error;
+    primaryError = error;
+    dispatched = { result: { text: "" }, usage: {} };
   }
-  const { result, usage = {} } = dispatched || {};
+  let { result, usage = {} } = dispatched || {};
+  let selectedUsage = usage;
+  let gate = mustPass(result, checks);
+  let fallbackUsed = false;
+  let fallbackAttempted = false;
+  if (!gate.passed && decision.fallback && resolvedFallback) {
+    fallbackAttempted = true;
+    const fallbackBreaker = breakerFor(breakerRegistry, `${decision.fallback.plane}/${resolvedFallback.version}`, opts.breakerOptions);
+    const failures = primaryError
+      ? `dispatch error: ${primaryError.message}`
+      : gate.failures.map((f) => f.name || String(f)).join(", ");
+    const fallbackPrompt = `${safePrompt}\n\nThe primary candidate failed: ${failures}. Produce a corrected complete answer.`;
+    const fallback = await journal.dispatchOnce(`${runId}:fallback:0`, () => fallbackBreaker.run(() => withRetry(
+      () => opts.dispatch({
+        runId, plane: decision.fallback.plane,
+        model: decision.fallback.plane === "workhorse" ? resolvedFallback.version : decision.fallback.model,
+        modelAlias: decision.fallback.model, provider: resolvedFallback.provider, tools, prompt: fallbackPrompt,
+        category, mode: execution, role: "validation-fallback", contract, cwd: opts.cwd,
+      }),
+      { retries: contract.maxRetries, signal: opts.signal, shouldRetry: opts.shouldRetry || isTransientError },
+    )));
+    const fallbackGate = mustPass(fallback.result, checks);
+    usage = mergeUsage(usage, fallback.usage || {});
+    events.emit({ runId, kind: "dispatch.fallback", ok: fallbackGate.passed, fromModel: decision.model, model: decision.fallback.model });
+    if (fallbackGate.passed) {
+      result = fallback.result;
+      gate = fallbackGate;
+      selectedUsage = fallback.usage || {};
+      fallbackUsed = true;
+    }
+  }
   // Optional per-run cost budget (enforced when cost data is present — real
   // providers report costUsd). For parallel modes this is the summed pane cost.
   const observedCostUsd = parallelCostUsd != null ? parallelCostUsd : (Number.isFinite(usage.costUsd) ? usage.costUsd : 0);
@@ -257,19 +341,25 @@ export async function runTask(task = {}, opts = {}) {
   // When a contract requires a usage report (real providers do), a missing
   // output-token count is a fail-closed refusal — otherwise the output budget is
   // silently unenforced. Synthetic-usage callers leave requireUsageReport unset.
-  if (contract.requireUsageReport && !Number.isFinite(usage.tokens?.output)) {
+  if (contract.requireUsageReport && !Number.isFinite(selectedUsage.tokens?.output)) {
     throw new Error("dispatcher did not report output tokens; cannot enforce output budget (fail-closed)");
   }
-  const outputTokens = Number.isFinite(usage.tokens?.output) ? usage.tokens.output : null;
+  const outputTokens = Number.isFinite(selectedUsage.tokens?.output) ? selectedUsage.tokens.output : null;
   if (outputTokens != null && outputTokens > contract.maxOutputTokens) {
     throw new Error(`dispatcher exceeded output token budget (${outputTokens} > ${contract.maxOutputTokens})`);
   }
   if (Number.isFinite(usage.toolCalls) && usage.toolCalls > contract.maxToolCalls) {
     throw new Error(`dispatcher exceeded tool-call budget (${usage.toolCalls} > ${contract.maxToolCalls})`);
   }
-  events.emit({ runId, kind: "dispatch.completed", ok: true, latencyMs: Date.now() - started, model: decision.model, provider: resolved.provider, tokens: normalizeUsage(usage).detail?.total || 0, costUsd: usage.costUsd || 0, retries: usage.retries?.count || 0 });
+  const effectiveModel = fallbackUsed ? decision.fallback.model : decision.model;
+  const effectiveProvider = fallbackUsed ? resolvedFallback.provider : resolved.provider;
+  events.emit({
+    runId, kind: "dispatch.completed", ok: true, latencyMs: Date.now() - started,
+    model: effectiveModel, provider: effectiveProvider, primaryModel: decision.model,
+    fallbackAttempted, tokens: normalizeUsage(usage).detail?.total || 0,
+    costUsd: usage.costUsd || 0, retries: usage.retries?.count || 0,
+  });
 
-  const gate = mustPass(result, checks);
   let promoted = false;
   if (gate.passed && opts.adapter) {
     const memory = task.memory || { text: resultText(result), kind: task.kind, tags: task.tags };
@@ -283,9 +373,9 @@ export async function runTask(task = {}, opts = {}) {
       opts.logPath ? recordRun(record, { logPath: opts.logPath }) : computeRun(record);
   }
   const verdict = gate.passed ? "ok" : "failed";
-  events.emit({ runId, kind: "run.completed", ok: gate.passed, profile, category, model: decision.model, provider: resolved.provider, mode: execution });
+  events.emit({ runId, kind: "run.completed", ok: gate.passed, profile, category, model: effectiveModel, provider: effectiveProvider, mode: execution, fallbackUsed });
   return {
     plan, dispatched: true, validated: gate.passed, promoted, verdict, metrics, failures: gate.failures,
-    result, usage, workspace, boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),
+    result, usage, fallbackUsed, fallbackAttempted, workspace, boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),
   };
 }

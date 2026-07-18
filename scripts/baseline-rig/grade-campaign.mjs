@@ -35,7 +35,10 @@ function readLedger(path) {
 
 function completedKeys(path) {
   const done = new Set();
-  for (const r of readLedger(path)) if (r.key) done.add(r.key);
+  for (const r of readLedger(path)) {
+    const retryable = (r.failures || []).some((f) => ["grade-error", "budget-skip-judge"].includes(f));
+    if (r.key && Number.isFinite(r.finalScore) && !retryable) done.add(r.key);
+  }
   return done;
 }
 
@@ -118,9 +121,9 @@ async function main() {
         rec.coScore = res.coScore;        // diagnostic (null when co-judge off)
         rec.deterministic = false;
         rec.judges = {
-          opus: { overall: res.judges.opus.overall, scores: res.judges.opus.scores, ok: res.judges.opus.ok },
+          opus: { overall: res.judges.opus.overall, scores: res.judges.opus.scores, ok: res.judges.opus.ok, usage: res.judges.opus.usage },
           deepseek: res.judges.deepseek
-            ? { overall: res.judges.deepseek.overall, scores: res.judges.deepseek.scores, ok: res.judges.deepseek.ok }
+            ? { overall: res.judges.deepseek.overall, scores: res.judges.deepseek.scores, ok: res.judges.deepseek.ok, usage: res.judges.deepseek.usage }
             : null,
         };
         rec.perDimensionDelta = res.perDimensionDelta;
@@ -147,17 +150,27 @@ async function main() {
 
   // Adjudication queue (Codex §10): rubric runs where the judges disagreed by
   // ≥2 on any dimension get queued for manual review.
-  const adjudication = readLedger(gradedPath).filter((g) => g.flaggedDisagreement).map((g) => ({
+  const latest = new Map(readLedger(gradedPath).filter((g) => g.key).map((g) => [g.key, g]));
+  const finalGrades = [...latest.values()];
+  const adjudication = finalGrades.filter((g) => g.flaggedDisagreement).map((g) => ({
     key: g.key, fixtureId: g.fixtureId, arm: g.arm, opus: g.judges?.opus?.overall, deepseek: g.judges?.deepseek?.overall, maxDelta: g.maxDelta,
   }));
   writeFileSync(join(OUT_DIR, "adjudication-queue.json"), JSON.stringify(adjudication, null, 2));
 
+  const allJudgeTokens = finalGrades.reduce((sum, g) => {
+    sum.opus += g.judges?.opus?.usage?.tokens?.total || 0;
+    sum.deepseek += g.judges?.deepseek?.usage?.tokens?.total || 0;
+    return sum;
+  }, { opus: 0, deepseek: 0 });
+  const allDeltas = finalGrades.map((g) => g.maxDelta).filter(Number.isFinite);
   const summary = {
     gradedThisPass: graded, totalGraded: completedKeys(gradedPath).size,
+    gradeErrors: finalGrades.filter((g) => (g.failures || []).includes("grade-error")).length,
     coJudge,
-    rubricDisagreements: disagreements, meanMaxDelta: deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : null,
+    rubricDisagreements: finalGrades.filter((g) => g.flaggedDisagreement).length,
+    meanMaxDelta: allDeltas.length ? allDeltas.reduce((a, b) => a + b, 0) / allDeltas.length : null,
     adjudicationQueue: adjudication.length,
-    judgeTokens, judgeDeepseekEstUsd: judgeDeepseekEst, generatedAt: new Date().toISOString(),
+    judgeTokens: allJudgeTokens, judgeDeepseekEstUsd: judgeDeepseekEst, generatedAt: new Date().toISOString(),
   };
   writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
   console.error(`\nGrading complete: ${graded} runs. Disagreements: ${disagreements}. Judge tokens opus=${judgeTokens.opus} deepseek=${judgeTokens.deepseek}. -> ${summaryPath}`);

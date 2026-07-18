@@ -184,6 +184,20 @@ export function validateConfig(opts = {}) {
           `${cAt}: plane mismatch — router says "${rule.plane}", registry pins "${rule.model}" to "${entry.plane}"`,
         );
       }
+      if (rule.fallback != null) {
+        const fallback = rule.fallback;
+        const fAt = `${cAt} fallback`;
+        if (!fallback || typeof fallback !== "object" || !PLANES.has(fallback.plane) || typeof fallback.model !== "string") {
+          errors.push(`${fAt}: needs a valid plane+model`);
+        } else {
+          const fallbackEntry = Object.prototype.hasOwnProperty.call(registry.models, fallback.model)
+            ? registry.models[fallback.model]
+            : undefined;
+          if (!fallbackEntry) errors.push(`${fAt}: routes to unknown model "${fallback.model}"`);
+          else if (fallbackEntry.active !== true) errors.push(`${fAt}: routes to INACTIVE model "${fallback.model}"`);
+          else if (fallbackEntry.plane !== fallback.plane) errors.push(`${fAt}: plane mismatch for "${fallback.model}"`);
+        }
+      }
     }
   }
 

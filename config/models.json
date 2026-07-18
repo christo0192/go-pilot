@@ -64,7 +64,7 @@
       "plane": "workhorse",
       "capabilities": { "tools": true, "jsonSchema": true, "contextWindow": 200000, "streaming": true },
       "active": true,
-      "_note": "Kimi K2.5 via Ikey. Accepts temperature 0 (no coercion needed, unlike K3). Reasoning always on. Rate calibrated separately in calibration.json. Requires the sk-6WzeJk... key (old key had no K2.5 access)."
+      "_note": "Kimi K2.5 via Ikey. Accepts temperature 0 (no coercion needed, unlike K3). Reasoning always on. Rate calibrated separately in calibration.json."
     },
     "deepseek-ikey": {
       "provider": "ikey-gateway",

@@ -45,6 +45,15 @@ export function computeBackoff(attempt, opts = {}) {
 // Real sleep — the only place a timer is created. Injectable so tests never wait.
 const realSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export function isTransientError(err) {
+  const status = Number(err?.status ?? err?.statusCode);
+  if (status === 408 || status === 409 || status === 425 || status === 429 || status >= 500) return true;
+  const code = String(err?.code ?? "").toUpperCase();
+  if (["ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"].includes(code)) return true;
+  const message = String(err?.message ?? err ?? "");
+  return /timeout|timed out|temporar|transient|rate.?limit|connection reset|network|socket hang up|fetch failed|\b5\d\d\b/i.test(message);
+}
+
 // Normalize whatever an AbortSignal carries into a throwable Error. Prefer the
 // signal's own `reason` when it is already an Error (that is what the caller
 // asked us to reject with); otherwise synthesize a named AbortError.

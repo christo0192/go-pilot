@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch Pi's agentic loop on the Ikey test gateway models — the exact workhorses
-# the S11 live benchmark used:  test/kimi-k2.6  and  test/deepseek-v4-pro.
+# used by the live benchmarks: Kimi K2.5/K2.6 and DeepSeek V4 Pro.
 #
 # Pi reaches them via the custom provider "ikey" registered in
 # ~/.pi/agent/models.json (reference: deploy/pi-models.ikey.json). That provider
@@ -9,7 +9,7 @@
 # from deploy/.env at runtime — no hardcoded secret.
 #
 # Usage:
-#   ./scripts/pi-ikey.sh                                       # Kimi K2.6 (default)
+#   ./scripts/pi-ikey.sh                                       # Kimi K2.5 (production default)
 #   GOPILOT_MODEL=ikey/test/deepseek-v4-pro ./scripts/pi-ikey.sh   # DeepSeek V4 Pro
 #   ./scripts/pi-ikey.sh "your first task"                     # extra args pass to pi
 set -euo pipefail
@@ -35,7 +35,7 @@ elif ! grep -q '"ikey"' "$PICFG"; then
   echo "NOTE: $PICFG exists without an \"ikey\" provider — merge deploy/pi-models.ikey.json into it." >&2
 fi
 
-MODEL="${GOPILOT_MODEL:-ikey/test/kimi-k2.6}"
+MODEL="${GOPILOT_MODEL:-ikey/test/kimi-k2.5}"
 echo "Pi → Ikey gateway · model: $MODEL" >&2
 
 # -a trusts project-local .pi/ resources. provider/id selects the gateway model.

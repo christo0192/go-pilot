@@ -5,7 +5,7 @@
 # buffer. Writes "<outfile>.done" as the completion signal.
 #
 # Args: <model-alias> <taskfile> <outfile> [workdir]
-#   model-alias: deepseek | kimi | <provider/id>
+#   model-alias: deepseek | kimi | kimi25 | kimi26 | <provider/id>
 #   workdir: where the agent runs (the CALLER's project, so repo-edit subtasks
 #            touch the right repo). Defaults to the Go-pilot repo.
 set -uo pipefail
@@ -14,7 +14,8 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 MODEL_ALIAS="${1:?model}"; TASKFILE="${2:?taskfile}"; OUTFILE="${3:?outfile}"; WORKDIR="${4:-}"
 case "$MODEL_ALIAS" in
   deepseek) MODEL="ikey/test/deepseek-v4-pro" ;;
-  kimi)     MODEL="ikey/test/kimi-k2.6" ;;
+  kimi|kimi25) MODEL="ikey/test/kimi-k2.5" ;;
+  kimi26)   MODEL="ikey/test/kimi-k2.6" ;;
   *)        MODEL="$MODEL_ALIAS" ;;   # allow a full provider/id
 esac
 

@@ -100,8 +100,13 @@ function buildRepairPrompt(basePrompt, errors) {
  * sequence to appear.
  */
 function isSupported(value, chunkText, fieldSchema) {
-  const type = fieldSchema?.type;
-  if (type === "number" || type === "integer") return chunkText.includes(String(value));
+  if (value === null || value === undefined) return true;
+  if (Array.isArray(value)) return value.every((item) => isSupported(item, chunkText, fieldSchema?.items));
+  if (typeof value === "object") {
+    return Object.entries(value).every(([key, item]) => isSupported(item, chunkText, fieldSchema?.properties?.[key]));
+  }
+  if (typeof value === "boolean") return chunkText.toLowerCase().includes(String(value));
+  if (typeof value === "number") return chunkText.replace(/,/g, "").includes(String(value));
   return chunkText.toLowerCase().includes(String(value).toLowerCase());
 }
 
@@ -164,15 +169,7 @@ export async function extractRecord({ sourceText, schema, dispatch, maxRepairs =
         ? value._evidence
         : {};
 
-    // Fields the model correctly left null shouldn't fail the schema's type
-    // check — relax those to an open schema before validating shape/type.
-    const patchedSchema = {
-      ...schema,
-      properties: Object.fromEntries(
-        fieldNames.map((f) => [f, candidateRecord[f] === null ? {} : schema.properties[f]]),
-      ),
-    };
-    const schemaRes = validateSchema(candidateRecord, patchedSchema);
+    const schemaRes = validateSchema(candidateRecord, schema);
     if (!schemaRes.ok) {
       if (attempt < maxRepairs) {
         prompt = buildRepairPrompt(basePrompt, schemaRes.errors);
@@ -209,6 +206,7 @@ export async function extractRecord({ sourceText, schema, dispatch, maxRepairs =
   const verifiedCount = nonNullCount - hallucinatedFields.length;
   const evidenceSupport = nonNullCount === 0 ? 1 : verifiedCount / nonNullCount;
 
-  const report = { schemaValid, repairs, missingFields, hallucinatedFields, evidenceSupport, dispatchCalls };
-  return { ok: schemaValid && hallucinatedFields.length === 0, record, report };
+  const missingRequired = (schema.required ?? []).filter((f) => record[f] === null || record[f] === undefined);
+  const report = { schemaValid, repairs, missingFields, missingRequired, hallucinatedFields, evidenceSupport, dispatchCalls };
+  return { ok: schemaValid && missingRequired.length === 0 && hallucinatedFields.length === 0, record, report };
 }

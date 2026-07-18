@@ -2,21 +2,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { classifyRisk } from "./risk.mjs";
 
-test("deterministic tasks route to deepseek", () => {
+test("deterministic tasks infer their governed production category", () => {
   for (const t of [
     "Implement merge_intervals in Python and add unit tests",
     "calculate the compound interest over 5 years",
-    "extract all invoice fields to JSON",
   ]) {
     const r = classifyRisk(t);
     assert.equal(r.route, "deepseek", t);
     assert.equal(r.risk, "deterministic", t);
   }
+  const extraction = classifyRisk("extract all invoice fields to JSON");
+  assert.equal(extraction.route, "kimi25");
+  assert.equal(extraction.category, "extract");
 });
 
-test("creative routes to kimi", () => {
+test("creative routes to the production draft workhorse", () => {
   const r = classifyRisk("write a catchy slogan for the launch");
-  assert.equal(r.route, "kimi");
+  assert.equal(r.route, "deepseek");
+  assert.equal(r.category, "draft");
   assert.equal(r.risk, "creative");
 });
 
@@ -30,7 +33,8 @@ test("long pasted context dominates non-deterministic tasks", () => {
   const long = "summarize the key points of this transcript\n" + "x".repeat(13_000);
   const r = classifyRisk(long);
   assert.equal(r.risk, "long-context");
-  assert.equal(r.route, "kimi");
+  assert.equal(r.route, "kimi25");
+  assert.equal(r.category, "doc-qa");
 });
 
 test("long context does NOT override plainly deterministic work", () => {

@@ -43,3 +43,22 @@ test("dispatcher rejects an unsafe model alias (no flag injection via a '-'-pref
     /unsafe model alias/,
   );
 });
+
+test("workhorse dispatcher sends the pinned provider model and recovers exact Pi usage", async () => {
+  const calls = [];
+  const runner = async (command, args) => {
+    calls.push({ command, args });
+    if (command === process.execPath) {
+      return { stdout: JSON.stringify({ in: 10, out: 5, reasoning: 2, cacheRead: 3, total: 15 }), startedAt: 2, latencyMs: 1 };
+    }
+    return { stdout: "answer", startedAt: 1, latencyMs: 20 };
+  };
+  const dispatch = createProcessDispatcher({ root: process.cwd(), runner, piScript: "fake-pi" });
+  const out = await dispatch({ plane: "workhorse", model: "test/kimi-k2.5", modelAlias: "kimi-k2.5-ikey", prompt: "task" });
+  assert.deepEqual(calls[0].args.slice(0, 2), ["--model", "test/kimi-k2.5"]);
+  assert.equal(out.result.text, "answer");
+  assert.equal(out.usage.tokens.total, 15);
+  assert.equal(out.usage.tokens.reasoning, 2);
+  assert.ok(out.usage.costUsd > 0, "calibrated workhorse cost is reported");
+  assert.equal(out.usage.costEstimated, true);
+});

@@ -24,6 +24,13 @@ test("validateSchema: type/required/enum/items/bounds", () => {
   assert.equal(validateSchema({ name: "x", score: 1, kind: "c" }, schema).ok, false);
   assert.equal(validateSchema(5, { type: "integer" }).ok, true);
   assert.equal(validateSchema(5.5, { type: "integer" }).ok, false);
+  assert.equal(validateSchema(null, { type: ["string", "null"] }).ok, true);
+  assert.equal(validateSchema({ name: null, score: 1 }, schema).ok, false, "required null fails closed");
+  assert.equal(validateSchema({ value: "x", extra: true }, {
+    type: "object", properties: { value: { type: "string", pattern: "^[a-z]+$" } }, additionalProperties: false,
+  }).ok, false);
+  assert.equal(validateSchema(["one"], { type: "array", minItems: 2, items: { type: "string" } }).ok, false);
+  assert.equal(validateSchema("2026/07/18", { type: "string", format: "date" }).ok, false);
 });
 
 test("validateJson: plain, fenced, invalid, with schema", () => {

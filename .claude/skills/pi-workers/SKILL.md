@@ -9,8 +9,9 @@ description: How the Kimi/DeepSeek workhorse workers actually run — Pi agentic
 
 | Alias | Gateway ID | Pi ID | Use for | Default timeout |
 |---|---|---|---|---|
-| `deepseek` | `test/deepseek-v4-pro` | `ikey/test/deepseek-v4-pro` | code, math, reasoning, repo edits, extraction, summaries — DEFAULT | 240s |
-| `kimi` | `test/kimi-k2.6` | `ikey/test/kimi-k2.6` | creative, lateral, long-doc synthesis ONLY | 360s |
+| `deepseek` | `test/deepseek-v4-pro` | `ikey/test/deepseek-v4-pro` | code, math, analysis, repo edits, summaries, drafts — DEFAULT | 240s |
+| `kimi` / `kimi25` | `test/kimi-k2.5` | `ikey/test/kimi-k2.5` | validated extraction and evidence-grounded doc-QA | 240s |
+| `kimi26` | `test/kimi-k2.6` | `ikey/test/kimi-k2.6` | historical benchmark reproduction only | 360s |
 
 Key: `WORKHORSE_GATEWAY_KEY` in gitignored `deploy/.env` (scripts load it themselves — never print it).
 
@@ -30,7 +31,7 @@ Key: `WORKHORSE_GATEWAY_KEY` in gitignored `deploy/.env` (scripts load it themse
 ## Reliability facts (verified — don't re-test)
 
 - **Both are reasoning models**; reasoning tokens are billed. Never set small `max_tokens` (Kimi returned EMPTY at 20) — keep ≥ a few thousand.
-- **Kimi k2.6 reasoning cannot be disabled** — 7 API params probed, gateway drops them all. Latency varies 3–140s. Mitigate: prefer deepseek; cap output; `--repair` handles empties.
+- **Kimi reasoning cannot be disabled** — reasoning tokens are counted. K2.5 is the production Kimi; cap output and keep validation/fallback enabled.
 - **DeepSeek self-IDs as "Claude 3.5 Sonnet"** — ignore self-ID, label by dispatched model.
 - **Gateway spend settles ASYNC** — immediate before/after spend reads show no delta; read settled cumulative `/key/info` spend at checkpoints only.
 - Empty / timeout / truncated outputs are FAILURES; `--repair` retries strict then swaps sibling; exit codes: 0 ok, 2 empty, 3 timeout, 4 error, 5 truncated.

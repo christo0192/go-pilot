@@ -56,7 +56,7 @@ test("--repair on dead gateway runs full ladder (strict retry then sibling), all
   const lines = readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.equal(lines.length, 3, "attempt 1 + strict retry + sibling");
   assert.deepEqual(lines.map((l) => l.attempt), [1, 2, 3]);
-  assert.equal(lines[2].model, "kimi", "third attempt reassigns to sibling");
+  assert.equal(lines[2].model, "kimi25", "third attempt reassigns to the K2.5 sibling");
 });
 
 test("--journal records the failed subtask outcome", () => {
@@ -111,7 +111,7 @@ test("delegate refuses when breaker open on model AND sibling (exit 6)", () => {
   writeFileSync(
     log,
     [entry(90_000, "deepseek"), entry(80_000, "deepseek"), entry(70_000, "deepseek"),
-     entry(60_000, "kimi"), entry(50_000, "kimi"), entry(40_000, "kimi")].join("\n") + "\n",
+     entry(60_000, "kimi25"), entry(50_000, "kimi25"), entry(40_000, "kimi25")].join("\n") + "\n",
   );
   const res = runDelegate(["--raw", "deepseek", "task"], { log });
   assert.equal(res.status, 6);

@@ -4,39 +4,52 @@
 import { spawnSync } from "node:child_process";
 
 /**
- * Minimal JSON-Schema-lite validator: type, properties, required, items, enum,
- * minLength, minimum/maximum. Deliberately small — our output contracts are flat.
+ * JSON-Schema-lite validator for governed output contracts.
  * @returns {{ ok: boolean, errors: string[] }}
  */
 export function validateSchema(value, schema, path = "$") {
   const errors = [];
   if (schema == null || typeof schema !== "object") return { ok: true, errors };
-  const t = schema.type;
+  const declared = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
   const actual = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
-  if (t && t !== actual && !(t === "integer" && actual === "number" && Number.isInteger(value))) {
-    return { ok: false, errors: [`${path}: expected ${t}, got ${actual}`] };
+  const typeMatches = declared.length === 0 || declared.includes(actual) || (declared.includes("integer") && actual === "number" && Number.isInteger(value));
+  if (!typeMatches) {
+    return { ok: false, errors: [`${path}: expected ${declared.join("|")}, got ${actual}`] };
   }
   if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
     errors.push(`${path}: value not in enum [${schema.enum.join(", ")}]`);
   }
-  if (t === "object") {
+  if (actual === "object") {
     for (const key of schema.required ?? []) {
-      if (!(key in value)) errors.push(`${path}.${key}: required property missing`);
+      if (!(key in value) || value[key] === null) errors.push(`${path}.${key}: required property missing or null`);
     }
     for (const [key, sub] of Object.entries(schema.properties ?? {})) {
       if (key in value) errors.push(...validateSchema(value[key], sub, `${path}.${key}`).errors);
     }
+    if (schema.additionalProperties === false) {
+      const known = new Set(Object.keys(schema.properties ?? {}));
+      for (const key of Object.keys(value)) if (!known.has(key)) errors.push(`${path}.${key}: additional property not allowed`);
+    }
   }
-  if (t === "array" && schema.items) {
+  if (actual === "array" && schema.items) {
     value.forEach((item, i) => errors.push(...validateSchema(item, schema.items, `${path}[${i}]`).errors));
   }
-  if (t === "string" && schema.minLength != null && value.length < schema.minLength) {
+  if (actual === "string" && schema.minLength != null && value.length < schema.minLength) {
     errors.push(`${path}: shorter than minLength ${schema.minLength}`);
   }
-  if ((t === "number" || t === "integer") && schema.minimum != null && value < schema.minimum) {
+  if (actual === "string" && schema.pattern && !(new RegExp(schema.pattern).test(value))) {
+    errors.push(`${path}: does not match pattern ${schema.pattern}`);
+  }
+  if (actual === "string" && schema.format === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    errors.push(`${path}: expected ISO date YYYY-MM-DD`);
+  }
+  if (actual === "array" && schema.minItems != null && value.length < schema.minItems) {
+    errors.push(`${path}: fewer than minItems ${schema.minItems}`);
+  }
+  if ((actual === "number") && schema.minimum != null && value < schema.minimum) {
     errors.push(`${path}: below minimum ${schema.minimum}`);
   }
-  if ((t === "number" || t === "integer") && schema.maximum != null && value > schema.maximum) {
+  if ((actual === "number") && schema.maximum != null && value > schema.maximum) {
     errors.push(`${path}: above maximum ${schema.maximum}`);
   }
   return { ok: errors.length === 0, errors };

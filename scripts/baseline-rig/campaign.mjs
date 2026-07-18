@@ -226,7 +226,11 @@ async function runArm(arm, fx, dispatch, opts = {}) {
   const profile = opts.profile || "ikey-hybrid";
   const cModel = opts.cModel || fx.armAModel;
   if (arm === "A") {
-    const task = { id: runKey(fx.id, 0, "A"), category: fx.category, prompt: fx.prompt, context: inputsText(fx) };
+    const task = {
+      id: runKey(fx.id, 0, "A"), category: fx.category, prompt: fx.prompt,
+      context: inputsText(fx), schema: fx.schema,
+      outputFormat: fx.schema || /\bjson\b/i.test(fx.prompt) ? "json" : undefined,
+    };
     let res = null;
     let timedOut = false;
     try {
@@ -249,6 +253,7 @@ async function runArm(arm, fx, dispatch, opts = {}) {
     const gatewayModel = resolveModel(routedAlias).version;
     let repairUsed = false;
     const truncated = usage.finishReason === "length";
+    const originalFinishReason = usage.finishReason;
     let repairErrored = false;
     if (opts.repair && (timedOut || !output.trim() || truncated)) {
       // Framework-preserving repair: SAME workhorse model, stricter prompt, generous budget. No Opus.
@@ -270,6 +275,9 @@ async function runArm(arm, fx, dispatch, opts = {}) {
       if (rep?.result?.text?.trim()) {
         output = rep.result.text;
         repairUsed = true;
+      } else if (truncated) {
+        // A blank/errored repair cannot erase the original truncation marker.
+        usage.finishReason = originalFinishReason;
       }
     }
     return {
@@ -426,6 +434,10 @@ async function main() {
   const rates = CALIBRATION.rates;
   const ledger = createBudgetLedger({ rates, caps: { "test/kimi-k2.6": 5, "test/deepseek-v4-pro": 2 }, totalCap: 7 });
   const dispatch = createBenchmarkDispatcher({ key, rates });
+  // Each resumed invocation gets its own spend baseline. Comparing a current-pass
+  // ledger to the campaign's original baseline produced invalid reconciliation
+  // scales when a campaign was resumed days later.
+  const passBaselineSpend = await readGatewaySpend(key).catch(() => null);
 
   // Baseline cumulative spend recorded once (persisted for resume).
   let meta = existsSync(metaPath) ? JSON.parse(readFileSync(metaPath, "utf8")) : null;
@@ -546,18 +558,18 @@ async function main() {
 
   // Reconcile workhorse spend against settled cumulative delta.
   let settled = null;
-  if (meta.baselineSpend != null) {
-    const r = await readSettledSpend(() => readGatewaySpend(key), { baseline: meta.baselineSpend, requireMove: false, maxMs: 30000, stableReads: 3 }).catch(() => null);
+  if (passBaselineSpend != null) {
+    const r = await readSettledSpend(() => readGatewaySpend(key), { baseline: passBaselineSpend, requireMove: false, maxMs: 30000, stableReads: 3 }).catch(() => null);
     settled = r?.settled ?? null;
   }
-  const settledDelta = settled != null && meta.baselineSpend != null ? settled - meta.baselineSpend : null;
+  const settledDelta = settled != null && passBaselineSpend != null ? settled - passBaselineSpend : null;
   const reconciliation = ledger.reconcile(settledDelta);
 
   const summary = {
     manifestHash: manifest.hash, seed: args.seed, trials: args.trials,
     plannedRuns: plan.length, completedThisPass: done, totalRecords: completedFromLedger(ledgerPath).size,
     failures: fails, hybridFallbacks: fallbacks,
-    baselineSpend: meta.baselineSpend, settledSpend: settled, workhorseSettledDelta: settledDelta,
+    accountingScope: "current-pass", baselineSpend: passBaselineSpend, settledSpend: settled, workhorseSettledDelta: settledDelta,
     workhorseEstimate: ledger.totalEstUsd(), workhorsePerModel: ledger.snapshot(), reconciliation,
     opusCostUsd, generatedAt: new Date().toISOString(),
   };

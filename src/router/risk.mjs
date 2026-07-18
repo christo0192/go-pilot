@@ -5,13 +5,13 @@
 
 const RULES = [
   // Highest-signal first. Each rule: risk class + suggested route + matcher.
-  { risk: "creative", route: "kimi", re: /\b(poem|haiku|story|fiction|slogan|tagline|brainstorm|creative|catchy|lyrics|joke|metaphor)\b/i },
-  { risk: "subjective", route: "frontier-final", re: /\b(executive|recommendation|strategy|should we|assessment|verdict|prioriti[sz]e|trade-?offs?|pros and cons|insight)\b/i },
-  { risk: "evidence-grounded", route: "kimi", re: /\b(according to (the )?doc|cite|citation|based on the (document|report|pdf|transcript)|quote|from the attached)\b/i },
-  { risk: "deterministic", route: "deepseek", re: /\b(implement|refactor|fix|bug|unit test|function|regex|sql|compile|patch|diff|repo|script|code|api endpoint)\b/i },
-  { risk: "deterministic", route: "deepseek", re: /\b(calculate|compute|solve|sum|average|median|percent|derivative|integral|probability|how many)\b/i },
-  { risk: "deterministic", route: "deepseek", re: /\b(extract|parse|json|csv|table|schema|fields?|structured|normali[sz]e|dedupe)\b/i },
-  { risk: "evidence-grounded", route: "deepseek", re: /\b(summari[sz]e|tl;?dr|key points|analy[sz]e (the|this) data|spreadsheet|metrics)\b/i },
+  { risk: "creative", route: "deepseek", category: "draft", re: /\b(poem|haiku|story|fiction|slogan|tagline|brainstorm|creative|catchy|lyrics|joke|metaphor)\b/i },
+  { risk: "subjective", route: "frontier-final", category: "orchestrate", re: /\b(executive|recommendation|strategy|should we|assessment|verdict|prioriti[sz]e|trade-?offs?|pros and cons|insight)\b/i },
+  { risk: "evidence-grounded", route: "kimi25", category: "doc-qa", re: /\b(according to|cite|citation|based on|attached (document|report|pdf|transcript)|quote|document qa|doc-?qa)\b/i },
+  { risk: "deterministic", route: "deepseek", category: "code", re: /\b(implement|refactor|fix|bug|unit test|function|regex|sql|compile|patch|diff|repo|script|code|api endpoint)\b/i },
+  { risk: "deterministic", route: "deepseek", category: "math", re: /\b(calculate|compute|solve|sum|average|median|percent|derivative|integral|probability|how many)\b/i },
+  { risk: "deterministic", route: "kimi25", category: "extract", re: /\b(extract|parse|json|csv|table|schema|fields?|structured|normali[sz]e|dedupe)\b/i },
+  { risk: "evidence-grounded", route: "deepseek", category: "summarize", re: /\b(summari[sz]e|tl;?dr|key points|analy[sz]e (the|this) data|spreadsheet|metrics)\b/i },
 ];
 
 const LONG_CONTEXT_CHARS = 12_000; // ≳3k tokens of pasted material ⇒ the input is the challenge
@@ -37,12 +37,12 @@ export function classifyRisk(taskText) {
     signals.push(`long-context:${text.length}chars`);
     // Long input dominates unless the task is plainly deterministic (code/math on a big paste).
     if (!hit || hit.risk !== "deterministic") {
-      return { risk: "long-context", route: "kimi", signals, confidence: "high" };
+      return { risk: "long-context", route: "kimi25", category: "doc-qa", signals, confidence: "high" };
     }
   }
   if (!hit) {
     // Default posture: cheapest reliable worker; orchestrator may override with reason.
-    return { risk: "deterministic", route: "deepseek", signals: ["default:no-signal"], confidence: "low" };
+    return { risk: "deterministic", route: "deepseek", category: null, signals: ["default:no-signal"], confidence: "low" };
   }
-  return { risk: hit.risk, route: hit.route, signals, confidence: "high" };
+  return { risk: hit.risk, route: hit.route, category: hit.category, signals, confidence: "high" };
 }

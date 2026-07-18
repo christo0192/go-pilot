@@ -30,19 +30,20 @@ You may override with judgment, but then pass the classifier's route as `--sugge
 
 | Task | Route |
 |---|---|
-| coding, repo-change, math/reasoning, extraction, data shaping, summarize | **deepseek** |
+| coding, repo-change, math/reasoning, data shaping, summarize, creative draft | **deepseek** |
 | spreadsheet/numeric analysis | local deterministic stats first (compute in Node/bash yourself), then **deepseek** for patterns, you synthesize |
-| long-document QA, long-doc synthesis | **kimi** (evidence chunks only, never full docs), fallback deepseek |
-| creative drafting, brainstorming, lateral | **kimi** draft |
+| extraction | **kimi25** with schema validation; fallback deepseek on validation failure |
+| long-document QA, long-doc synthesis | **kimi25** (evidence chunks only), fallback deepseek |
+| creative drafting, brainstorming, lateral | **deepseek** draft |
 | subjective/creative/executive FINAL pass | **you** (see writing policy) |
 | unsure | **deepseek** (cheaper, more reliable, stable latency) |
 
-Kimi k2.6 is a reasoning model whose reasoning CANNOT be disabled (verified): expect 3–140s latency variance; keep it to creative/lateral/long-doc; cap output; never use it for latency-sensitive or strict-format subtasks. DeepSeek self-identifies as "Claude" — never trust model self-ID; label by dispatched model.
+Kimi K2.5 is the production Kimi model for validated extraction and document QA. `kimi26` exists only for benchmark reproducibility. Both workhorses use reasoning tokens. DeepSeek self-identifies as "Claude" — never trust model self-ID; label by dispatched model. The generated source-of-truth table is `docs/production-routing.md`.
 
 ## Step 3 — delegate
 
 ```bash
-scripts/pi-delegate.sh [--raw] [--repair] [--sandbox] [--class <label>] <deepseek|kimi> "<subtask>"
+scripts/pi-delegate.sh [--raw] [--repair] [--sandbox] [--class <label>] <deepseek|kimi25> "<subtask>"
 echo "<long subtask>" | scripts/pi-delegate.sh --repair --class coding deepseek -
 ```
 
@@ -70,7 +71,7 @@ Run code/tests for repo changes. A subtask is done only when its check passes.
 
 Mechanical failures (empty/timeout/truncated) are auto-repaired by `--repair`. For SEMANTIC failures (wrong answer, failed validation, missing citations):
 1. Re-delegate ONCE with the exact validation errors in the prompt.
-2. Still failing → re-delegate to the sibling model (deepseek↔kimi).
+2. Still failing → re-delegate to the sibling model (deepseek↔kimi25).
 3. Still failing → **you fix or produce it yourself** (Opus fallback — allowed, it's included usage; log it as an escalation in your report).
 
 No task ever ends with an unvalidated or failed workhorse response presented to the user.
