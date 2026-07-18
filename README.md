@@ -80,7 +80,7 @@ Full details, idempotency, and uninstall: [`docs/INSTALL.md`](docs/INSTALL.md).
 |---|---|
 | Inspect a governed route without running a model | `npm run gopilot -- run --dry-run --category code "task"` |
 | Run a governed live task | `npm run gopilot -- run --category code --cwd /path/to/repo "task"` |
-| Run the Pi workhorse terminal (skills + extensions loaded) | `./scripts/pi-gopilot.sh` |
+| Launch an interactive Pi workhorse agent (skills + extensions loaded) | `./scripts/pi-ikey.sh` |
 | Orchestrate panes (frontier + workhorse) | `herdr server` then `herdr` — see [`panes/herdr-orchestration.md`](panes/herdr-orchestration.md) |
 | Dispatch a lean frontier worker | `scripts/lean-worker.sh` (claude) · `scripts/lean-codex-worker.sh` (codex) |
 | Run portable tests | `npm run test:unit` |
@@ -142,20 +142,25 @@ research docs/       # BRD, model-strategy docs, sources & decisions
 
 ## Status
 
-Track everything in [`PLAN.md`](PLAN.md). Snapshot:
+**Released: [`v1.0.0`](CHANGELOG.md)** — the production orchestration rig, hardened and measured.
+Sprint history in [`PLAN.md`](PLAN.md); decisions in [`.gsd/DECISIONS.md`](.gsd/DECISIONS.md). Snapshot:
 
-- **Live / proven:** herdr substrate + both frontier CLIs (claude, codex) + write-safety +
-  worktree-per-pane (Sprint 1 ✅); router + context tiering incl. `rtk`/CCE (Sprint 3 ✅);
-  two-tier memory with **real Mem0** (Sprint 4 ✅); Pi workflow skills (Sprint 5 ✅);
-  installers + compose, `install.sh` live-verified idempotent (Sprint 6, 80%); metrics +
-  acceptance harness (Sprint 7 ✅); governed runtime, live process adapters, retrieval,
-  prompt/cache metadata, execution contracts, durable dispatch, retries, validation,
-  observability, scoped rules, candidate racing, and workspace evidence.
-- **Pending (needs a live provider key or a fresh machine):** the **live Pi workhorse worker**
-  through LiteLLM + tool-call reliability *measurement* (Sprint 2 — gateway/config/repair are
-  built and tested; the before/after numbers wait on `OPENROUTER_API_KEY`); **per-task-class
-  live sign-off** against the #10 targets (D17 — rig ready, needs baseline runs); and the
-  **fresh-machine Windows + Mac acceptance** (Step 6.5).
+- **Live / proven:** herdr substrate + both frontier CLIs (claude, codex) + worktree-per-pane;
+  deterministic router + context tiering; two-tier memory with **real Mem0**; Pi workflow skills;
+  the governed runtime (contracts, durable dispatch, retries, validation, observability, scoped
+  rules, candidate racing, workspace evidence). The **live coordinator workhorse path** is proven
+  end-to-end — `gopilot run` dispatches through a real Pi agent → Ikey gateway → DeepSeek/Kimi and
+  reports recovered token usage + calibrated cost. **Clean-machine install is CI-verified on
+  ubuntu, macOS, and Windows** (`install.sh --doctor` / `install.ps1 -Doctor`).
+- **Benchmark-driven routing (`ikey-prod`):** DeepSeek V4 Pro is the default workhorse; **Kimi
+  K2.5** handles document-QA (3-trial confirmed, 97.1) and extraction (schema-validated, ≥90 in
+  the production-gate run) with a DeepSeek fallback. Kimi K2.6 was retired (K2.5 strictly
+  dominates it); Kimi K3 was evaluated and rejected (~$15/M). Evidence:
+  [`docs/production-metrics.md`](docs/production-metrics.md) + `docs/live-test-results-v3-*.md`.
+- **Assessed / safe-by-default:** multi-agent efficiency sign-off (D17/D39) reverts every class to
+  single-agent — the framework's multi-pane modes are reliability-oriented, not token-reducing, so
+  the gate correctly reverts ([`docs/multi-agent-signoff-status.md`](docs/multi-agent-signoff-status.md)).
 
-Frontier work was proven headlessly on WSL; the Wezterm GUI / visible-pane UX and Mac parity
-are deferred to the Sprint 6 fresh-machine verify.
+Honest scope: the model-quality evidence is directional (frozen fixture samples, not a many-repo
+soak). The local LiteLLM workhorse path (`open-first` via OpenRouter) remains an untested option
+alongside the proven Ikey gateway path.

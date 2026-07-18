@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased — post-1.0.0
+
+Hardening + empirical validation on top of the tagged release.
+
+### Model routing (benchmark-driven)
+- **Kimi K2.5** replaces K2.6 for document-QA and extraction: doc-QA 3-trial confirmed (97.1,
+  beats DeepSeek every fixture); extraction schema-validated in a pre-registered production-gate
+  run (90.0, clears ≥90 — the strict-schema regression is gone). K2.6 retired from active routing
+  (alias kept for reproducibility); Kimi K3 evaluated and rejected (~$15/M).
+  Docs: `docs/live-test-results-v3-{deepseek,trim,k25-extraction,prodgate}.md`.
+- `ikey-prod` wired K2.5 → DeepSeek fallback on schema/citation failure; all attempts accounted.
+
+### Live coordinator path
+- Fixed `scripts/pi-gopilot.sh` — a stale placeholder forced `--provider openai` on gateway ids
+  and the coordinator's live workhorse dispatch had never worked. Now uses the registered `ikey`
+  provider; `gopilot run` dispatches through a real Pi agent end-to-end.
+- Fixed live token-usage recovery: an escaped-newline snippet mismatch made `pi-usage.mjs`
+  silently return null, so cost accounting was blind on live runs. Now recovers real tokens + cost.
+- Fixed the benchmark dispatcher to accept the pinned version `run.mjs` now passes.
+
+### Ops / CI
+- `install.ps1 -Doctor` verify-only mode + a clean-Windows CI installer-doctor job — clean-machine
+  install is now CI-verified on ubuntu, macOS, and Windows.
+- `check:routing` / `check:metrics` made clean-checkout- and Windows-safe; `check:metrics` skips
+  cleanly when the (gitignored) benchmark ledgers aren't present.
+- Multi-agent efficiency sign-off assessed (D39): reverts to single-agent (safe default).
+
 ## v1.0.0 — 2026-07-18
 
 First tagged release: the production orchestration rig, hardened and measured.
