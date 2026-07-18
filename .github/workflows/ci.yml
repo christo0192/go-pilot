@@ -59,8 +59,12 @@ jobs:
           echo "shellcheck ✓"
 
   fresh-machine-doctor:
-    name: installer doctor (clean ubuntu)
-    runs-on: ubuntu-latest
+    name: installer doctor (clean ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,7 +73,8 @@ jobs:
       - run: bash install.sh --doctor
         # Verify-only on a box with no pi/herdr/key: must complete, report the
         # missing pieces as TODOs, and exit 0 — proves the script runs clean
-        # on a machine that isn't the maintainer's.
+        # on a machine that isn't the maintainer's (now on clean ubuntu AND macOS
+        # runners; Windows install.ps1 has no --doctor mode yet — see S06/6.5).
 
   secrets:
     name: gitleaks (full history)
