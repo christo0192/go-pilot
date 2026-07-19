@@ -32,7 +32,15 @@ test("Windows setup pins every Linux command to Ubuntu and masks key entry", () 
 test("the downloadable batch bootstrap fetches its PowerShell companion", () => {
   const cmd = readFileSync(join(root, "setup.cmd"), "utf8");
   assert.match(cmd, /raw\.githubusercontent\.com\/christo0192\/go-pilot\/main\/setup-windows\.ps1/);
-  assert.match(cmd, /if not exist "%SETUP_PS%"/);
+  assert.match(cmd, /%TEMP%\\GoPilotSetup/);
+  assert.match(cmd, /copy \/Y "%~f0" "%SETUP_CMD%"/);
+  assert.match(cmd, /pushd "%SETUP_DIR%"/);
+});
+
+test("elevation reruns the staged bootstrap without rebuilding a quoted argument string", () => {
+  const ps = readFileSync(join(root, "setup-windows.ps1"), "utf8");
+  assert.match(ps, /Start-Process -FilePath \$BootstrapPath -Verb RunAs/);
+  assert.doesNotMatch(ps, /Start-Process powershell\.exe -Verb RunAs -ArgumentList/);
 });
 
 test("one-click readiness requires both subscription CLIs and workhorse key", () => {
