@@ -3,7 +3,7 @@
 # Go-pilot bootstrap — idempotent cross-platform installer (macOS + WSL/Ubuntu).
 #
 # Brings a fresh machine to a working Go-pilot "pure-anthropic core":
-#   - ensures Node >=20, Docker, and the docker-compose plugin are present
+#   - ensures Node >=22, Docker, and the docker-compose plugin are present
 #   - templates deploy/.env from the committed example (never overwrites)
 #   - fetches the Mem0 build context (sparse clone) if missing
 #   - brings up the Tier-2 memory stack (Mem0 + pgvector) via docker compose
@@ -53,20 +53,31 @@ TOOLS="${GOPILOT_TOOLS:-0}"
 # --doctor: verify-only mode — checks every piece, changes NOTHING, exit 0 with
 # a report (missing pieces become TODOs). Used by CI and for quick health checks.
 DOCTOR=0
+# --one-click: fully unattended install (used by setup.cmd / setup-macos.command).
+# Implies --full, forces non-interactive apt, auto-installs herdr, persists PATH
+# entries, and injects $GOPILOT_WORKHORSE_KEY into deploy/.env when provided.
+ONE_CLICK="${GOPILOT_ONE_CLICK:-0}"
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
     --tools) TOOLS=1 ;;
     --doctor) DOCTOR=1 ;;
+    --one-click) ONE_CLICK=1 ;;
     -h|--help)
       grep -E '^#( |$)' "$0" | sed -E 's/^# ?//'
       exit 0 ;;
-    *) echo "Unknown argument: $arg (use --full, --tools, --doctor or --help)" >&2; exit 2 ;;
+    *) echo "Unknown argument: $arg (use --full, --tools, --doctor, --one-click or --help)" >&2; exit 2 ;;
   esac
 done
+if [[ "$ONE_CLICK" == "1" ]]; then
+  FULL=1
+  export DEBIAN_FRONTEND=noninteractive
+fi
 
 # Known-good tool versions (reproducibility + supply chain). Override via env.
 PI_VERSION="${GOPILOT_PI_VERSION:-0.80.6}"
+CLAUDE_VERSION="${GOPILOT_CLAUDE_VERSION:-2.1.215}"
+CODEX_VERSION="${GOPILOT_CODEX_VERSION:-0.144.6}"
 
 run_doctor() {
   log "Doctor: verify-only (nothing will be changed)"
@@ -76,11 +87,13 @@ run_doctor() {
     if eval "$2" >/dev/null 2>&1; then okc=$((okc + 1)); info "OK   $1"
     else warn "MISS $1"; add_todo "$1"; fi
   }
-  chk "node >= 20"                       'have node && [ "$(node -e "console.log(process.versions.node.split(\".\")[0])")" -ge 20 ]'
+  chk "node >= 22"                       'have node && [ "$(node -e "console.log(process.versions.node.split(\".\")[0])")" -ge 22 ]'
   chk "git present"                      'have git'
   chk "docker present (Mem0/LiteLLM)"    'have docker'
   chk "pi present (workhorse agents)"    'have pi'
   chk "herdr present (pane orchestration)" 'have herdr'
+  chk "claude present (frontier agent)"    'have claude'
+  chk "codex present (frontier agent)"     'have codex'
   chk "deploy/.env exists"               '[ -f deploy/.env ]'
   chk "WORKHORSE_GATEWAY_KEY set in deploy/.env" 'grep -qE "^WORKHORSE_GATEWAY_KEY=.+" deploy/.env'
   chk "deploy/.env permissions 600"      '[ "$(stat -c %a deploy/.env 2>/dev/null || stat -f %Lp deploy/.env)" = "600" ]'
@@ -132,7 +145,7 @@ detect_os() {
 OS="$(detect_os)"
 
 # ---------------------------------------------------------------------------
-# Node major-version check (need >= 20).
+# Node major-version check (need >= 22).
 # ---------------------------------------------------------------------------
 node_major() {
   # Prints the major version integer, or 0 if node is absent/unparsable.
@@ -148,14 +161,14 @@ node_major() {
 # ===========================================================================
 
 ensure_node() {
-  log "Node.js (>= 20)"
-  if have node && [[ "$(node_major)" -ge 20 ]]; then
+  log "Node.js (>= 22)"
+  if have node && [[ "$(node_major)" -ge 22 ]]; then
     info "present ($(node -v)), skipping"
     return 0
   fi
 
   if have node; then
-    warn "node $(node -v) is present but < 20 — Go-pilot needs >= 20."
+    warn "node $(node -v) is present but < 22 — current Claude Code needs >= 22."
   fi
 
   case "$OS" in
@@ -167,13 +180,13 @@ ensure_node() {
       brew install node ;;
     wsl|linux)
       # NodeSource gives a current, predictable major. Ubuntu's own 'nodejs' apt
-      # package can lag (older major) — hence NodeSource for the >=20 guarantee.
-      info "installing Node 20.x via NodeSource…"
-      curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+      # package can lag (older major) — hence NodeSource for the >=22 guarantee.
+      info "installing Node 22.x via NodeSource…"
+      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
       sudo apt-get install -y nodejs ;;
   esac
 
-  have node && [[ "$(node_major)" -ge 20 ]] || die "Node install did not yield >= 20."
+  have node && [[ "$(node_major)" -ge 22 ]] || die "Node install did not yield >= 22."
   info "installed $(node -v)"
 }
 
@@ -241,7 +254,14 @@ ensure_full_rig() {
   [[ "$FULL" == "1" ]] || { info "workhorse rig skipped (pass --full or GOPILOT_FULL=1 to include)"; return 0; }
 
   log "Optional workhorse rig (Herdr + Pi)"
-  have npm || { warn "npm not found — cannot install Pi. Skipping rig."; return 0; }
+  have npm || die "npm not found — cannot install the agent CLIs."
+
+  # Never install user-facing CLIs into root-owned /usr. This keeps updates and
+  # subscription credentials in the WSL/macOS user's home directory.
+  local npm_prefix="$HOME/.npm-global"
+  mkdir -p "$npm_prefix"
+  npm config set prefix "$npm_prefix"
+  export PATH="$HOME/.local/bin:$npm_prefix/bin:$PATH"
 
   if have pi; then
     info "pi present, skipping"
@@ -253,10 +273,74 @@ ensure_full_rig() {
   if have herdr; then
     info "herdr present, skipping"
   else
-    warn "herdr not installed — install per docs/environments.md:"
-    info "  macOS: brew install herdr   |   mac/WSL: curl -fsSL https://herdr.dev/install.sh | sh"
-    add_todo "Install Herdr (workhorse terminal substrate) — see docs/environments.md."
+    # Herdr is the terminal substrate the rig runs on — install it, don't just
+    # advise (a fresh machine previously ended with `herdr: command not found`).
+    info "installing herdr…"
+    case "$OS" in
+      macos)
+        if have brew; then brew install herdr
+        else curl -fsSL https://herdr.dev/install.sh | sh; fi ;;
+      wsl|linux)
+        curl -fsSL https://herdr.dev/install.sh | sh ;;
+    esac
+    # The official installer lands in ~/.local/bin — pick it up for THIS session.
+    export PATH="$HOME/.local/bin:$PATH"
+    if have herdr; then info "installed $(herdr --version 2>/dev/null | head -1)"
+    else
+      warn "herdr install did not yield a binary on PATH."
+      add_todo "Install Herdr manually: curl -fsSL https://herdr.dev/install.sh | sh (see docs/environments.md)."
+    fi
   fi
+
+  persist_path_entries
+}
+
+ensure_frontier_clis() {
+  [[ "$FULL" == "1" ]] || return 0
+  log "Frontier agents (Claude Code + Codex CLI)"
+  have npm || die "npm is required to install Claude Code and Codex CLI."
+
+  local npm_prefix="$HOME/.npm-global"
+  mkdir -p "$npm_prefix"
+  npm config set prefix "$npm_prefix"
+  export PATH="$HOME/.local/bin:$npm_prefix/bin:$PATH"
+
+  if have claude; then
+    info "claude present ($(claude --version 2>/dev/null | head -1)), skipping"
+  else
+    info "installing Claude Code for the current user"
+    npm install -g "@anthropic-ai/claude-code@${CLAUDE_VERSION}"
+    have claude || die "Claude Code installed but 'claude' is not on PATH."
+  fi
+
+  if have codex; then
+    info "codex present ($(codex --version 2>/dev/null | head -1)), skipping"
+  else
+    info "installing Codex CLI for the current user"
+    npm install -g "@openai/codex@${CODEX_VERSION}"
+    have codex || die "Codex CLI installed but 'codex' is not on PATH."
+  fi
+
+  info "Subscription credentials are not collected by Go-pilot. Run each CLI once to sign in."
+  persist_path_entries
+}
+
+# Make ~/.local/bin and the npm global bin dir survive into FUTURE shells: the
+# fresh-machine log showed pi/herdr installed but "command not found" in the next
+# session because neither dir was on the persisted PATH. Idempotent (guarded by
+# a marker) and appended to ~/.bashrc + ~/.zshrc when they exist / bash default.
+persist_path_entries() {
+  local npmbin=""
+  have npm && npmbin="$(npm prefix -g 2>/dev/null)/bin"
+  local marker="# gopilot: user-local tool PATH"
+  local line="export PATH=\"\$HOME/.local/bin${npmbin:+:$npmbin}:\$PATH\""
+  local rc
+  for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    [[ "$rc" == "$HOME/.bashrc" || -f "$rc" ]] || continue
+    if [[ -f "$rc" ]] && grep -qF "$marker" "$rc"; then continue; fi
+    printf '\n%s\n%s\n' "$marker" "$line" >> "$rc"
+    info "persisted PATH (~/.local/bin${npmbin:+ + npm global bin}) -> $rc"
+  done
 }
 
 # ===========================================================================
@@ -429,15 +513,29 @@ ensure_herdr_config() {
 
 ensure_env() {
   log "Config: deploy/.env"
-  if [[ -f deploy/.env ]]; then
+  if [[ ! -f deploy/.env ]]; then
+    [[ -f deploy/.env.example ]] || die "deploy/.env.example is missing — cannot template deploy/.env."
+    cp deploy/.env.example deploy/.env
+    chmod 600 deploy/.env
+    info "created deploy/.env (chmod 600) — fill OPENAI_API_KEY (embedder key for Mem0 search)."
+    add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
+  else
     info "deploy/.env exists, leaving as-is"
-    return 0
   fi
-  [[ -f deploy/.env.example ]] || die "deploy/.env.example is missing — cannot template deploy/.env."
-  cp deploy/.env.example deploy/.env
-  chmod 600 deploy/.env
-  info "created deploy/.env (chmod 600) — fill OPENAI_API_KEY (embedder key for Mem0 search)."
-  add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
+  # One-click key injection: place the workhorse key in the CORRECT field. A
+  # first-time user previously pasted it into OPENAI_API_KEY by hand and the
+  # workers silently had no key. Only fills an EMPTY field — never overwrites.
+  if [[ -n "${GOPILOT_WORKHORSE_KEY:-}" ]]; then
+    if grep -qE '^WORKHORSE_GATEWAY_KEY=.+' deploy/.env; then
+      info "WORKHORSE_GATEWAY_KEY already set — leaving it untouched"
+    else
+      # Node performs a literal replacement; shell metacharacters in a key are
+      # data, never part of a sed expression or command line.
+      node scripts/set-env-key.mjs deploy/.env WORKHORSE_GATEWAY_KEY
+      chmod 600 deploy/.env
+      info "injected WORKHORSE_GATEWAY_KEY into deploy/.env"
+    fi
+  fi
 }
 
 ensure_orchestrator() {
@@ -485,6 +583,10 @@ ensure_orchestrator() {
 
 ensure_mem0_src() {
   log "Mem0 build context: $MEM0_SRC"
+  if [[ "$ONE_CLICK" == "1" ]] && ! grep -qE '^OPENAI_API_KEY=.+$' deploy/.env; then
+    info "optional Mem0 is disabled; skipping its source download"
+    return 0
+  fi
   if [[ -d "$MEM0_SRC/server" ]]; then
     info "$MEM0_SRC/server present, skipping clone"
     return 0
@@ -504,14 +606,34 @@ ensure_mem0_src() {
 
 bring_up_services() {
   log "Bringing up Mem0 + pgvector (docker compose up -d)"
+  if ! grep -qE '^OPENAI_API_KEY=.+$' deploy/.env; then
+    MEM0_STATUS="disabled (optional: add OPENAI_API_KEY)"
+    info "OPENAI_API_KEY is blank; optional Mem0 memory remains disabled."
+    return 0
+  fi
   if ! docker compose version >/dev/null 2>&1; then
     warn "docker compose unavailable in this shell — skipping service bring-up."
     add_todo "Re-run ./install.sh in a shell where 'docker compose' works to start Mem0."
     return 0
   fi
+  # The docker-group membership added by ensure_docker only applies to NEW
+  # sessions — the fresh-machine log died right here on the socket. If the
+  # socket is unreachable in THIS shell but passwordless sudo is available
+  # (one-click runs after a root phase), fall through to sudo instead of failing.
+  local compose=(docker compose)
+  if ! docker info >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+      warn "docker socket not reachable in this session (group not active yet) — using sudo for this run."
+      compose=(sudo docker compose)
+    else
+      warn "docker socket not reachable and sudo needs a password — skipping service bring-up."
+      add_todo "Open a NEW shell (docker group takes effect) and run: docker compose -f $COMPOSE_FILE up -d"
+      return 0
+    fi
+  fi
   # First run builds the Mem0 image from the sparse checkout; re-runs are a no-op
   # for already-built/running services (compose is declarative + idempotent).
-  docker compose -f "$COMPOSE_FILE" up -d
+  "${compose[@]}" -f "$COMPOSE_FILE" up -d
 }
 
 # ===========================================================================
@@ -525,19 +647,20 @@ run_smoke_tests() {
     warn "node absent — skipping tests."
     return 0
   fi
-  # Non-fatal: a test failure should not abort the installer or hide the report.
   if node --test >/dev/null 2>&1; then
     TEST_RESULT="passed"
     info "node --test passed"
   else
     TEST_RESULT="FAILED"
     warn "node --test reported failures — run 'node --test' directly to see details."
+    [[ "$ONE_CLICK" == "1" ]] && die "Repository smoke tests failed; setup is not ready."
   fi
 }
 
 MEM0_STATUS="not-checked"
 wait_for_mem0() {
   log "Waiting for Mem0 at ${MEM0_URL}/docs (up to ~120s)"
+  [[ "$MEM0_STATUS" == disabled* ]] && return 0
   if ! have curl; then
     warn "curl not found — cannot poll Mem0. Skipping health check."
     MEM0_STATUS="unknown (no curl)"
@@ -562,6 +685,22 @@ wait_for_mem0() {
   warn "Mem0 did not answer 200 within ~120s (last code: ${code:-none})."
   warn "Debug with: docker compose -f $COMPOSE_FILE logs mem0"
   add_todo "Mem0 did not come up — inspect: docker compose -f $COMPOSE_FILE logs mem0"
+}
+
+validate_one_click() {
+  [[ "$ONE_CLICK" == "1" ]] || return 0
+  log "Final one-click acceptance gate"
+  local failed=0 item
+  for item in node git pi herdr claude codex; do
+    if have "$item"; then info "OK   $item"
+    else warn "MISS $item"; failed=1; fi
+  done
+  [[ -f deploy/.env ]] || { warn "MISS deploy/.env"; failed=1; }
+  grep -qE '^WORKHORSE_GATEWAY_KEY=.+$' deploy/.env \
+    || { warn "MISS WORKHORSE_GATEWAY_KEY"; failed=1; }
+  [[ "$TEST_RESULT" == "passed" ]] || { warn "FAIL repository tests"; failed=1; }
+  [[ "$failed" == "0" ]] || die "Required acceptance checks failed. Fix the items above and re-run setup."
+  info "All required local components are ready. Account sign-in is the only remaining interactive step."
 }
 
 final_report() {
@@ -604,6 +743,7 @@ main() {
   ensure_docker
   ensure_compose
   ensure_full_rig
+  ensure_frontier_clis
   ensure_tools
   ensure_herdr_config
 
@@ -614,6 +754,7 @@ main() {
 
   run_smoke_tests
   wait_for_mem0
+  validate_one_click
 
   final_report
 }

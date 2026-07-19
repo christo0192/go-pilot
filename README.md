@@ -36,14 +36,30 @@ reduction, ≤5% quality tolerance, tracked retries, router overhead as its own 
 
 ---
 
-## Quickstart — plug and play
+## Quickstart — one-click (recommended)
+
+**Windows (WSL):** download [`setup.cmd`](https://raw.githubusercontent.com/christo0192/go-pilot/main/setup.cmd)
+and **double-click it**. It asks for one hidden key paste, then provisions a dedicated Ubuntu
+distribution and Linux user, installs Node 22, Docker, herdr, Pi, Claude Code, and Codex CLI,
+clones the repo to `~/Go-pilot`, validates the required components, and opens herdr. If Windows
+needs a restart while enabling WSL, setup registers a one-time resume after sign-in. Approve the
+Windows administrator prompt and any restart confirmation; no Linux commands or password are
+required. Existing non-Ubuntu WSL distributions are never modified.
+
+**macOS:** download [`setup-macos.command`](https://raw.githubusercontent.com/christo0192/go-pilot/main/setup-macos.command)
+and double-click it in Finder (first run: `xattr -d com.apple.quarantine setup-macos.command`
+if Gatekeeper objects, or right-click → Open). Same flow; the window it opens becomes the herdr
+terminal. Homebrew's installer may ask for your macOS password once. Both installers put
+`claude` and `codex` on PATH; run each once inside herdr to complete its native subscription
+login. Go-pilot never requests or stores those account credentials.
+
+<details><summary><b>Manual install (the old way)</b></summary>
 
 ```bash
 git clone https://github.com/christo0192/go-pilot.git && cd go-pilot
-./install.sh                       # idempotent bootstrap (macOS/WSL); Windows: install.ps1
-# → ensures Node + Docker, templates deploy/.env, fetches the Mem0 build context,
-#   puts `pi-delegate` on PATH, registers the Pi workhorse provider, installs the
-#   global orchestration skill
+./install.sh --full                # idempotent bootstrap (macOS/WSL); Windows: install.ps1
+# → ensures Node + Docker, herdr + Pi (--full), templates deploy/.env, fetches the
+#   Mem0 build context, registers the Pi workhorse provider, installs the global skill
 
 # then plug in YOUR key (the only required edit) in deploy/.env:
 #   WORKHORSE_GATEWAY_KEY=...  # your workhorse-gateway key (Ikey, or any
@@ -53,6 +69,7 @@ claude                             # in this repo — CLAUDE.md turns Claude Cod
                                    # orchestrator: it routes subtasks to Kimi/DeepSeek worker
                                    # panes automatically and assembles verified results
 ```
+</details>
 
 **That's the daily driver.** Give `claude` a substantial task and watch `wk:deepseek` / `wk:kimi25`
 panes spawn, work, report back, and close. Optional extras:
@@ -70,6 +87,8 @@ node scripts/verify-litellm.mjs                      # probes each workhorse mod
 The installer is **activate-by-key** (D31): a workhorse model is usable only if its provider
 key is present; blank keys just leave that model inactive — one config serves every profile.
 Frontier `claude`/`codex` use **native subscription login** and never touch `deploy/.env`.
+Mem0 is deliberately optional in the one-key setup: it remains disabled until
+`OPENAI_API_KEY` (or a separately configured compatible embedder) is supplied.
 Full details, idempotency, and uninstall: [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ---
