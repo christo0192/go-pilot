@@ -1,0 +1,7 @@
+# setup.cmd must keep CRLF byte-for-byte (cmd.exe mis-parses LF-only labels);
+# -text disables ALL git eol normalization for it.
+setup.cmd -text
+
+# Shell scripts must stay LF even when checked out on Windows (bash chokes on CRLF).
+*.sh text eol=lf
+setup-macos.command text eol=lf

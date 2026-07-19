@@ -53,17 +53,26 @@ TOOLS="${GOPILOT_TOOLS:-0}"
 # --doctor: verify-only mode — checks every piece, changes NOTHING, exit 0 with
 # a report (missing pieces become TODOs). Used by CI and for quick health checks.
 DOCTOR=0
+# --one-click: fully unattended install (used by setup.cmd / setup-macos.command).
+# Implies --full, forces non-interactive apt, auto-installs herdr, persists PATH
+# entries, and injects $GOPILOT_WORKHORSE_KEY into deploy/.env when provided.
+ONE_CLICK="${GOPILOT_ONE_CLICK:-0}"
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
     --tools) TOOLS=1 ;;
     --doctor) DOCTOR=1 ;;
+    --one-click) ONE_CLICK=1 ;;
     -h|--help)
       grep -E '^#( |$)' "$0" | sed -E 's/^# ?//'
       exit 0 ;;
-    *) echo "Unknown argument: $arg (use --full, --tools, --doctor or --help)" >&2; exit 2 ;;
+    *) echo "Unknown argument: $arg (use --full, --tools, --doctor, --one-click or --help)" >&2; exit 2 ;;
   esac
 done
+if [[ "$ONE_CLICK" == "1" ]]; then
+  FULL=1
+  export DEBIAN_FRONTEND=noninteractive
+fi
 
 # Known-good tool versions (reproducibility + supply chain). Override via env.
 PI_VERSION="${GOPILOT_PI_VERSION:-0.80.6}"
@@ -253,10 +262,44 @@ ensure_full_rig() {
   if have herdr; then
     info "herdr present, skipping"
   else
-    warn "herdr not installed — install per docs/environments.md:"
-    info "  macOS: brew install herdr   |   mac/WSL: curl -fsSL https://herdr.dev/install.sh | sh"
-    add_todo "Install Herdr (workhorse terminal substrate) — see docs/environments.md."
+    # Herdr is the terminal substrate the rig runs on — install it, don't just
+    # advise (a fresh machine previously ended with `herdr: command not found`).
+    info "installing herdr…"
+    case "$OS" in
+      macos)
+        if have brew; then brew install herdr
+        else curl -fsSL https://herdr.dev/install.sh | sh; fi ;;
+      wsl|linux)
+        curl -fsSL https://herdr.dev/install.sh | sh ;;
+    esac
+    # The official installer lands in ~/.local/bin — pick it up for THIS session.
+    export PATH="$HOME/.local/bin:$PATH"
+    if have herdr; then info "installed $(herdr --version 2>/dev/null | head -1)"
+    else
+      warn "herdr install did not yield a binary on PATH."
+      add_todo "Install Herdr manually: curl -fsSL https://herdr.dev/install.sh | sh (see docs/environments.md)."
+    fi
   fi
+
+  persist_path_entries
+}
+
+# Make ~/.local/bin and the npm global bin dir survive into FUTURE shells: the
+# fresh-machine log showed pi/herdr installed but "command not found" in the next
+# session because neither dir was on the persisted PATH. Idempotent (guarded by
+# a marker) and appended to ~/.bashrc + ~/.zshrc when they exist / bash default.
+persist_path_entries() {
+  local npmbin=""
+  have npm && npmbin="$(npm prefix -g 2>/dev/null)/bin"
+  local marker="# gopilot: user-local tool PATH"
+  local line="export PATH=\"\$HOME/.local/bin${npmbin:+:$npmbin}:\$PATH\""
+  local rc
+  for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    [[ "$rc" == "$HOME/.bashrc" || -f "$rc" ]] || continue
+    if [[ -f "$rc" ]] && grep -qF "$marker" "$rc"; then continue; fi
+    printf '\n%s\n%s\n' "$marker" "$line" >> "$rc"
+    info "persisted PATH (~/.local/bin${npmbin:+ + npm global bin}) -> $rc"
+  done
 }
 
 # ===========================================================================
@@ -429,15 +472,29 @@ ensure_herdr_config() {
 
 ensure_env() {
   log "Config: deploy/.env"
-  if [[ -f deploy/.env ]]; then
+  if [[ ! -f deploy/.env ]]; then
+    [[ -f deploy/.env.example ]] || die "deploy/.env.example is missing — cannot template deploy/.env."
+    cp deploy/.env.example deploy/.env
+    chmod 600 deploy/.env
+    info "created deploy/.env (chmod 600) — fill OPENAI_API_KEY (embedder key for Mem0 search)."
+    add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
+  else
     info "deploy/.env exists, leaving as-is"
-    return 0
   fi
-  [[ -f deploy/.env.example ]] || die "deploy/.env.example is missing — cannot template deploy/.env."
-  cp deploy/.env.example deploy/.env
-  chmod 600 deploy/.env
-  info "created deploy/.env (chmod 600) — fill OPENAI_API_KEY (embedder key for Mem0 search)."
-  add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
+  # One-click key injection: place the workhorse key in the CORRECT field. A
+  # first-time user previously pasted it into OPENAI_API_KEY by hand and the
+  # workers silently had no key. Only fills an EMPTY field — never overwrites.
+  if [[ -n "${GOPILOT_WORKHORSE_KEY:-}" ]]; then
+    if grep -qE '^WORKHORSE_GATEWAY_KEY=.+' deploy/.env; then
+      info "WORKHORSE_GATEWAY_KEY already set — leaving it untouched"
+    else
+      # sed with | delimiter; keys are URL-safe tokens (no | expected).
+      sed -i.bak "s|^WORKHORSE_GATEWAY_KEY=.*|WORKHORSE_GATEWAY_KEY=${GOPILOT_WORKHORSE_KEY}|" deploy/.env \
+        && rm -f deploy/.env.bak
+      chmod 600 deploy/.env
+      info "injected WORKHORSE_GATEWAY_KEY into deploy/.env"
+    fi
+  fi
 }
 
 ensure_orchestrator() {
@@ -509,9 +566,24 @@ bring_up_services() {
     add_todo "Re-run ./install.sh in a shell where 'docker compose' works to start Mem0."
     return 0
   fi
+  # The docker-group membership added by ensure_docker only applies to NEW
+  # sessions — the fresh-machine log died right here on the socket. If the
+  # socket is unreachable in THIS shell but passwordless sudo is available
+  # (one-click runs after a root phase), fall through to sudo instead of failing.
+  local compose=(docker compose)
+  if ! docker info >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+      warn "docker socket not reachable in this session (group not active yet) — using sudo for this run."
+      compose=(sudo docker compose)
+    else
+      warn "docker socket not reachable and sudo needs a password — skipping service bring-up."
+      add_todo "Open a NEW shell (docker group takes effect) and run: docker compose -f $COMPOSE_FILE up -d"
+      return 0
+    fi
+  fi
   # First run builds the Mem0 image from the sparse checkout; re-runs are a no-op
   # for already-built/running services (compose is declarative + idempotent).
-  docker compose -f "$COMPOSE_FILE" up -d
+  "${compose[@]}" -f "$COMPOSE_FILE" up -d
 }
 
 # ===========================================================================
