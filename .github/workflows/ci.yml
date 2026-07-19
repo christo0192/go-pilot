@@ -90,6 +90,12 @@ jobs:
         # install.ps1 -Doctor is the Windows parity of install.sh --doctor:
         # verify-only, reports missing pieces as TODOs, exits 0 — closes the
         # clean-Windows install acceptance (S06/6.5).
+      - name: Parse the one-click PowerShell launcher
+        shell: pwsh
+        run: |
+          $source = Get-Content -Raw setup-windows.ps1
+          [void][scriptblock]::Create($source)
+          Write-Host "setup-windows.ps1 parses cleanly"
 
   secrets:
     name: gitleaks (full history)

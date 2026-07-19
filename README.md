@@ -39,15 +39,19 @@ reduction, ≤5% quality tolerance, tracked retries, router overhead as its own 
 ## Quickstart — one-click (recommended)
 
 **Windows (WSL):** download [`setup.cmd`](https://raw.githubusercontent.com/christo0192/go-pilot/main/setup.cmd)
-and **double-click it**. It asks for one key paste, then runs unattended: ensures WSL/Ubuntu,
-installs Node + Docker + herdr + Pi as root (no sudo passwords), restarts WSL so the docker
-group takes effect, clones the repo to `~/Go-pilot`, wires your key into the right field, and
-finishes by **opening a terminal with herdr running**. Re-running it is always safe.
+and **double-click it**. It asks for one hidden key paste, then provisions a dedicated Ubuntu
+distribution and Linux user, installs Node 22, Docker, herdr, Pi, Claude Code, and Codex CLI,
+clones the repo to `~/Go-pilot`, validates the required components, and opens herdr. If Windows
+needs a restart while enabling WSL, setup registers a one-time resume after sign-in. Approve the
+Windows administrator prompt and any restart confirmation; no Linux commands or password are
+required. Existing non-Ubuntu WSL distributions are never modified.
 
 **macOS:** download [`setup-macos.command`](https://raw.githubusercontent.com/christo0192/go-pilot/main/setup-macos.command)
 and double-click it in Finder (first run: `xattr -d com.apple.quarantine setup-macos.command`
 if Gatekeeper objects, or right-click → Open). Same flow; the window it opens becomes the herdr
-terminal. Homebrew's installer may ask for your macOS password once — that's Apple, not us.
+terminal. Homebrew's installer may ask for your macOS password once. Both installers put
+`claude` and `codex` on PATH; run each once inside herdr to complete its native subscription
+login. Go-pilot never requests or stores those account credentials.
 
 <details><summary><b>Manual install (the old way)</b></summary>
 
@@ -83,6 +87,8 @@ node scripts/verify-litellm.mjs                      # probes each workhorse mod
 The installer is **activate-by-key** (D31): a workhorse model is usable only if its provider
 key is present; blank keys just leave that model inactive — one config serves every profile.
 Frontier `claude`/`codex` use **native subscription login** and never touch `deploy/.env`.
+Mem0 is deliberately optional in the one-key setup: it remains disabled until
+`OPENAI_API_KEY` (or a separately configured compatible embedder) is supplied.
 Full details, idempotency, and uninstall: [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ---
