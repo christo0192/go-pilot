@@ -45,8 +45,11 @@ try {
 
   if (-not (Test-Administrator)) {
     Step 'Requesting Administrator permission for WSL setup'
-    $args = "-NoLogo -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -BootstrapPath `"$BootstrapPath`""
-    $process = Start-Process powershell.exe -Verb RunAs -ArgumentList $args -Wait -PassThru
+    # Elevate the already staged batch bootstrap itself. ShellExecute handles
+    # its path atomically, avoiding Start-Process argument quoting failures.
+    # The elevated batch stays open on failure, so the real error remains visible.
+    $process = Start-Process -FilePath $BootstrapPath -Verb RunAs `
+      -WorkingDirectory (Split-Path -Parent $BootstrapPath) -Wait -PassThru
     exit $process.ExitCode
   }
 
