@@ -66,7 +66,10 @@ try {
   }
 
   Step 'Selecting the dedicated Ubuntu distribution'
-  $distros = @(& wsl.exe --list --quiet | ForEach-Object { $_.Replace([char]0, '').Trim() })
+  # Older Windows PowerShell can surface `wsl --list --quiet` as NUL-padded
+  # text. Use the regex operator: String.Replace(char, char) cannot accept an
+  # empty replacement and aborts before distro selection.
+  $distros = @(& wsl.exe --list --quiet | ForEach-Object { ($_ -replace "`0", '').Trim() })
   if ($Distro -notin $distros) {
     Set-Resume
     & wsl.exe --install -d $Distro --no-launch
