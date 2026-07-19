@@ -26,6 +26,8 @@ test("Windows setup pins every Linux command to Ubuntu and masks key entry", () 
   assert.doesNotMatch(ps, /Read-Host[^\n]+WORKHORSE[^\n]+(?<!-AsSecureString)$/m);
   assert.match(ps, /Read-Host \$Prompt -AsSecureString/);
   assert.match(ps, /GOPILOT_WORKHORSE_KEY\/u/);
+  assert.match(ps, /\$_ -replace "`0", ''/);
+  assert.doesNotMatch(ps, /\.Replace\(\[char\]0, ''\)/);
   assert.match(ps, /Final one-click acceptance gate|install\.sh --one-click/);
 });
 
