@@ -41,7 +41,8 @@ reduction, ≤5% quality tolerance, tracked retries, router overhead as its own 
 **Windows (WSL):** download [`setup.cmd`](https://raw.githubusercontent.com/christo0192/go-pilot/main/setup.cmd)
 and **double-click it**. It asks for one hidden key paste, then provisions a dedicated Ubuntu
 distribution and Linux user, installs Node 22, Docker, herdr, Pi, Claude Code, and Codex CLI,
-clones the repo to `~/Go-pilot`, validates the required components, and opens herdr. If Windows
+clones the repo to `~/Go-pilot`, validates the required components, installs a **Go-pilot app with
+an icon and Start menu entry**, and opens Herdr. If Windows
 needs a restart while enabling WSL, setup registers a one-time resume after sign-in. Approve the
 Windows administrator prompt and any restart confirmation; no Linux commands or password are
 required. Existing non-Ubuntu WSL distributions are never modified.
@@ -53,13 +54,36 @@ terminal. Homebrew's installer may ask for your macOS password once. Both instal
 `claude` and `codex` on PATH; run each once inside herdr to complete its native subscription
 login. Go-pilot never requests or stores those account credentials.
 
+### Installed app, resume, voice, and updates (Windows)
+
+- Open **Go-pilot** from Start. Herdr runs as the named, headless `gopilot` server; the visible
+  terminal is only a client. Closing it leaves Herdr and Pi running, and reopening attaches to the
+  same panes and in-flight process. After a WSL/server restart, Herdr restores the workspace and Pi
+  continues its latest saved Go-pilot conversation.
+- Open **Go-pilot Voice** once to install the pinned local `whisper.cpp` engine and quantized English
+  model. Press **F8** to start listening and F8 again to stop. Finished phrases paste into an
+  allowlisted terminal; Go-pilot never presses Enter for you. Audio stays on the machine.
+- New one-click installs use the **nightly** channel: every `main` commit becomes eligible only after
+  its matching GitHub Actions CI run succeeds. Use **Update Go-pilot** for a manual check and
+  **Rollback Go-pilot** to return to the prior installed commit.
+- To switch to deliberate tagged releases, run this once in PowerShell:
+  `powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Programs\Go-pilot\GoPilot.ps1" -Action Update -Channel stable`.
+- Setup installs pinned Pi and Herdr builds from their official repositories, runs Herdr's official
+  `pi`, `claude`, and `codex` integration installers, and installs Herdr's checksum-locked command
+  skill for all three agents. Go-pilot's Pi workflow skills and tool-call repair extension are also
+  registered globally without replacing existing Pi settings. Agents can therefore discover panes,
+  split them, launch another agent, send a task, wait, and read results without researching syntax.
+
+Re-running `setup.cmd` upgrades an existing installation and refreshes its shortcuts. When a valid
+workhorse key already exists, press Enter at the key prompt to keep it.
+
 <details><summary><b>Manual install (the old way)</b></summary>
 
 ```bash
 git clone https://github.com/christo0192/go-pilot.git && cd go-pilot
 ./install.sh --full                # idempotent bootstrap (macOS/WSL); Windows: install.ps1
 # → ensures Node + Docker, herdr + Pi (--full), templates deploy/.env, fetches the
-#   Mem0 build context, registers the Pi workhorse provider, installs the global skill
+#   Mem0 build context, installs official Herdr integrations/skill, registers Pi resources
 
 # then plug in YOUR key (the only required edit) in deploy/.env:
 #   WORKHORSE_GATEWAY_KEY=...  # your workhorse-gateway key (Ikey, or any

@@ -51,16 +51,45 @@ What it does:
 
 1. Detects the OS and package manager (Homebrew on macOS, apt on WSL/Debian).
 2. Installs Node LTS and Docker if missing (or prints manual download URLs).
-3. `cp deploy/.env.example deploy/.env` (only if `deploy/.env` is absent).
-4. Sparse-clones the Mem0 server into `deploy/mem0-src` (blobless, depth 1):
+3. With `--full`, installs pinned official Pi and Herdr versions, then runs Herdr's official
+   integrations for `pi`, `claude`, and `codex`. It downloads the official Herdr `SKILL.md` from
+   the locked release in `deploy/herdr-skill.lock.json`, verifies its SHA-256, and installs it for
+   every agent. Existing Pi settings are merged, never replaced.
+4. `cp deploy/.env.example deploy/.env` (only if `deploy/.env` is absent).
+5. Sparse-clones the Mem0 server into `deploy/mem0-src` (blobless, depth 1):
    ```bash
    git clone --filter=blob:none --no-checkout --depth 1 \
      https://github.com/mem0ai/mem0.git deploy/mem0-src
    cd deploy/mem0-src && git sparse-checkout set server && git checkout && cd -
    ```
-5. `docker compose -f deploy/docker-compose.yml up -d`.
-6. Runs `node --test` and polls `http://localhost:8888/docs` for HTTP 200.
-7. Prints a **✅ Go-pilot ready** report (OS, node/docker versions, Mem0 URL, TODOs).
+6. `docker compose -f deploy/docker-compose.yml up -d`.
+7. Runs `node --test` and polls `http://localhost:8888/docs` for HTTP 200.
+8. Prints a **✅ Go-pilot ready** report (OS, node/docker versions, Mem0 URL, TODOs).
+
+### Preloaded Herdr pane commands
+
+The full install puts the official Herdr command skill in Pi, Claude, and Codex. Agents first check
+`HERDR_ENV=1`, refresh the current compact IDs, and then use patterns such as:
+
+```bash
+herdr pane list
+NEW_PANE=$(herdr pane split 1-2 --direction right --no-focus | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["pane"]["pane_id"])')
+herdr pane run "$NEW_PANE" "claude"
+herdr wait output "$NEW_PANE" --match ">" --timeout 15000
+herdr pane run "$NEW_PANE" "review the test coverage in src/api/"
+herdr wait agent-status "$NEW_PANE" --status done --timeout 60000
+herdr pane read "$NEW_PANE" --source recent-unwrapped --lines 80
+```
+
+Herdr pane IDs can compact after panes close, so agents are instructed to re-run `herdr pane list`
+instead of retaining guessed IDs. Verify or repair the direct integrations with:
+
+```bash
+herdr integration status
+herdr integration install pi
+herdr integration install claude
+herdr integration install codex
+```
 
 > Note: on WSL, Docker is typically provided by Docker Desktop's WSL2
 > integration. Ensure Docker Desktop is running before you invoke the script.
@@ -121,6 +150,20 @@ What it does:
 
 **Idempotency:** a second run is a safe no-op — existing `deploy\.env`,
 `deploy\mem0-src`, Docker volumes, and running containers are all left in place.
+
+### One-click Windows application lifecycle
+
+The downloadable `setup.cmd` additionally installs a per-user application shell under
+`%LOCALAPPDATA%\Programs\Go-pilot`, Start menu shortcuts, an Installed Apps uninstall entry, and the
+Go-pilot icon. Ordinary application close detaches from the named Herdr session; it never invokes
+`herdr session stop`. Use the Start menu Doctor, Update, Rollback, Voice, and Uninstall entries for
+explicit lifecycle actions.
+
+The optional local voice model is downloaded only when **Go-pilot Voice** is first opened. The
+`whisper.cpp` executable and model are both SHA-256 verified. Uninstall removes the Windows launcher
+and voice model but deliberately preserves WSL configuration, conversations, and Docker data.
+
+Full design, acceptance cases, scoring, and limitations: [`desktop-app-plan.md`](desktop-app-plan.md).
 
 > **`OPENAI_API_KEY`:** after the first run, open `deploy\.env` and fill
 > `OPENAI_API_KEY=` so Mem0's embedder can serve `/search`. The stack starts

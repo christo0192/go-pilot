@@ -21,6 +21,7 @@ jobs:
       - run: npm run test:unit
       - run: npm run check:routing
       - run: npm run check:metrics
+      - run: npm run check:desktop
 
   integration:
     name: integration (ubuntu)
@@ -31,6 +32,21 @@ jobs:
         with:
           node-version: 22
       - run: npm run test:integration
+
+  desktop-lifecycle:
+    name: headless resume lifecycle (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned official Herdr fixture
+        run: |
+          curl -fsSL https://github.com/ogulcancelik/herdr/releases/download/v0.7.3/herdr-linux-x86_64 -o /tmp/herdr
+          echo '043ef43ecbabda28465dcff1eec3184518150d567b8b8f20cda9c6c88770641d  /tmp/herdr' | sha256sum -c -
+          chmod +x /tmp/herdr
+      - run: PATH="/tmp:$PATH" node --test scripts/session-lifecycle.live.test.mjs
 
   zero-deps:
     name: zero runtime deps (D20)
@@ -93,9 +109,18 @@ jobs:
       - name: Parse the one-click PowerShell launcher
         shell: pwsh
         run: |
-          $source = Get-Content -Raw setup-windows.ps1
-          [void][scriptblock]::Create($source)
-          Write-Host "setup-windows.ps1 parses cleanly"
+          $files = @(
+            'setup-windows.ps1',
+            'desktop/windows/Install-GoPilotApp.ps1',
+            'desktop/windows/GoPilot.ps1',
+            'desktop/windows/Install-GoPilotVoice.ps1',
+            'desktop/windows/GoPilotVoice.ps1',
+            'desktop/windows/Uninstall-GoPilot.ps1'
+          )
+          foreach ($file in $files) {
+            [void][scriptblock]::Create((Get-Content -Raw $file))
+            Write-Host "$file parses cleanly"
+          }
 
   secrets:
     name: gitleaks (full history)

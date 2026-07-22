@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm run test:unit
+      - run: npm run test:integration
+      - run: npm run check:routing
+      - run: npm run check:metrics
+      - run: npm run check:desktop
+      - run: bash -n install.sh scripts/*.sh
+      - name: Verify real headless resume lifecycle
+        run: |
+          curl -fsSL https://github.com/ogulcancelik/herdr/releases/download/v0.7.3/herdr-linux-x86_64 -o /tmp/herdr
+          echo '043ef43ecbabda28465dcff1eec3184518150d567b8b8f20cda9c6c88770641d  /tmp/herdr' | sha256sum -c -
+          chmod +x /tmp/herdr
+          PATH="/tmp:$PATH" node --test scripts/session-lifecycle.live.test.mjs
+      - run: |
+          sudo apt-get update -y >/dev/null
+          sudo apt-get install -y shellcheck >/dev/null
+          shellcheck -S error install.sh scripts/*.sh
+
+  windows-quality:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm run test:unit
+      - run: npm run check:desktop
+      - name: Parse PowerShell application entrypoints
+        shell: pwsh
+        run: |
+          $files = @(
+            'setup-windows.ps1',
+            'desktop/windows/Install-GoPilotApp.ps1',
+            'desktop/windows/GoPilot.ps1',
+            'desktop/windows/Install-GoPilotVoice.ps1',
+            'desktop/windows/GoPilotVoice.ps1',
+            'desktop/windows/Uninstall-GoPilot.ps1'
+          )
+          foreach ($file in $files) {
+            [void][scriptblock]::Create((Get-Content -Raw $file))
+            Write-Host "$file parses cleanly"
+          }
+
+  publish:
+    needs: [quality, windows-quality]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Build bootstrap bundle and checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/Go-pilot-bootstrap
+          cp setup.cmd setup-windows.ps1 dist/Go-pilot-bootstrap/
+          cp -R desktop dist/Go-pilot-bootstrap/
+          (cd dist && zip -qr "go-pilot-windows-${RELEASE_TAG}.zip" Go-pilot-bootstrap)
+          sha256sum "dist/go-pilot-windows-${RELEASE_TAG}.zip" > "dist/go-pilot-windows-${RELEASE_TAG}.zip.sha256"
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/*.zip dist/*.sha256 --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/*.zip dist/*.sha256 --verify-tag --generate-notes --title "Go-pilot $RELEASE_TAG"
+          fi

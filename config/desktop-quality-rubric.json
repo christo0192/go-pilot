@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "stableThreshold": 90,
+  "dimensions": [
+    { "id": "resume-correctness", "weight": 25 },
+    { "id": "install-reliability", "weight": 20 },
+    { "id": "update-safety", "weight": 20 },
+    { "id": "voice-privacy-safety", "weight": 15 },
+    { "id": "regression-quality", "weight": 15 },
+    { "id": "documentation-operability", "weight": 5 }
+  ]
+}
