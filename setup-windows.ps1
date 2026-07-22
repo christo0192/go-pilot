@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$oldWslenv = $env:WSLENV
 $Distro = 'Ubuntu'
 $RepoUrl = 'https://github.com/christo0192/go-pilot.git'
 $RepoDir = '~/Go-pilot'
@@ -109,12 +110,23 @@ printf '\n[user]\ndefault=$linuxUser\n' >> /etc/wsl.conf
     Write-Host "Using existing Ubuntu user '$linuxUser'; its files and settings are preserved."
   }
 
-  $key = Read-Secret 'Paste WORKHORSE_GATEWAY_KEY (input is hidden)'
-  if ([string]::IsNullOrWhiteSpace($key)) { Fail 'A workhorse gateway key is required for a ready installation.' }
-  $oldWslenv = $env:WSLENV
-  $parts = @($oldWslenv -split ':' | Where-Object { $_ -and $_ -notmatch '^GOPILOT_WORKHORSE_KEY(?:/|$)' })
-  $env:WSLENV = (@($parts) + 'GOPILOT_WORKHORSE_KEY/u') -join ':'
-  $env:GOPILOT_WORKHORSE_KEY = $key
+  $hasExistingKey = $false
+  & wsl.exe -d $Distro -- bash -lc "grep -qE '^WORKHORSE_GATEWAY_KEY=.+$' $RepoDir/deploy/.env 2>/dev/null"
+  if ($LASTEXITCODE -eq 0) { $hasExistingKey = $true }
+  $keyPrompt = if ($hasExistingKey) {
+    'Paste a replacement WORKHORSE_GATEWAY_KEY, or press Enter to keep the installed key (input is hidden)'
+  } else {
+    'Paste WORKHORSE_GATEWAY_KEY (input is hidden)'
+  }
+  $key = Read-Secret $keyPrompt
+  if ([string]::IsNullOrWhiteSpace($key) -and -not $hasExistingKey) {
+    Fail 'A workhorse gateway key is required for a ready installation.'
+  }
+  if (-not [string]::IsNullOrWhiteSpace($key)) {
+    $parts = @($oldWslenv -split ':' | Where-Object { $_ -and $_ -notmatch '^GOPILOT_WORKHORSE_KEY(?:/|$)' })
+    $env:WSLENV = (@($parts) + 'GOPILOT_WORKHORSE_KEY/u') -join ':'
+    $env:GOPILOT_WORKHORSE_KEY = $key
+  }
 
   Step 'Installing base packages'
   Invoke-Wsl @('-u', 'root', '--', 'bash', '-c', 'export DEBIAN_FRONTEND=noninteractive; apt-get update -y >/dev/null && apt-get install -y ca-certificates curl git >/dev/null')
@@ -133,14 +145,25 @@ printf '\n[user]\ndefault=$linuxUser\n' >> /etc/wsl.conf
   Invoke-Wsl @('--', 'bash', '-lc', "cd $RepoDir && bash install.sh --one-click")
   Clear-Resume
 
-  Step 'Opening Herdr with Claude Code and Codex ready for subscription sign-in'
-  $launch = "wsl.exe -d $Distro -- bash /home/$linuxUser/Go-pilot/scripts/oneclick-launch.sh"
-  if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
-    Start-Process wt.exe -ArgumentList @('wsl.exe', '-d', $Distro, '--', 'bash', "/home/$linuxUser/Go-pilot/scripts/oneclick-launch.sh")
-  } else {
-    Start-Process cmd.exe -ArgumentList @('/c', 'start', 'Go-pilot', $launch)
+  Step 'Installing the Go-pilot Windows application shell'
+  $repoLinuxPath = "/home/$linuxUser/Go-pilot"
+  $repoWindowsPath = (& wsl.exe -d $Distro -u $linuxUser -- wslpath -w $repoLinuxPath).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repoWindowsPath)) {
+    Fail 'Could not resolve the Go-pilot WSL checkout as a Windows path.'
   }
-  Write-Host "`nREADY. In Herdr, run 'claude' and 'codex' once to complete subscription login." -ForegroundColor Green
+  $appInstaller = Join-Path $repoWindowsPath 'desktop\windows\Install-GoPilotApp.ps1'
+  & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $appInstaller `
+    -Distro $Distro -LinuxUser $linuxUser -RepoLinuxPath $repoLinuxPath -RepoWindowsPath $repoWindowsPath
+  if ($LASTEXITCODE -ne 0) { Fail 'The Go-pilot Windows application shell did not install.' }
+
+  Step 'Opening the resumable Go-pilot session'
+  $launcher = Join-Path $env:LOCALAPPDATA 'Programs\Go-pilot\GoPilot.ps1'
+  Start-Process powershell.exe -ArgumentList @(
+    '-NoLogo', '-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass',
+    '-File', "`"$launcher`"", '-Action', 'Launch'
+  )
+  Write-Host "`nREADY. Open Go-pilot from Start at any time; closing its terminal preserves the session." -ForegroundColor Green
+  Write-Host "In Herdr, run 'claude' and 'codex' once to complete subscription login." -ForegroundColor Green
   exit 0
 } catch {
   Write-Host "`nSETUP FAILED: $($_.Exception.Message)" -ForegroundColor Red
@@ -148,4 +171,5 @@ printf '\n[user]\ndefault=$linuxUser\n' >> /etc/wsl.conf
   exit 1
 } finally {
   $env:GOPILOT_WORKHORSE_KEY = $null
+  $env:WSLENV = $oldWslenv
 }

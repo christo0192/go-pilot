@@ -75,7 +75,8 @@ if [[ "$ONE_CLICK" == "1" ]]; then
 fi
 
 # Known-good tool versions (reproducibility + supply chain). Override via env.
-PI_VERSION="${GOPILOT_PI_VERSION:-0.80.6}"
+PI_VERSION="${GOPILOT_PI_VERSION:-0.81.1}"
+HERDR_VERSION="${GOPILOT_HERDR_VERSION:-0.7.3}"
 CLAUDE_VERSION="${GOPILOT_CLAUDE_VERSION:-2.1.215}"
 CODEX_VERSION="${GOPILOT_CODEX_VERSION:-0.144.6}"
 
@@ -100,6 +101,14 @@ run_doctor() {
   chk "pi-delegate on PATH"              '[ -e "$HOME/.local/bin/pi-delegate" ]'
   chk "Pi ikey provider registered"      'grep -q "\"ikey\"" "$HOME/.pi/agent/models.json"'
   chk "global orchestrate skill"         '[ -f "$HOME/.claude/skills/gopilot-orchestrate/SKILL.md" ]'
+  chk "official Herdr skill for Pi"       '[ -f "$HOME/.pi/agent/skills/herdr/SKILL.md" ]'
+  chk "official Herdr skill for Claude"   '[ -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/herdr/SKILL.md" ]'
+  chk "official Herdr skill for Codex"    '[ -f "${CODEX_HOME:-$HOME/.codex}/skills/herdr/SKILL.md" ]'
+  chk "Herdr Pi integration installed"    'herdr integration status | grep -qE "^pi: (current|installed)"'
+  chk "Herdr Claude integration installed" 'herdr integration status | grep -qE "^claude: (current|installed)"'
+  chk "Herdr Codex integration installed" 'herdr integration status | grep -qE "^codex: (current|installed)"'
+  chk "Go-pilot Pi skills registered"     'grep -qF '"'"'.pi/skills'"'"' "$HOME/.pi/agent/settings.json"'
+  chk "Pi tool-call repair registered"    'grep -qF '"'"'tool-call-repair.ts'"'"' "$HOME/.pi/agent/settings.json"'
   chk "repo CLAUDE.md present"           '[ -f CLAUDE.md ]'
   chk "unit tests pass"                  'node scripts/run-tests.mjs unit'
   log "Doctor: $okc/$checks checks OK"
@@ -116,6 +125,13 @@ warn() { printf '\033[1;33m    ! %s\033[0m\n' "$*"; }
 die()  { printf '\n\033[1;31mFATAL: %s\033[0m\n' "$*" >&2; exit 1; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+sha256_file() {
+  if have sha256sum; then sha256sum "$1" | awk '{print $1}'
+  elif have shasum; then shasum -a 256 "$1" | awk '{print $1}'
+  else die "No SHA-256 tool found (need sha256sum or shasum)."
+  fi
+}
 
 # Accumulated post-install TODOs, printed in the final report.
 TODOS=()
@@ -250,6 +266,52 @@ ensure_compose() {
 # SECTION 2 — Optional workhorse rig (Herdr + Pi), gated behind --full.
 # ===========================================================================
 
+install_herdr_official() {
+  have curl || die "curl is required to download Herdr from its official GitHub release."
+
+  local platform arch asset expected actual tmp version_ref
+  case "$OS" in
+    macos) platform="macos" ;;
+    wsl|linux) platform="linux" ;;
+  esac
+  case "$(uname -m)" in
+    x86_64|amd64) arch="x86_64" ;;
+    arm64|aarch64) arch="aarch64" ;;
+    *) die "Herdr has no pinned binary for architecture $(uname -m)." ;;
+  esac
+
+  asset="herdr-${platform}-${arch}"
+  expected="${GOPILOT_HERDR_SHA256:-}"
+  if [[ -z "$expected" && "$HERDR_VERSION" == "0.7.3" ]]; then
+    case "$asset" in
+      herdr-linux-x86_64) expected="043ef43ecbabda28465dcff1eec3184518150d567b8b8f20cda9c6c88770641d" ;;
+      herdr-linux-aarch64) expected="ea490094f2c7c39099870857d00c64c628ef7b5eba1967df4258033455ee2cb1" ;;
+      herdr-macos-x86_64) expected="9b5f35d283b0877eeda0cf66ba1ef1d95ae40f32e858a04da0041f3a20df027c" ;;
+      herdr-macos-aarch64) expected="b31345392d004ec1f1b2c821e1ad601019fa8385fe1e4c6931321eb58a920773" ;;
+    esac
+  fi
+  [[ "$expected" =~ ^[0-9a-fA-F]{64}$ ]] \
+    || die "No trusted Herdr SHA-256 is pinned for v${HERDR_VERSION} ${asset}. Set GOPILOT_HERDR_SHA256 explicitly."
+
+  version_ref="v${HERDR_VERSION#v}"
+  tmp="$(mktemp)"
+  if ! curl -fsSL "https://github.com/ogulcancelik/herdr/releases/download/${version_ref}/${asset}" -o "$tmp"; then
+    rm -f "$tmp"
+    die "Could not download the official Herdr ${version_ref} ${asset} release."
+  fi
+  actual="$(sha256_file "$tmp" | tr '[:upper:]' '[:lower:]')"
+  expected="$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$actual" != "$expected" ]]; then
+    rm -f "$tmp"
+    die "Herdr checksum mismatch for ${asset}: expected ${expected}, got ${actual}."
+  fi
+  mkdir -p "$HOME/.local/bin"
+  install -m 0755 "$tmp" "$HOME/.local/bin/herdr"
+  rm -f "$tmp"
+  export PATH="$HOME/.local/bin:$PATH"
+  info "installed official Herdr ${version_ref} (${asset}, SHA-256 verified)"
+}
+
 ensure_full_rig() {
   [[ "$FULL" == "1" ]] || { info "workhorse rig skipped (pass --full or GOPILOT_FULL=1 to include)"; return 0; }
 
@@ -263,33 +325,23 @@ ensure_full_rig() {
   npm config set prefix "$npm_prefix"
   export PATH="$HOME/.local/bin:$npm_prefix/bin:$PATH"
 
-  if have pi; then
-    info "pi present, skipping"
+  local installed_pi_version=""
+  have pi && installed_pi_version="$(pi --version 2>/dev/null | awk 'NR == 1 { print $NF }' || true)"
+  if [[ "$installed_pi_version" == "${PI_VERSION#v}" ]]; then
+    info "pi ${PI_VERSION#v} present, skipping"
   else
-    info "installing Pi (pi-coding-agent) @ ${PI_VERSION} (pinned; override GOPILOT_PI_VERSION)…"
+    info "installing/updating official Pi (pi-coding-agent) @ ${PI_VERSION} (pinned; override GOPILOT_PI_VERSION)…"
     npm i -g --ignore-scripts "@earendil-works/pi-coding-agent@${PI_VERSION}"
+    [[ "$(pi --version 2>/dev/null | awk 'NR == 1 { print $NF }')" == "${PI_VERSION#v}" ]] \
+      || die "Pi install did not yield pinned version ${PI_VERSION#v}."
   fi
 
-  if have herdr; then
-    info "herdr present, skipping"
+  if have herdr && [[ "$(herdr --version 2>/dev/null | awk '{print $NF}')" == "${HERDR_VERSION#v}" ]]; then
+    info "herdr ${HERDR_VERSION#v} present, skipping"
   else
-    # Herdr is the terminal substrate the rig runs on — install it, don't just
-    # advise (a fresh machine previously ended with `herdr: command not found`).
-    info "installing herdr…"
-    case "$OS" in
-      macos)
-        if have brew; then brew install herdr
-        else curl -fsSL https://herdr.dev/install.sh | sh; fi ;;
-      wsl|linux)
-        curl -fsSL https://herdr.dev/install.sh | sh ;;
-    esac
-    # The official installer lands in ~/.local/bin — pick it up for THIS session.
-    export PATH="$HOME/.local/bin:$PATH"
-    if have herdr; then info "installed $(herdr --version 2>/dev/null | head -1)"
-    else
-      warn "herdr install did not yield a binary on PATH."
-      add_todo "Install Herdr manually: curl -fsSL https://herdr.dev/install.sh | sh (see docs/environments.md)."
-    fi
+    info "installing Herdr ${HERDR_VERSION#v} from the official GitHub release…"
+    install_herdr_official
+    have herdr || die "Herdr installed but is not on PATH."
   fi
 
   persist_path_entries
@@ -323,6 +375,68 @@ ensure_frontier_clis() {
 
   info "Subscription credentials are not collected by Go-pilot. Run each CLI once to sign in."
   persist_path_entries
+}
+
+install_verified_herdr_skill() {
+  local lock="deploy/herdr-skill.lock.json" url expected actual tmp destination
+  local claude_config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  local codex_config_dir="${CODEX_HOME:-$HOME/.codex}"
+  [[ -f "$lock" ]] || die "Missing $lock; cannot verify the official Herdr skill."
+  url="$(node -e 'const x=require("./deploy/herdr-skill.lock.json"); process.stdout.write(x.url)' 2>/dev/null)"
+  expected="$(node -e 'const x=require("./deploy/herdr-skill.lock.json"); process.stdout.write(x.sha256)' 2>/dev/null)"
+  [[ "$url" == https://raw.githubusercontent.com/ogulcancelik/herdr/*/SKILL.md ]] \
+    || die "Herdr skill lock points outside the official repository."
+  [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || die "Herdr skill lock has an invalid SHA-256."
+
+  tmp="$(mktemp)"
+  if ! curl -fsSL "$url" -o "$tmp"; then
+    rm -f "$tmp"
+    die "Could not download the locked official Herdr skill."
+  fi
+  actual="$(sha256_file "$tmp")"
+  if [[ "$actual" != "$expected" ]]; then
+    rm -f "$tmp"
+    die "Official Herdr skill checksum mismatch: expected ${expected}, got ${actual}."
+  fi
+
+  for destination in \
+    "$HOME/.pi/agent/skills/herdr/SKILL.md" \
+    "$claude_config_dir/skills/herdr/SKILL.md" \
+    "$codex_config_dir/skills/herdr/SKILL.md"; do
+    mkdir -p "$(dirname "$destination")"
+    install -m 0644 "$tmp" "$destination"
+  done
+  rm -f "$tmp"
+  info "installed verified official Herdr command skill for Pi, Claude, and Codex"
+}
+
+ensure_agent_integrations() {
+  [[ "$FULL" == "1" ]] || return 0
+  log "Official Herdr integrations + agent command skills"
+  have herdr || die "Herdr is required before its agent integrations can be installed."
+  have node || die "Node is required to merge Pi resources safely."
+
+  # Herdr intentionally refuses to guess Pi's global resource root when the
+  # extension directory has never existed. Seed only the standard directories;
+  # the official integration command owns the files it places inside them.
+  mkdir -p "$HOME/.pi/agent/extensions" \
+    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" "${CODEX_HOME:-$HOME/.codex}"
+
+  local integration
+  for integration in pi claude codex; do
+    if herdr integration install "$integration" >/dev/null; then
+      info "installed Herdr ${integration} integration"
+    elif [[ "$ONE_CLICK" == "1" ]]; then
+      die "Herdr could not install its ${integration} integration."
+    else
+      warn "Herdr could not install its ${integration} integration."
+      add_todo "Run: herdr integration install ${integration}"
+    fi
+  done
+
+  install_verified_herdr_skill
+  node scripts/install-pi-resources.mjs "$HOME/.pi/agent/settings.json" "$PWD"
+  info "registered Go-pilot's Pi skills and tool-call repair extension globally"
 }
 
 # Make ~/.local/bin and the npm global bin dir survive into FUTURE shells: the
@@ -698,6 +812,22 @@ validate_one_click() {
   [[ -f deploy/.env ]] || { warn "MISS deploy/.env"; failed=1; }
   grep -qE '^WORKHORSE_GATEWAY_KEY=.+$' deploy/.env \
     || { warn "MISS WORKHORSE_GATEWAY_KEY"; failed=1; }
+  for item in \
+    "$HOME/.pi/agent/skills/herdr/SKILL.md" \
+    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/herdr/SKILL.md" \
+    "${CODEX_HOME:-$HOME/.codex}/skills/herdr/SKILL.md"; do
+    [[ -f "$item" ]] || { warn "MISS $item"; failed=1; }
+  done
+  herdr integration status | grep -qE '^pi: (current|installed)' \
+    || { warn "MISS Herdr Pi integration"; failed=1; }
+  herdr integration status | grep -qE '^claude: (current|installed)' \
+    || { warn "MISS Herdr Claude integration"; failed=1; }
+  herdr integration status | grep -qE '^codex: (current|installed)' \
+    || { warn "MISS Herdr Codex integration"; failed=1; }
+  grep -qF '.pi/skills' "$HOME/.pi/agent/settings.json" \
+    || { warn "MISS Go-pilot Pi skills registration"; failed=1; }
+  grep -qF 'tool-call-repair.ts' "$HOME/.pi/agent/settings.json" \
+    || { warn "MISS Pi tool-call repair registration"; failed=1; }
   [[ "$TEST_RESULT" == "passed" ]] || { warn "FAIL repository tests"; failed=1; }
   [[ "$failed" == "0" ]] || die "Required acceptance checks failed. Fix the items above and re-run setup."
   info "All required local components are ready. Account sign-in is the only remaining interactive step."
@@ -744,6 +874,7 @@ main() {
   ensure_compose
   ensure_full_rig
   ensure_frontier_clis
+  ensure_agent_integrations
   ensure_tools
   ensure_herdr_config
 

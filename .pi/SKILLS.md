@@ -19,8 +19,11 @@ same stages the team already knows from the pure-Anthropic (Claude Code / GSD) p
 These live in `.pi/skills/`, so **Pi auto-discovers them** whenever `pi` runs anywhere in this repo
 (project skills are loaded from `.pi/skills/` in cwd and ancestors up to the git root, per
 `docs/skills.md`). Each skill is a directory containing a `SKILL.md` with `name` + `description`
-frontmatter. No settings entry is needed. The project must be **trusted** for project-local skills to
-load (`pi -a` / `--approve` for a one-shot headless run, or accept the trust prompt interactively).
+frontmatter. No settings entry is needed for repo-local use. The full Go-pilot installer additionally
+merges this directory into Pi's global `skills` list, so the workflow is available when Go-pilot is
+driving another repository; existing settings are preserved. The project must be **trusted** for
+project-local resources to load (`pi -a` / `--approve` for a one-shot headless run, or accept the
+trust prompt interactively).
 
 Invoke a skill with `/skill:<name>`; any text after the command is appended as `User: <args>`, e.g.
 `/skill:phase-0-align add a dark-mode toggle`.

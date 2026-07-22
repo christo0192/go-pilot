@@ -29,6 +29,9 @@ test("Windows setup pins every Linux command to Ubuntu and masks key entry", () 
   assert.match(ps, /\$_ -replace "`0", ''/);
   assert.doesNotMatch(ps, /\.Replace\(\[char\]0, ''\)/);
   assert.match(ps, /Final one-click acceptance gate|install\.sh --one-click/);
+  assert.match(ps, /Install-GoPilotApp\.ps1/);
+  assert.match(ps, /Programs\\Go-pilot\\GoPilot\.ps1/);
+  assert.match(ps, /resumable Go-pilot session/);
 });
 
 test("the downloadable batch bootstrap fetches its PowerShell companion", () => {
@@ -51,4 +54,76 @@ test("one-click readiness requires both subscription CLIs and workhorse key", ()
   assert.match(sh, /MISS WORKHORSE_GATEWAY_KEY/);
   assert.match(sh, /@anthropic-ai\/claude-code/);
   assert.match(sh, /@openai\/codex/);
+});
+
+test("desktop launcher preserves a named headless Herdr session", () => {
+  const session = readFileSync(join(root, "scripts/gopilot-session.sh"), "utf8");
+  const launch = readFileSync(join(root, "scripts/oneclick-launch.sh"), "utf8");
+  assert.match(session, /GOPILOT_HERDR_SESSION:-gopilot/);
+  assert.match(session, /nohup setsid herdr --session "\$SESSION" server/);
+  assert.match(session, /pane_is_idle_shell/);
+  assert.match(session, /scripts\/pi-resume\.sh/);
+  assert.doesNotMatch(launch, /herdr server[^-]/);
+  assert.match(launch, /gopilot-session\.sh" attach/);
+});
+
+test("Pi recovery uses its dedicated persisted session store", () => {
+  const resume = readFileSync(join(root, "scripts/pi-resume.sh"), "utf8");
+  assert.match(resume, /\.local\/share\/gopilot\/pi-sessions/);
+  assert.match(resume, /--session-dir "\$SESSION_DIR" --continue/);
+});
+
+test("voice installer pins and verifies both executable and model", () => {
+  const ps = readFileSync(join(root, "desktop/windows/Install-GoPilotVoice.ps1"), "utf8");
+  assert.match(ps, /v1\.9\.1/);
+  assert.match(ps, /7d8be46ecd31828e1eb7a2ecdd0d6b314feafd82163038ab6092594b0a063539/);
+  assert.match(ps, /bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30/);
+  assert.match(ps, /Get-FileHash -Algorithm SHA256/);
+});
+
+test("voice paste is terminal-scoped and never submits Enter", () => {
+  const ps = readFileSync(join(root, "desktop/windows/GoPilotVoice.ps1"), "utf8");
+  assert.match(ps, /allowedProcesses/);
+  assert.match(ps, /SendWait\('\^\+v'\)/);
+  assert.doesNotMatch(ps, /SendWait\([^\n]*(?:ENTER|~)/i);
+});
+
+test("update policy validates candidates and only fast-forwards", () => {
+  const sh = readFileSync(join(root, "scripts/gopilot-update.sh"), "utf8");
+  const resolver = readFileSync(join(root, "scripts/gopilot-update-target.mjs"), "utf8");
+  assert.match(sh, /tracked local changes detected/);
+  assert.match(sh, /worktree add --quiet --detach/);
+  assert.match(sh, /merge --ff-only/);
+  assert.match(sh, /node scripts\/run-tests\.mjs unit/);
+  assert.match(resolver, /run\.name === "CI"/);
+  assert.match(resolver, /run\.conclusion === "success"/);
+});
+
+test("official Herdr skill is locked and installed for every frontier surface", () => {
+  const lock = JSON.parse(readFileSync(join(root, "deploy/herdr-skill.lock.json"), "utf8"));
+  const sh = readFileSync(join(root, "install.sh"), "utf8");
+  assert.equal(lock.repository, "https://github.com/ogulcancelik/herdr");
+  assert.match(lock.ref, /^v\d+\.\d+\.\d+$/);
+  assert.match(lock.sha256, /^[0-9a-f]{64}$/);
+  assert.match(sh, /herdr integration install "\$integration"/);
+  assert.match(sh, /\.pi\/agent\/skills\/herdr/);
+  assert.match(sh, /claude_config_dir\/skills\/herdr/);
+  assert.match(sh, /codex_config_dir\/skills\/herdr/);
+  assert.match(sh, /CLAUDE_CONFIG_DIR/);
+  assert.match(sh, /CODEX_HOME/);
+});
+
+test("Pi resource merger preserves user settings and is idempotent", () => {
+  const dir = mkdtempSync(join(tmpdir(), "gopilot-pi-settings-"));
+  const settings = join(dir, "settings.json");
+  writeFileSync(settings, JSON.stringify({ theme: "kept", skills: ["/user/skill"] }));
+  const script = join(root, "scripts/install-pi-resources.mjs");
+  for (let i = 0; i < 2; i += 1) {
+    const result = spawnSync(process.execPath, [script, settings, root], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const merged = JSON.parse(readFileSync(settings, "utf8"));
+  assert.equal(merged.theme, "kept");
+  assert.deepEqual(merged.skills.filter(x => x === join(root, ".pi", "skills")), [join(root, ".pi", "skills")]);
+  assert.deepEqual(merged.extensions, [join(root, ".pi", "extensions", "tool-call-repair.ts")]);
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Final step of the one-click setup: the window this runs in BECOMES the herdr
-# terminal. Started by setup.cmd (Windows) in a fresh console, or run directly
-# on macOS/WSL. Starts the herdr server if needed, then attaches the UI.
+# Final step of the one-click setup: the window this runs in becomes the Herdr
+# client. The named server is started headlessly by gopilot-session.sh and stays
+# alive when this visible terminal closes, so the next launch resumes it.
 set -uo pipefail
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 cd "$HOME/Go-pilot" 2>/dev/null || cd "$(dirname "${BASH_SOURCE[0]}")/.." || true
@@ -26,7 +26,4 @@ echo "Go-pilot is ready. Claude Code and Codex use subscription login."
 echo "In this Herdr terminal, run 'claude' and 'codex' once to sign in."
 echo
 
-# Idempotent: starting the server when one is already up is a harmless no-op.
-(herdr server >/dev/null 2>&1 &)
-sleep 2
-exec herdr
+exec bash "$PWD/scripts/gopilot-session.sh" attach

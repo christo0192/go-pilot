@@ -14,6 +14,7 @@
     "test:all": "node scripts/run-tests.mjs all",
     "check:routing": "node scripts/routing-consistency.mjs",
     "check:metrics": "node scripts/baseline-rig/production-metrics.mjs --check",
+    "check:desktop": "node scripts/desktop-quality-score.mjs",
     "metrics:production": "node scripts/baseline-rig/production-metrics.mjs --write",
     "gopilot": "node bin/gopilot.mjs",
     "run:task": "node bin/gopilot.mjs run"

@@ -4,6 +4,20 @@
 
 Hardening + empirical validation on top of the tagged release.
 
+### Desktop application, continuity, and voice
+- Added a per-user Windows application shell with a Go-pilot icon, Start menu/Desktop shortcuts,
+  Installed Apps entry, doctor/update/rollback/uninstall actions, and a named headless Herdr server.
+- Closing the visible terminal now detaches without stopping work. Reopening attaches to the same
+  live panes; after a server/WSL restart the workspace is restored and Pi continues its dedicated
+  persisted conversation.
+- Added opt-in, fully local F8 dictation using pinned SHA-256-verified `whisper.cpp` binaries and a
+  quantized model. Transcripts paste only to allowlisted terminals and are never auto-submitted.
+- Added stable and CI-gated nightly update channels with isolated candidate tests, fast-forward-only
+  activation, dirty-tree protection, and explicit rollback.
+- Setup now installs pinned official Pi/Herdr builds, Herdr's official Pi/Claude/Codex integrations,
+  and a checksum-locked official Herdr command skill for every agent. Bundled Pi skills and the
+  tool-call repair extension are merged into global Pi settings without clobbering user config.
+
 ### Model routing (benchmark-driven)
 - **Kimi K2.5** replaces K2.6 for document-QA and extraction: doc-QA 3-trial confirmed (97.1,
   beats DeepSeek every fixture); extraction schema-validated in a pre-registered production-gate
