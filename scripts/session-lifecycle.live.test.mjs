@@ -27,6 +27,18 @@ function foreground(session) {
   return data.result.process_info.foreground_processes[0];
 }
 
+function waitForForeground(session, expectedName, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  let process;
+  while (Date.now() < deadline) {
+    try { process = foreground(session); } catch {}
+    if (process?.name === expectedName) return process;
+    spawnSync("sleep", ["0.1"]);
+  }
+  assert.equal(process?.name, expectedName, `managed command did not become ${expectedName}`);
+  return process;
+}
+
 test("named headless session reuses a live process and recovers after restart", { skip: !hasHerdr }, () => {
   const suffix = `${process.pid}-${Date.now()}`;
   const session = `gopilot-live-${suffix}`;
@@ -40,18 +52,16 @@ test("named headless session reuses a live process and recovers after restart", 
   try {
     let result = run(["start"], env);
     assert.equal(result.status, 0, result.stderr);
-    const first = foreground(session);
-    assert.equal(first.name, "sleep");
+    const first = waitForForeground(session, "sleep");
 
     result = run(["start"], env);
     assert.equal(result.status, 0, result.stderr);
-    const reused = foreground(session);
+    const reused = waitForForeground(session, "sleep");
     assert.equal(reused.pid, first.pid, "ordinary reopen must not duplicate the managed process");
 
     result = run(["restart"], env);
     assert.equal(result.status, 0, result.stderr);
-    const recovered = foreground(session);
-    assert.equal(recovered.name, "sleep");
+    const recovered = waitForForeground(session, "sleep");
     assert.notEqual(recovered.pid, first.pid, "server restart must recreate the managed process");
 
     const workspaces = herdr(["--session", session, "workspace", "list"]);
