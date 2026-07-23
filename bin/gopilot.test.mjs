@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { parseArgs, resolveMem0Config } from "./gopilot.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BIN = join(ROOT, "bin", "gopilot.mjs");
@@ -51,4 +53,47 @@ test("top-level --help works and unknown flags fail closed", (t) => {
   const bad = run(["run", "--typo", "task"]);
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /unknown option/);
+});
+
+test("CLI enables bounded summary promotion by default with an explicit opt-out", () => {
+  const defaults = parseArgs([]);
+  assert.equal(defaults.remember, true);
+  assert.equal(defaults.kind, "summary");
+  assert.equal(parseArgs(["--no-remember"]).remember, false);
+  assert.equal(parseArgs(["--kind", "decision"]).kind, "decision");
+});
+
+test("Mem0 config loads installer-managed env and shell overrides it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "gopilot-mem0-config-"));
+  const envPath = join(dir, ".env");
+  writeFileSync(envPath, [
+    "MEM0_BASE_URL=http://127.0.0.1:8888",
+    "MEM0_MIN_SCORE=0.42",
+    "MEM0_ADMIN_API_KEY=file-key",
+  ].join("\n"));
+
+  assert.deepEqual(resolveMem0Config({ env: {}, envPath }), {
+    baseUrl: "http://127.0.0.1:8888",
+    minScore: 0.42,
+    apiKey: "file-key",
+  });
+  assert.deepEqual(resolveMem0Config({
+    env: { MEM0_BASE_URL: "http://override:9999", MEM0_MIN_SCORE: "0.7", MEM0_ADMIN_API_KEY: "shell-key" },
+    envPath,
+  }), {
+    baseUrl: "http://override:9999",
+    minScore: 0.7,
+    apiKey: "shell-key",
+  });
+});
+
+test("Mem0 config stays optional and rejects an invalid relevance floor", () => {
+  const dir = mkdtempSync(join(tmpdir(), "gopilot-mem0-optional-"));
+  const envPath = join(dir, ".env");
+  writeFileSync(envPath, "MEM0_ADMIN_API_KEY=   # prod-only; intentionally blank\n");
+  assert.deepEqual(resolveMem0Config({ env: { MEM0_MIN_SCORE: "9" }, envPath }), {
+    baseUrl: undefined,
+    apiKey: undefined,
+    minScore: 0.3,
+  });
 });

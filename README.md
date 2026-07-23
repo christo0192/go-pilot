@@ -101,6 +101,8 @@ panes spawn, work, report back, and close. Optional extras:
 ```bash
 # other keys in deploy/.env (all optional):
 #   OPENAI_API_KEY=...       # Mem0's embedder (pure-anthropic has no embeddings API; ~free)
+# Re-run setup after adding the key: it starts/upgrades Mem0 and connects gopilot
+# through MEM0_BASE_URL. MEM0_MIN_SCORE=0.3 controls the recall relevance floor.
 #   OPENROUTER_API_KEY=...   # activates the LOCAL LiteLLM workhorse — one key, every open model
 
 docker compose -f deploy/docker-compose.yml up -d   # Mem0 memory (+ LiteLLM for local gateway)
@@ -122,7 +124,8 @@ Full details, idempotency, and uninstall: [`docs/INSTALL.md`](docs/INSTALL.md).
 | You want to… | Do this |
 |---|---|
 | Inspect a governed route without running a model | `npm run gopilot -- run --dry-run --category code "task"` |
-| Run a governed live task | `npm run gopilot -- run --category code --cwd /path/to/repo "task"` |
+| Run a governed live task (recall + auto-promotion when Mem0 is enabled) | `npm run gopilot -- run --category code --cwd /path/to/repo "task"` |
+| Run without writing memory | `npm run gopilot -- run --no-remember --category code "task"` |
 | Launch an interactive Pi workhorse agent (skills + extensions loaded) | `./scripts/pi-ikey.sh` |
 | Orchestrate panes (frontier + workhorse) | `herdr server` then `herdr` — see [`panes/herdr-orchestration.md`](panes/herdr-orchestration.md) |
 | Dispatch a lean frontier worker | `scripts/lean-worker.sh` (claude) · `scripts/lean-codex-worker.sh` (codex) |

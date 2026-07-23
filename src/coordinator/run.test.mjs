@@ -36,12 +36,13 @@ function fakeRetriever(text) {
 /** Spy adapter: real deterministic mock underneath, call counters on top. */
 function makeSpyAdapter() {
   const inner = createMockMem0();
-  const calls = { add: 0, search: 0 };
+  const calls = { add: 0, search: 0, added: [] };
   return {
     calls,
     inner,
     add(memory) {
       calls.add += 1;
+      calls.added.push(memory);
       return inner.add(memory);
     },
     search(query, topK) {
@@ -273,6 +274,27 @@ test("validation failure: a 'TODO' result is NOT promoted and verdict is 'failed
   assert.ok(res.failures.some((f) => f.name === "noPlaceholders"));
   // Nothing landed in Tier-2.
   assert.equal(adapter.inner.search("would-be keeper").length, 0);
+});
+
+test("automatic promotion bounds a successful result to 1200 characters", async () => {
+  const adapter = makeSpyAdapter();
+  const text = "validated result " + "x".repeat(2000);
+  const res = await runTask(
+    { category: "code", prompt: "x", kind: "summary" },
+    {
+      profile: "pure-anthropic",
+      adapter,
+      dispatch: () => ({ result: { text }, usage: {} }),
+      retrieve: false,
+      rules: false,
+      captureWorkspace: false,
+    },
+  );
+
+  assert.equal(res.promoted, true);
+  assert.equal(adapter.calls.add, 1);
+  assert.equal(adapter.calls.added[0].kind, "summary");
+  assert.equal(adapter.calls.added[0].text, text.slice(0, 1200));
 });
 
 test("sign-off gate: requested multi-agent with NO sign-off is forced to single-agent (real downgrade)", async () => {

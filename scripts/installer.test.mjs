@@ -20,6 +20,27 @@ test("env key writer treats shell metacharacters as literal data and uses mode 6
   if (process.platform !== "win32") assert.equal(statSync(envFile).mode & 0o777, 0o600);
 });
 
+test("env default migration preserves existing values and adds new keys idempotently", () => {
+  const dir = mkdtempSync(join(tmpdir(), "gopilot-env-merge-"));
+  const template = join(dir, ".env.example");
+  const target = join(dir, ".env");
+  writeFileSync(template, "EXISTING=template\nMEM0_BASE_URL=\nMEM0_MIN_SCORE=0.3\n");
+  writeFileSync(target, "EXISTING=user-secret\n", { mode: 0o644 });
+
+  for (let i = 0; i < 2; i += 1) {
+    const result = spawnSync(process.execPath, [join(root, "scripts/merge-env-defaults.mjs"), template, target], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+  }
+
+  const migrated = readFileSync(target, "utf8");
+  assert.match(migrated, /^EXISTING=user-secret$/m);
+  assert.equal((migrated.match(/^MEM0_BASE_URL=/gm) || []).length, 1);
+  assert.equal((migrated.match(/^MEM0_MIN_SCORE=0\.3$/gm) || []).length, 1);
+  if (process.platform !== "win32") assert.equal(statSync(target).mode & 0o777, 0o600);
+});
+
 test("Windows setup pins every Linux command to Ubuntu and masks key entry", () => {
   const ps = readFileSync(join(root, "setup-windows.ps1"), "utf8");
   assert.match(ps, /& wsl\.exe -d \$Distro @Arguments/);
@@ -54,6 +75,8 @@ test("one-click readiness requires both subscription CLIs and workhorse key", ()
   assert.match(sh, /MISS WORKHORSE_GATEWAY_KEY/);
   assert.match(sh, /@anthropic-ai\/claude-code/);
   assert.match(sh, /@openai\/codex/);
+  assert.match(sh, /merge-env-defaults\.mjs/);
+  assert.match(sh, /up -d --build --remove-orphans/);
 });
 
 test("desktop launcher preserves a named headless Herdr session", () => {

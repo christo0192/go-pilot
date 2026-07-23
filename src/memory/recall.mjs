@@ -83,11 +83,18 @@ function truncatedFirst(memory, maxTokens) {
 export async function recall(adapter, context, opts = {}) {
   const topK = opts.topK ?? 5;
   const maxTokens = opts.maxTokens ?? 300;
+  const minScore = opts.minScore ?? 0;
   const maxLen = maxTokens * 4;
 
   const query = deriveQuery(context);
-  const hits = query.trim() === "" ? [] : await adapter.search(query, topK);
-  if (!hits || hits.length === 0) {
+  const raw = query.trim() === "" ? [] : await adapter.search(query, topK);
+  // Relevance floor: drop hits below minScore so weakly-related memories do not
+  // pollute unrelated runs. A hit with no numeric score is kept (mock adapters
+  // and score-less backends are unaffected; default minScore 0 keeps all).
+  const hits = (raw || []).filter(
+    (h) => typeof h?.score !== "number" || h.score >= minScore,
+  );
+  if (hits.length === 0) {
     return { text: "", used: [], tokens: 0 };
   }
 

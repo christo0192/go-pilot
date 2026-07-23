@@ -55,15 +55,18 @@ What it does:
    integrations for `pi`, `claude`, and `codex`. It downloads the official Herdr `SKILL.md` from
    the locked release in `deploy/herdr-skill.lock.json`, verifies its SHA-256, and installs it for
    every agent. Existing Pi settings are merged, never replaced.
-4. `cp deploy/.env.example deploy/.env` (only if `deploy/.env` is absent).
+4. Creates `deploy/.env` when absent. On upgrades, adds newly introduced keys
+   without changing existing values or secrets. When `OPENAI_API_KEY` is set,
+   it also enables the installer-managed `MEM0_BASE_URL`.
 5. Sparse-clones the Mem0 server into `deploy/mem0-src` (blobless, depth 1):
    ```bash
    git clone --filter=blob:none --no-checkout --depth 1 \
      https://github.com/mem0ai/mem0.git deploy/mem0-src
    cd deploy/mem0-src && git sparse-checkout set server && git checkout && cd -
    ```
-6. `docker compose -f deploy/docker-compose.yml up -d`.
-7. Runs `node --test` and polls `http://localhost:8888/docs` for HTTP 200.
+6. `docker compose -f deploy/docker-compose.yml up -d --build --remove-orphans`;
+   named memory volumes are preserved while stale containers are upgraded.
+7. Runs `node --test` and polls `http://127.0.0.1:8888/docs` for HTTP 200.
 8. Prints a **✅ Go-pilot ready** report (OS, node/docker versions, Mem0 URL, TODOs).
 
 ### Preloaded Herdr pane commands
