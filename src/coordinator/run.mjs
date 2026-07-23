@@ -362,7 +362,9 @@ export async function runTask(task = {}, opts = {}) {
 
   let promoted = false;
   if (gate.passed && opts.adapter) {
-    const memory = task.memory || { text: resultText(result), kind: task.kind, tags: task.tags };
+    // Cap the auto-distilled keeper text so a large result never bloats Tier-2.
+    const memory = task.memory ||
+      { text: resultText(result).slice(0, 1200), kind: task.kind, tags: task.tags };
     const report = await promote([{ memory, checks }], opts.adapter);
     promoted = report.promoted.length > 0;
   }

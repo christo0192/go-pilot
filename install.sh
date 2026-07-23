@@ -4,15 +4,15 @@
 #
 # Brings a fresh machine to a working Go-pilot "pure-anthropic core":
 #   - ensures Node >=22, Docker, and the docker-compose plugin are present
-#   - templates deploy/.env from the committed example (never overwrites)
+#   - templates deploy/.env and merges new default keys without changing values
 #   - fetches the Mem0 build context (sparse clone) if missing
 #   - brings up the Tier-2 memory stack (Mem0 + pgvector) via docker compose
 #   - smoke-tests (node --test) and waits for Mem0 to answer on :8888
 #
 # IDEMPOTENCY: a second run makes NO destructive changes. Every install/mutation
-# is guarded by a presence check (have / file-exists / dir-exists). Re-running only
-# (re)starts already-built services and re-verifies. It never re-clones, never
-# re-installs a present tool, and never overwrites an existing deploy/.env.
+# is guarded by a presence check (have / file-exists / dir-exists). Re-running
+# never re-clones or re-installs a present tool; it safely adds newly introduced
+# env keys and rebuilds/recreates services while preserving named data volumes.
 #
 # The frontier plane (claude / codex) uses native subscription login — NO API keys
 # needed. The only key Mem0 wants is OPENAI_API_KEY (embedder); fill it in deploy/.env.
@@ -43,7 +43,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -
 cd "$SCRIPT_DIR"
 
 COMPOSE_FILE="deploy/docker-compose.yml"
-MEM0_URL="http://localhost:8888"
+MEM0_URL="http://127.0.0.1:8888"
 MEM0_SRC="deploy/mem0-src"
 
 # --full flag OR GOPILOT_FULL=1 enables the optional workhorse rig.
@@ -97,6 +97,7 @@ run_doctor() {
   chk "codex present (frontier agent)"     'have codex'
   chk "deploy/.env exists"               '[ -f deploy/.env ]'
   chk "WORKHORSE_GATEWAY_KEY set in deploy/.env" 'grep -qE "^WORKHORSE_GATEWAY_KEY=.+" deploy/.env'
+  chk "Mem0 URL configured when embedder is enabled" '! grep -qE "^OPENAI_API_KEY=.+" deploy/.env || grep -qE "^MEM0_BASE_URL=.+" deploy/.env'
   chk "deploy/.env permissions 600"      '[ "$(stat -c %a deploy/.env 2>/dev/null || stat -f %Lp deploy/.env)" = "600" ]'
   chk "pi-delegate on PATH"              '[ -e "$HOME/.local/bin/pi-delegate" ]'
   chk "Pi ikey provider registered"      'grep -q "\"ikey\"" "$HOME/.pi/agent/models.json"'
@@ -622,7 +623,7 @@ ensure_herdr_config() {
 }
 
 # ===========================================================================
-# SECTION 3 — Config templating (idempotent — never overwrites).
+# SECTION 3 — Config templating (idempotent — preserves existing values).
 # ===========================================================================
 
 ensure_env() {
@@ -634,7 +635,11 @@ ensure_env() {
     info "created deploy/.env (chmod 600) — fill OPENAI_API_KEY (embedder key for Mem0 search)."
     add_todo "Fill OPENAI_API_KEY in deploy/.env (Mem0 embedder key)."
   else
-    info "deploy/.env exists, leaving as-is"
+    # Add keys introduced by newer releases without overwriting user values.
+    # This is the upgrade path for already-installed Go-pilot checkouts.
+    local merged
+    merged="$(node scripts/merge-env-defaults.mjs deploy/.env.example deploy/.env)"
+    info "deploy/.env exists; merged missing defaults: $merged"
   fi
   # One-click key injection: place the workhorse key in the CORRECT field. A
   # first-time user previously pasted it into OPENAI_API_KEY by hand and the
@@ -649,6 +654,12 @@ ensure_env() {
       chmod 600 deploy/.env
       info "injected WORKHORSE_GATEWAY_KEY into deploy/.env"
     fi
+  fi
+  # Persistent memory remains opt-in. Once the embedder key is present, connect
+  # the supported CLI to the installer-managed local service automatically.
+  if grep -qE '^OPENAI_API_KEY=.+$' deploy/.env && ! grep -qE '^MEM0_BASE_URL=.+$' deploy/.env; then
+    GOPILOT_ENV_VALUE="$MEM0_URL" node scripts/set-env-key.mjs deploy/.env MEM0_BASE_URL
+    info "enabled persistent memory at $MEM0_URL"
   fi
 }
 
@@ -719,7 +730,7 @@ ensure_mem0_src() {
 # ===========================================================================
 
 bring_up_services() {
-  log "Bringing up Mem0 + pgvector (docker compose up -d)"
+  log "Bringing up Mem0 + pgvector (docker compose up -d --build)"
   if ! grep -qE '^OPENAI_API_KEY=.+$' deploy/.env; then
     MEM0_STATUS="disabled (optional: add OPENAI_API_KEY)"
     info "OPENAI_API_KEY is blank; optional Mem0 memory remains disabled."
@@ -745,9 +756,10 @@ bring_up_services() {
       return 0
     fi
   fi
-  # First run builds the Mem0 image from the sparse checkout; re-runs are a no-op
-  # for already-built/running services (compose is declarative + idempotent).
-  "${compose[@]}" -f "$COMPOSE_FILE" up -d
+  # --build also upgrades an existing installation to the checked-in Dockerfile;
+  # Compose recreates containers when bindings/config changed and preserves the
+  # named Postgres/history volumes.
+  "${compose[@]}" -f "$COMPOSE_FILE" up -d --build --remove-orphans
 }
 
 # ===========================================================================

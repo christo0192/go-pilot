@@ -6,9 +6,9 @@ if (!path || !name || !/^[A-Z][A-Z0-9_]*$/.test(name)) {
   console.error("usage: set-env-key.mjs <env-file> <UPPERCASE_NAME>");
   process.exit(2);
 }
-const value = process.env.GOPILOT_WORKHORSE_KEY;
+const value = process.env.GOPILOT_ENV_VALUE ?? process.env.GOPILOT_WORKHORSE_KEY;
 if (!value || /[\r\n\0]/.test(value)) {
-  console.error("GOPILOT_WORKHORSE_KEY is empty or contains a forbidden newline/NUL");
+  console.error("GOPILOT_ENV_VALUE/GOPILOT_WORKHORSE_KEY is empty or contains a forbidden newline/NUL");
   process.exit(2);
 }
 

@@ -4,6 +4,11 @@ import assert from "node:assert/strict";
 import { createMockMem0 } from "./mem0-adapter.mjs";
 import { recall } from "./recall.mjs";
 
+/** Stub adapter returning fixed scored hits, to test the minScore floor. */
+function scoredAdapter(hits) {
+  return { add() {}, async search() { return hits; } };
+}
+
 /** Repo-wide token proxy, duplicated so the test is independent of the module. */
 const proxy = (str) => Math.ceil(str.length / 4);
 
@@ -97,4 +102,31 @@ test("array and { query } context forms both derive a working query", async () =
   const fromObj = await recall(m, { query: "toon encoding token" }, {});
   assert.ok(fromArray.used.some((mem) => mem.id === "b"));
   assert.ok(fromObj.used.some((mem) => mem.id === "b"));
+});
+
+test("minScore floor drops hits below the threshold", async () => {
+  const adapter = scoredAdapter([
+    { memory: { id: "hi", text: "highly relevant memory", kind: "summary" }, score: 0.6 },
+    { memory: { id: "lo", text: "weakly related noise", kind: "summary" }, score: 0.12 },
+  ]);
+  const result = await recall(adapter, "anything", { minScore: 0.3 });
+  assert.equal(result.used.length, 1, "only the above-threshold hit survives");
+  assert.equal(result.used[0].id, "hi");
+});
+
+test("minScore of 0 (default) keeps all hits — no behavior change", async () => {
+  const adapter = scoredAdapter([
+    { memory: { id: "a", text: "one", kind: "summary" }, score: 0.6 },
+    { memory: { id: "b", text: "two", kind: "summary" }, score: 0.05 },
+  ]);
+  const result = await recall(adapter, "anything", {});
+  assert.equal(result.used.length, 2, "default minScore 0 keeps everything");
+});
+
+test("hits without a numeric score are kept regardless of minScore", async () => {
+  const adapter = scoredAdapter([
+    { memory: { id: "n", text: "score-less mock hit", kind: "summary" } },
+  ]);
+  const result = await recall(adapter, "anything", { minScore: 0.9 });
+  assert.equal(result.used.length, 1, "score-less hits bypass the floor (mock safety)");
 });

@@ -6,15 +6,15 @@
 .DESCRIPTION
     Brings a Windows machine to a "Go-pilot ready" state:
       * ensures Node LTS + Docker are present (winget preferred, choco fallback),
-      * templates deploy/.env from deploy/.env.example (never overwrites),
+      * templates deploy/.env and merges new keys without changing values,
       * sparse-clones the Mem0 build context into deploy/mem0-src,
       * brings up the self-hosted Mem0 (Tier-2 memory) stack via docker compose,
       * runs `node --test` and polls the Mem0 /docs endpoint,
       * prints a READY report.
 
-    IDEMPOTENT: re-running is a no-op when everything is already in place. No
-    destructive changes are ever made (existing deploy/.env, mem0-src, volumes
-    and running containers are left untouched).
+    IDEMPOTENT: re-running makes no destructive changes. Existing env values,
+    mem0-src, and named data volumes are preserved; containers may be safely
+    rebuilt/recreated to activate a newer checked-in configuration.
 
     Run from an ELEVATED PowerShell if any install (Node / Docker) is required —
     winget/choco package installs need admin. If Node + Docker are already
@@ -56,7 +56,7 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $RepoRoot   = $PSScriptRoot
 $DeployDir  = Join-Path $RepoRoot 'deploy'
 $ComposeArg = Join-Path $DeployDir 'docker-compose.yml'
-$Mem0Url    = 'http://localhost:8888'
+$Mem0Url    = 'http://127.0.0.1:8888'
 $Mem0Docs   = "$Mem0Url/docs"
 
 # ---------------------------------------------------------------------------
@@ -104,6 +104,7 @@ function Invoke-Doctor {
         @{ label = 'pi present (workhorse agents)';            pass = (Test-Command 'pi') },
         @{ label = 'deploy/.env exists';                       pass = (Test-Path $envFile) },
         @{ label = 'WORKHORSE_GATEWAY_KEY set in deploy/.env'; pass = ($envText -match '(?m)^WORKHORSE_GATEWAY_KEY=.+') },
+        @{ label = 'Mem0 URL configured when embedder enabled'; pass = (($envText -notmatch '(?m)^OPENAI_API_KEY=.+') -or ($envText -match '(?m)^MEM0_BASE_URL=.+')) },
         @{ label = 'Pi ikey provider registered';              pass = ($piText -match '"ikey"') },
         @{ label = 'global orchestrate skill';                 pass = (Test-Path $skill) },
         @{ label = 'repo CLAUDE.md present';                   pass = (Test-Path (Join-Path $RepoRoot 'CLAUDE.md')) },
@@ -394,16 +395,38 @@ Write-Section '4/7  Config (deploy/.env)'
 
 $envExample = Join-Path $DeployDir '.env.example'
 $envTarget  = Join-Path $DeployDir '.env'
+$mergeEnvScript = Join-Path $RepoRoot 'scripts\merge-env-defaults.mjs'
+$setEnvScript   = Join-Path $RepoRoot 'scripts\set-env-key.mjs'
 
 if (-not (Test-Path $envExample)) {
     throw "Missing template: $envExample — is this the Go-pilot repo root?"
 }
 if (Test-Path $envTarget) {
-    Write-Ok 'deploy/.env already exists — leaving it untouched.'
+    $mergeOutput = node $mergeEnvScript $envExample $envTarget
+    if ($LASTEXITCODE -ne 0) { throw 'Could not merge new defaults into deploy/.env.' }
+    Write-Ok "deploy/.env already exists — preserved values and merged missing defaults: $mergeOutput"
 } else {
     Copy-Item -Path $envExample -Destination $envTarget
     Write-Ok 'Created deploy/.env from deploy/.env.example.'
     Write-Warn 'TODO: edit deploy/.env and set OPENAI_API_KEY (Mem0 embedder needs it).'
+}
+
+$envValues = @{}
+Get-Content $envTarget | ForEach-Object {
+    if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*(?:#.*)?$') {
+        $envValues[$matches[1]] = $matches[2].Trim()
+    }
+}
+if ($envValues['OPENAI_API_KEY'] -and -not $envValues['MEM0_BASE_URL']) {
+    $oldEnvValue = $env:GOPILOT_ENV_VALUE
+    try {
+        $env:GOPILOT_ENV_VALUE = $Mem0Url
+        node $setEnvScript $envTarget MEM0_BASE_URL
+        if ($LASTEXITCODE -ne 0) { throw 'Could not enable MEM0_BASE_URL in deploy/.env.' }
+    } finally {
+        $env:GOPILOT_ENV_VALUE = $oldEnvValue
+    }
+    Write-Ok "Enabled persistent memory at $Mem0Url."
 }
 
 # ---------------------------------------------------------------------------
@@ -440,10 +463,10 @@ if (Test-Path $mem0Src) {
 
 Write-Section '6/7  docker compose up'
 
-Write-Info "Starting Mem0 + pgvector (first run builds the image)..."
-# Compose builds the image on first `up` (the mem0 service has a build: context),
-# then reuses it — so this stays idempotent across re-runs.
-docker compose -f $ComposeArg up -d
+Write-Info "Starting/upgrading Mem0 + pgvector (preserving named volumes)..."
+# --build upgrades existing installs to the checked-in image definition; named
+# Postgres/history volumes retain memories across container recreation.
+docker compose -f $ComposeArg up -d --build --remove-orphans
 if ($LASTEXITCODE -ne 0) {
     Write-Warn 'docker compose up failed. Is Docker Desktop running?'
     throw 'docker compose up returned a non-zero exit code.'
