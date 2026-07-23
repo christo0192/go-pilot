@@ -46,3 +46,37 @@ test("token budget bounds selection", () => {
   assert.ok(out.tokens <= 10);
   assert.ok(!out.files.some((f) => f.file === "big.mjs"), "over-budget file excluded");
 });
+
+test("retrieval injects matching chunks instead of an unrelated file prefix", () => {
+  const dir = fixtureDir();
+  writeFileSync(join(dir, "guide.md"), `# Unrelated\n${"cold filler\n".repeat(80)}# Mem0 setup\nMEM0_BASE_URL enables durable recall.\n`);
+  const out = retrieveContext("Mem0 durable recall", { cwd: dir, maxTokens: 100, searcher: () => ["guide.md"] });
+  assert.match(out.text, /MEM0_BASE_URL enables durable recall/);
+  assert.doesNotMatch(out.text, /cold filler/);
+  assert.equal(out.chunks.length, 1);
+});
+
+test("identical chunks from duplicate files are injected once", () => {
+  const dir = fixtureDir();
+  const content = "# Cache policy\nStable cache prefixes reduce fresh tokens.\n";
+  writeFileSync(join(dir, "a.md"), content);
+  writeFileSync(join(dir, "b.md"), content);
+  const out = retrieveContext("stable cache prefixes", { cwd: dir, searcher: () => ["a.md", "b.md"] });
+  assert.equal(out.chunks.length, 1);
+  assert.equal(out.droppedDuplicates, 1);
+});
+
+test("default retrieval budget is 2000 tokens", () => {
+  const dir = fixtureDir();
+  writeFileSync(join(dir, "large.md"), `# Cache\n${"cache evidence ".repeat(2000)}`);
+  const out = retrieveContext("cache evidence", { cwd: dir, searcher: () => ["large.md"] });
+  assert.ok(out.tokens <= 2000);
+});
+
+test("a configured meaningful-term floor suppresses trivial probe retrieval", () => {
+  const dir = fixtureDir();
+  writeFileSync(join(dir, "mesh.test.mjs"), "const pong = true;\n");
+  const out = retrieveContext("pong", { cwd: dir, minQueryTerms: 2, searcher: () => ["mesh.test.mjs"] });
+  assert.equal(out.tokens, 0);
+  assert.deepEqual(out.files, []);
+});

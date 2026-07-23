@@ -26,6 +26,7 @@ import { distribution, weightedMean } from "./stats.mjs";
 export const DEFAULT_TARGETS = {
   minTokenReductionPct: 20,
   maxQualityDropPct: 5,
+  aspirationalQualityDropPct: 2,
 };
 
 /**
@@ -46,7 +47,7 @@ export const DEFAULT_TARGETS = {
  * weighted number both collapse to that record's own percentage.
  *
  * @param {object|object[]} recordOrRecords - a metrics record or array thereof
- * @param {{minTokenReductionPct?: number, maxQualityDropPct?: number}} [targets]
+ * @param {{minTokenReductionPct?: number, maxQualityDropPct?: number, aspirationalQualityDropPct?: number}} [targets]
  * @returns {{
  *   tokenReduction: {value: number, target: number, pass: boolean},
  *   quality: {drop: number, target: number, pass: boolean},
@@ -71,6 +72,8 @@ export function evaluate(recordOrRecords, targets = {}) {
     targets.minTokenReductionPct ?? DEFAULT_TARGETS.minTokenReductionPct;
   const maxQualityDropPct =
     targets.maxQualityDropPct ?? DEFAULT_TARGETS.maxQualityDropPct;
+  const aspirationalQualityDropPct =
+    targets.aspirationalQualityDropPct ?? DEFAULT_TARGETS.aspirationalQualityDropPct;
 
   const records = Array.isArray(recordOrRecords)
     ? recordOrRecords
@@ -146,6 +149,8 @@ export function evaluate(recordOrRecords, targets = {}) {
       drop: weightedQualityDrop,
       target: maxQualityDropPct,
       pass: qualityPass,
+      aspirationalTarget: aspirationalQualityDropPct,
+      aspirationalPass: weightedQualityDrop <= aspirationalQualityDropPct,
     },
     retries: { count: totalRetryCount, attempts: totalRetryAttempts },
     routerOverheadTokens: totalRouterOverheadTokens,
@@ -212,6 +217,9 @@ export function formatReport(evaluation) {
   );
   lines.push(
     `| Quality drop (size-weighted) | ${fmtPct(quality.drop)} | <= ${quality.target}% | ${mark(quality.pass)} |`,
+  );
+  lines.push(
+    `| Quality aspiration | ${fmtPct(quality.drop)} | <= ${quality.aspirationalTarget}% (>= ${100 - quality.aspirationalTarget}% retained) | ${mark(quality.aspirationalPass)} |`,
   );
   lines.push(
     `| Retries | ${retries.count} retries / ${retries.attempts} attempts | informational | reported |`,

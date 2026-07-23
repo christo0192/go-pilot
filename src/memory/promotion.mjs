@@ -28,7 +28,7 @@ export const DEFAULT_KEEPER_KINDS = ["decision", "summary", "pref"];
  *   Resolves to an object where `promoted` lists the memories returned by
  *   `adapter.add` (with ids), fully resolved for both the sync mock and the
  *   async HTTP adapter. `skipped` lists each rejected candidate with `reason` ∈
- *   "failed-gate" | "non-keeper-kind".
+ *   "failed-gate" | "non-keeper-kind" | "duplicate".
  */
 export async function promote(candidates, adapter, opts = {}) {
   const list = Array.isArray(candidates) ? candidates : [];
@@ -52,6 +52,23 @@ export async function promote(candidates, adapter, opts = {}) {
     if (!(memory && keeperKinds.has(memory.kind))) {
       skipped.push({ memory, reason: "non-keeper-kind" });
       continue;
+    }
+
+    // Exact normalized duplicates add recall noise without adding knowledge.
+    // Search is best-effort: an unavailable read path must not prevent a valid
+    // new keeper from being written, but a confirmed duplicate is skipped.
+    if (opts.dedupe !== false && typeof adapter.search === "function") {
+      try {
+        const normalized = String(memory.text || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const hits = await adapter.search(memory.text, opts.dedupeTopK ?? 5);
+        const duplicate = (hits || []).some((hit) =>
+          String(hit?.memory?.text || "").replace(/\s+/g, " ").trim().toLowerCase() === normalized,
+        );
+        if (duplicate) {
+          skipped.push({ memory, reason: "duplicate" });
+          continue;
+        }
+      } catch { /* search unavailable: preserve the validated write path */ }
     }
 
     // Both gates cleared — persist to Tier-2. `adapter.add` returns the stored
