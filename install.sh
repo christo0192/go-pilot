@@ -96,7 +96,7 @@ run_doctor() {
   chk "claude present (frontier agent)"    'have claude'
   chk "codex present (frontier agent)"     'have codex'
   chk "deploy/.env exists"               '[ -f deploy/.env ]'
-  chk "WORKHORSE_GATEWAY_KEY set in deploy/.env" 'grep -qE "^WORKHORSE_GATEWAY_KEY=.+" deploy/.env'
+  chk "WORKHORSE_GATEWAY_KEY valid in deploy/.env" 'LC_ALL=C grep -qE "^WORKHORSE_GATEWAY_KEY=sk-[[:graph:]]+$" deploy/.env'
   chk "Mem0 URL configured when embedder is enabled" '! grep -qE "^OPENAI_API_KEY=.+" deploy/.env || grep -qE "^MEM0_BASE_URL=.+" deploy/.env'
   chk "deploy/.env permissions 600"      '[ "$(stat -c %a deploy/.env 2>/dev/null || stat -f %Lp deploy/.env)" = "600" ]'
   chk "pi-delegate on PATH"              '[ -e "$HOME/.local/bin/pi-delegate" ]'
@@ -822,8 +822,8 @@ validate_one_click() {
     else warn "MISS $item"; failed=1; fi
   done
   [[ -f deploy/.env ]] || { warn "MISS deploy/.env"; failed=1; }
-  grep -qE '^WORKHORSE_GATEWAY_KEY=.+$' deploy/.env \
-    || { warn "MISS WORKHORSE_GATEWAY_KEY"; failed=1; }
+  LC_ALL=C grep -qE '^WORKHORSE_GATEWAY_KEY=sk-[[:graph:]]+$' deploy/.env \
+    || { warn "MISS/INVALID WORKHORSE_GATEWAY_KEY"; failed=1; }
   for item in \
     "$HOME/.pi/agent/skills/herdr/SKILL.md" \
     "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/herdr/SKILL.md" \

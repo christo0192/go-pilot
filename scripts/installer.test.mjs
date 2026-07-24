@@ -72,11 +72,20 @@ test("elevation reruns the staged bootstrap without rebuilding a quoted argument
 test("one-click readiness requires both subscription CLIs and workhorse key", () => {
   const sh = readFileSync(join(root, "install.sh"), "utf8");
   assert.match(sh, /for item in node git pi herdr claude codex/);
-  assert.match(sh, /MISS WORKHORSE_GATEWAY_KEY/);
+  assert.match(sh, /MISS\/INVALID WORKHORSE_GATEWAY_KEY/);
   assert.match(sh, /@anthropic-ai\/claude-code/);
   assert.match(sh, /@openai\/codex/);
   assert.match(sh, /merge-env-defaults\.mjs/);
   assert.match(sh, /up -d --build --remove-orphans/);
+});
+
+test("one-click rejects Ctrl-V and other malformed gateway keys", () => {
+  const ps = readFileSync(join(root, "setup-windows.ps1"), "utf8");
+  const sh = readFileSync(join(root, "install.sh"), "utf8");
+  assert.match(ps, /Test-WorkhorseKey/);
+  assert.match(ps, /\^sk-\[\\x21-\\x7E\]\+\$/);
+  assert.match(ps, /right-click or Shift\+Insert rather than Ctrl\+V/);
+  assert.match(sh, /WORKHORSE_GATEWAY_KEY=sk-\[\[:graph:\]\]\+/);
 });
 
 test("desktop launcher preserves a named headless Herdr session", () => {
@@ -115,6 +124,16 @@ test("Windows app installs a checksum-pinned Herdr terminal font on install and 
   assert.match(font, /JetBrainsMono NL Nerd Font Mono/);
   assert.match(font, /JetBrainsMonoNL NFM/);
   assert.match(font, /gopilot-font-backup/);
+});
+
+test("Windows app refresh propagates the Claude config and verified Herdr skill", () => {
+  const app = readFileSync(join(root, "desktop/windows/Install-GoPilotApp.ps1"), "utf8");
+  const launcher = readFileSync(join(root, "desktop/windows/GoPilot.ps1"), "utf8");
+  assert.match(app, /claudeConfigLinuxPath/);
+  assert.match(app, /USERPROFILE -replace '\\\\', '\/'/);
+  assert.match(app, /skills\/herdr\/SKILL\.md/);
+  assert.match(app, /install -m 0644/);
+  assert.match(launcher, /CLAUDE_CONFIG_DIR=/);
 });
 
 test("voice paste is terminal-scoped and never submits Enter", () => {

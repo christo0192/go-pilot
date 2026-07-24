@@ -61,7 +61,7 @@ try {
             if ($Config.autoUpdate) {
                 try {
                     Write-LauncherLog "automatic $($Config.updateChannel) update check"
-                    Invoke-GoPilotWsl -Arguments @('bash', "$($Config.repoLinuxPath)/scripts/gopilot-update.sh", '--channel', $Config.updateChannel, '--auto') | Out-Null
+                    Invoke-GoPilotWsl -Arguments @('env', "CLAUDE_CONFIG_DIR=$($Config.claudeConfigLinuxPath)", 'bash', "$($Config.repoLinuxPath)/scripts/gopilot-update.sh", '--channel', $Config.updateChannel, '--auto') | Out-Null
                     Sync-InstalledAssets
                 } catch {
                     # An unavailable update service must never prevent local work.
@@ -83,7 +83,7 @@ try {
             }
         }
         'Update' {
-            $code = Invoke-GoPilotWsl -Arguments @('bash', "$($Config.repoLinuxPath)/scripts/gopilot-update.sh", '--channel', $Config.updateChannel) -IgnoreExitCode
+            $code = Invoke-GoPilotWsl -Arguments @('env', "CLAUDE_CONFIG_DIR=$($Config.claudeConfigLinuxPath)", 'bash', "$($Config.repoLinuxPath)/scripts/gopilot-update.sh", '--channel', $Config.updateChannel) -IgnoreExitCode
             if ($code -eq 0) { Sync-InstalledAssets }
             if (-not $Silent) {
                 $message = if ($code -eq 0) { 'Go-pilot is up to date.' } else { "Update stopped with exit code $code. See $LogPath" }
@@ -92,7 +92,7 @@ try {
             }
         }
         'Rollback' {
-            $code = Invoke-GoPilotWsl -Arguments @('bash', "$($Config.repoLinuxPath)/scripts/gopilot-update.sh", '--rollback') -IgnoreExitCode
+            $code = Invoke-GoPilotWsl -Arguments @('env', "CLAUDE_CONFIG_DIR=$($Config.claudeConfigLinuxPath)", 'bash', "$($Config.repoLinuxPath)/scripts/gopilot-update.sh", '--rollback') -IgnoreExitCode
             if ($code -eq 0) { Sync-InstalledAssets }
             if (-not $Silent) {
                 $message = if ($code -eq 0) { 'Go-pilot returned to the previously installed commit.' } else { "Rollback stopped with exit code $code. See $LogPath" }
