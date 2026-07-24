@@ -45,7 +45,7 @@ export function resolveContract(category, opts = {}) {
   const categoryContract = config.categories[category] || {};
   const contract = { ...config.defaults, ...categoryContract, ...(opts.override || {}) };
   if (!MODES.has(contract.mode)) throw new Error(`unsupported execution mode "${contract.mode}"`);
-  for (const key of ["timeoutMs", "maxInputTokens", "maxOutputTokens", "maxTurns", "maxRetries", "maxToolCalls", "maxRetrievalFiles", "maxRetrievalTokens"]) {
+  for (const key of ["timeoutMs", "maxInputTokens", "maxOutputTokens", "maxTurns", "maxRetries", "maxToolCalls", "maxRetrievalFiles", "maxRetrievalTokens", "maxRetrievalChunkTokens", "minRetrievalScore", "minRetrievalTerms"]) {
     if (!Number.isFinite(contract[key]) || contract[key] < 0) throw new Error(`invalid execution contract ${key}`);
   }
   if (!Array.isArray(contract.requiredChecks) || contract.requiredChecks.length === 0) {

@@ -17,6 +17,8 @@ per-model failure rates, breakers, leaked panes) and `bash install.sh --doctor`
 | Pi says "No models available" | ikey provider missing from `~/.pi/agent/models.json` | `./install.sh` or `scripts/pi-ikey.sh` re-installs it (path templated per machine). |
 | Gateway 401 | Key rotated/expired in `deploy/.env` | Update `WORKHORSE_GATEWAY_KEY`; verify: `scripts/pi-delegate.sh --raw deepseek "say OK"`. |
 | Claude ignores orchestration in another repo | Global skill/CLAUDE.md section missing on this machine | `./install.sh` installs the skill; paste `deploy/global-claude-md-snippet.md` into `~/.claude/CLAUDE.md` for auto-routing. |
+| Windows Terminal says `Unable to find ... JetBrainsMono NL Nerd Font Mono` | Nerd Fonts v3 renamed that family to `JetBrainsMonoNL NFM` | Run **Update Go-pilot** or rerun `setup.cmd`; the app installer verifies the pinned v3.4.0 face, backs up Terminal settings, and migrates only the obsolete family reference. Close and reopen Windows Terminal afterward. |
+| Cache hit appears inconsistent | Pi `CH` is the latest call while arrow counters are cumulative | Run `node scripts/gopilot-status.mjs`; it reports latest, cumulative, eligible-warm performance, and cold reasons separately. |
 | Benchmark interrupted (quota/rate limit) | Max plan window exhausted mid-campaign | Nothing lost: re-run the exact same campaign command — the ledger checkpoint skips completed runs. |
 | `deploy/.env` perms check fails on WSL | NTFS mount (`/mnt/c`) ignores chmod | Known WSL limitation; acceptable on a single-user box. Move the repo into the Linux filesystem for real 600 semantics. |
 

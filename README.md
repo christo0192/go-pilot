@@ -75,7 +75,9 @@ login. Go-pilot never requests or stores those account credentials.
   split them, launch another agent, send a task, wait, and read results without researching syntax.
 
 Re-running `setup.cmd` upgrades an existing installation and refreshes its shortcuts. When a valid
-workhorse key already exists, press Enter at the key prompt to keep it.
+workhorse key already exists, press Enter at the key prompt to keep it. Fresh installs and updates
+also verify/repair the checksum-pinned `JetBrainsMonoNL NFM` used by Herdr, so existing
+users receive the same terminal prerequisite as new one-click installations.
 
 <details><summary><b>Manual install (the old way)</b></summary>
 
@@ -183,6 +185,9 @@ metrics/             # quality rubric + run metrics
 .gsd/                # GSD autonomous-execution state (M001 tracks PLAN.md) + DECISIONS.md
 research docs/       # BRD, model-strategy docs, sources & decisions
 ```
+
+For cache/token diagnostics and the 95%-floor / 98%-target quality policy, see
+[`docs/CACHE-EFFICIENCY.md`](docs/CACHE-EFFICIENCY.md).
 
 ---
 

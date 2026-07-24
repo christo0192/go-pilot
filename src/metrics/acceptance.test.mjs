@@ -25,6 +25,7 @@ test("boundary: exactly 20% reduction / 5% drop → both PASS (inclusive)", () =
   assert.equal(evaluation.quality.drop, 5);
   assert.equal(evaluation.quality.pass, true);
   assert.equal(evaluation.overallPass, true);
+  assert.equal(evaluation.quality.aspirationalPass, false);
 });
 
 test("15% reduction → tokenReduction fails and overall fails", () => {
@@ -55,6 +56,7 @@ test("strong record: 30% reduction / 2% drop → overall PASS", () => {
   assert.equal(evaluation.tokenReduction.value, 30);
   assert.equal(evaluation.quality.drop, 2);
   assert.equal(evaluation.overallPass, true);
+  assert.equal(evaluation.quality.aspirationalPass, true);
 });
 
 test("array aggregation: percentages average, retries + overhead sum", () => {
@@ -93,6 +95,7 @@ test("formatReport contains targets, marks, separate-overhead line, OVERALL", ()
   assert.match(report, /# Acceptance Report/);
   assert.match(report, />= 20%/);
   assert.match(report, /<= 5%/);
+  assert.match(report, />= 98% retained/);
   assert.ok(report.includes("✓") || report.includes("✗"));
   assert.match(
     report,

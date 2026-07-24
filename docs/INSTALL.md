@@ -162,6 +162,13 @@ Go-pilot icon. Ordinary application close detaches from the named Herdr session;
 `herdr session stop`. Use the Start menu Doctor, Update, Rollback, Voice, and Uninstall entries for
 explicit lifecycle actions.
 
+Fresh installs and updates also install a checksum-pinned
+`JetBrainsMonoNL NFM` face for the current Windows user. Nerd Fonts v3 shortened
+the old `JetBrainsMono NL Nerd Font Mono` family name; the installer backs up
+Windows Terminal settings and migrates only that exact obsolete reference.
+Re-running setup or **Update Go-pilot** repairs a missing or stale font without
+requiring a machine-wide font install.
+
 The optional local voice model is downloaded only when **Go-pilot Voice** is first opened. The
 `whisper.cpp` executable and model are both SHA-256 verified. Uninstall removes the Windows launcher
 and voice model but deliberately preserves WSL configuration, conversations, and Docker data.

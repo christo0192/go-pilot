@@ -104,6 +104,19 @@ test("voice installer pins and verifies both executable and model", () => {
   assert.match(ps, /Get-FileHash -Algorithm SHA256/);
 });
 
+test("Windows app installs a checksum-pinned Herdr terminal font on install and update", () => {
+  const app = readFileSync(join(root, "desktop/windows/Install-GoPilotApp.ps1"), "utf8");
+  const font = readFileSync(join(root, "desktop/windows/Install-GoPilotFont.ps1"), "utf8");
+  assert.match(app, /Install-GoPilotFont\.ps1/);
+  assert.match(font, /JetBrainsMonoNLNerdFontMono-Regular\.ttf/);
+  assert.match(font, /ExpectedSha256/);
+  assert.match(font, /Get-FileHash -Algorithm SHA256/);
+  assert.match(font, /HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts/);
+  assert.match(font, /JetBrainsMono NL Nerd Font Mono/);
+  assert.match(font, /JetBrainsMonoNL NFM/);
+  assert.match(font, /gopilot-font-backup/);
+});
+
 test("voice paste is terminal-scoped and never submits Enter", () => {
   const ps = readFileSync(join(root, "desktop/windows/GoPilotVoice.ps1"), "utf8");
   assert.match(ps, /allowedProcesses/);

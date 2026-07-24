@@ -7,14 +7,17 @@
     "maxTurns": 20,
     "maxRetries": 2,
     "maxToolCalls": 40,
-    "maxRetrievalFiles": 12,
-    "maxRetrievalTokens": 6000,
+    "maxRetrievalFiles": 6,
+    "maxRetrievalTokens": 2000,
+    "maxRetrievalChunkTokens": 500,
+    "minRetrievalScore": 2,
+    "minRetrievalTerms": 2,
     "requiredChecks": ["non-empty", "no-placeholders"]
   },
   "categories": {
-    "orchestrate": { "mode": "plan-then-execute", "maxInputTokens": 32000 },
+    "orchestrate": { "mode": "plan-then-execute", "maxInputTokens": 32000, "maxRetrievalTokens": 4000 },
     "plan": { "mode": "plan-only", "requiredChecks": ["non-empty"] },
-    "code": { "mode": "single-agent", "requiredChecks": ["non-empty", "no-placeholders"] },
+    "code": { "mode": "single-agent", "minRetrievalTerms": 1, "requiredChecks": ["non-empty", "no-placeholders"] },
     "analyze": { "mode": "single-agent", "requiredChecks": ["non-empty"] },
     "draft": { "mode": "single-agent", "requiredChecks": ["non-empty", "no-placeholders"] },
     "extract": { "mode": "single-agent", "maxInputTokens": 16000, "requiredChecks": ["non-empty", "structured-output"] },
@@ -23,8 +26,8 @@
     "code-review": { "mode": "review-only", "requiredChecks": ["non-empty"] },
     "lateral": { "mode": "single-agent", "requiredChecks": ["non-empty"] },
     "math": { "mode": "single-agent", "maxOutputTokens": 16000, "requiredChecks": ["non-empty"] },
-    "doc-qa": { "mode": "single-agent", "maxInputTokens": 24000, "requiredChecks": ["non-empty", "citations"] },
+    "doc-qa": { "mode": "single-agent", "maxInputTokens": 24000, "maxRetrievalTokens": 4000, "requiredChecks": ["non-empty", "citations"] },
     "reasoning": { "mode": "single-agent", "maxOutputTokens": 16000, "requiredChecks": ["non-empty"] },
-    "repo-change": { "mode": "single-agent", "maxOutputTokens": 16000, "requiredChecks": ["non-empty", "no-placeholders"] }
+    "repo-change": { "mode": "single-agent", "maxOutputTokens": 16000, "maxRetrievalTokens": 4000, "minRetrievalTerms": 1, "requiredChecks": ["non-empty", "no-placeholders"] }
   }
 }

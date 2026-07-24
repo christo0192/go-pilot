@@ -127,6 +127,17 @@ test("default keeper kinds are decision | summary | pref", () => {
   assert.deepEqual(DEFAULT_KEEPER_KINDS, ["decision", "summary", "pref"]);
 });
 
+test("an exact normalized duplicate keeper is not written twice", async () => {
+  const adapter = createMockMem0();
+  adapter.add({ text: "Use bounded retrieval chunks", kind: "decision" });
+  const report = await promote([
+    { memory: { text: "  use   bounded retrieval chunks  ", kind: "decision" }, checks: [okCheck] },
+  ], adapter);
+  assert.equal(report.promoted.length, 0);
+  assert.equal(report.skipped[0].reason, "duplicate");
+  assert.equal(adapter.search("bounded retrieval").length, 1);
+});
+
 test("inputs are NOT mutated", async () => {
   const adapter = createMockMem0();
   const memory = { text: "immutable decision", kind: "decision", tags: ["a"] };

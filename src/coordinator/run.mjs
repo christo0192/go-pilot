@@ -147,6 +147,9 @@ export async function runTask(task = {}, opts = {}) {
       cwd: opts.cwd,
       maxFiles: contract.maxRetrievalFiles,
       maxTokens: contract.maxRetrievalTokens,
+      maxChunkTokens: contract.maxRetrievalChunkTokens,
+      minScore: contract.minRetrievalScore,
+      minQueryTerms: contract.minRetrievalTerms,
     }));
   let evidenceIds = [];
   let governedTaskContext = typeof task.context === "string" ? task.context : "";
@@ -197,11 +200,21 @@ export async function runTask(task = {}, opts = {}) {
     fallback: decision.fallback ? { ...decision.fallback, provider: resolvedFallback.provider, version: resolvedFallback.version } : null,
     tools, execution,
     requestedMode, signedOff, downgraded, contextTier: boundary.tier, contract,
-    retrieval: { files: retrieval.files?.map((f) => f.file) || [], tokens: retrieval.tokens || 0 },
+    retrieval: {
+      files: retrieval.files?.map((f) => f.file) || [], tokens: retrieval.tokens || 0,
+      chunks: retrieval.chunks?.length || 0, candidates: retrieval.candidateCount || 0,
+      droppedDuplicates: retrieval.droppedDuplicates || 0,
+    },
     cache: prompt.cache, needsJudgment,
     rules: { files: discoveredRules.files.map((file) => file.path), tokens: discoveredRules.tokens },
   };
-  events.emit({ runId, kind: "run.planned", profile, category, model: decision.model, provider: resolved.provider, mode: execution, tokens: prompt.tokens });
+  events.emit({
+    runId, kind: "run.planned", profile, category, model: decision.model,
+    provider: resolved.provider, mode: execution, tokens: prompt.tokens,
+    promptTokens: prompt.tokens, stableTokens: prompt.cache.stableTokens,
+    retrievalTokens: retrieval.tokens || 0, retrievalChunks: retrieval.chunks?.length || 0,
+    memoryTokens: memoryContext.tokens || 0,
+  });
 
   if (opts.dryRun) return {
     plan, dispatched: false, validated: false, promoted: false, verdict: "dry-run", metrics: null,
@@ -357,14 +370,23 @@ export async function runTask(task = {}, opts = {}) {
     runId, kind: "dispatch.completed", ok: true, latencyMs: Date.now() - started,
     model: effectiveModel, provider: effectiveProvider, primaryModel: decision.model,
     fallbackAttempted, tokens: normalizeUsage(usage).detail?.total || 0,
+    inputTokens: Number(usage.tokens?.input) || 0,
+    cacheReadTokens: Number(usage.tokens?.cacheRead ?? usage.tokens?.cached) || 0,
+    cacheWriteTokens: Number(usage.tokens?.cacheWrite) || 0,
+    outputTokens: Number(usage.tokens?.output) || 0,
+    reasoningTokens: Number(usage.tokens?.reasoning) || 0,
+    usageKnown: Number.isFinite(usage.tokens?.total) || Number.isFinite(usage.tokens?.output),
     costUsd: usage.costUsd || 0, retries: usage.retries?.count || 0,
   });
 
   let promoted = false;
   if (gate.passed && opts.adapter) {
     // Cap the auto-distilled keeper text so a large result never bloats Tier-2.
-    const memory = task.memory ||
-      { text: resultText(result).slice(0, 1200), kind: task.kind, tags: task.tags };
+    const memory = task.memory || {
+      text: resultText(result).slice(0, 1200), kind: task.kind,
+      tags: task.tags || [category, effectiveModel].filter(Boolean),
+      meta: { source: "gopilot", runId, category: category ?? null, model: effectiveModel, validated: true },
+    };
     const report = await promote([{ memory, checks }], opts.adapter);
     promoted = report.promoted.length > 0;
   }
@@ -375,7 +397,12 @@ export async function runTask(task = {}, opts = {}) {
       opts.logPath ? recordRun(record, { logPath: opts.logPath }) : computeRun(record);
   }
   const verdict = gate.passed ? "ok" : "failed";
-  events.emit({ runId, kind: "run.completed", ok: gate.passed, profile, category, model: effectiveModel, provider: effectiveProvider, mode: execution, fallbackUsed });
+  events.emit({
+    runId, kind: "run.completed", ok: gate.passed, profile, category,
+    model: effectiveModel, provider: effectiveProvider, mode: execution,
+    fallbackUsed, promoted,
+    usageKnown: Number.isFinite(usage.tokens?.total) || Number.isFinite(usage.tokens?.output),
+  });
   return {
     plan, dispatched: true, validated: gate.passed, promoted, verdict, metrics, failures: gate.failures,
     result, usage, fallbackUsed, fallbackAttempted, workspace, boundary, recall: { used: memoryContext.used, tokens: memoryContext.tokens }, events: events.byRun(runId),

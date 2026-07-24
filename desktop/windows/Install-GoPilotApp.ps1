@@ -34,6 +34,7 @@ New-Item -ItemType Directory -Force -Path $InstallDir, $StartMenuDir | Out-Null
 $files = @(
     'GoPilot.ps1',
     'Install-GoPilotApp.ps1',
+    'Install-GoPilotFont.ps1',
     'Install-GoPilotVoice.ps1',
     'GoPilotVoice.ps1',
     'Uninstall-GoPilot.ps1'
@@ -41,6 +42,10 @@ $files = @(
 foreach ($file in $files) {
     Copy-Item -Force (Join-Path $RepoWindowsPath "desktop\windows\$file") (Join-Path $InstallDir $file)
 }
+
+# Herdr/Windows Terminal profiles use this exact family name. Install one
+# checksum-pinned regular face per-user on every fresh install/update.
+& (Join-Path $InstallDir 'Install-GoPilotFont.ps1')
 Copy-Item -Force (Join-Path $RepoWindowsPath 'desktop\assets\gopilot.ico') (Join-Path $InstallDir 'gopilot.ico')
 Copy-Item -Force (Join-Path $RepoWindowsPath 'desktop\assets\gopilot-icon.png') (Join-Path $InstallDir 'gopilot-icon.png')
 
