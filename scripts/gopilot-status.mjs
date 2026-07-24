@@ -109,7 +109,8 @@ try {
 // --- Mem0 --------------------------------------------------------------------
 try {
   const base = process.env.MEM0_BASE_URL || "http://localhost:8888";
-  const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(3000) }).catch(() => fetch(base, { signal: AbortSignal.timeout(3000) }));
+  let res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(3000) });
+  if (!res.ok) res = await fetch(`${base}/docs`, { signal: AbortSignal.timeout(3000) });
   status.mem0 = { ok: res.ok };
 } catch {
   status.mem0 = { ok: false, note: "not running (optional service)" };

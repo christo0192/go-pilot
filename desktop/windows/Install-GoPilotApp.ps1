@@ -50,11 +50,37 @@ Copy-Item -Force (Join-Path $RepoWindowsPath 'desktop\assets\gopilot.ico') (Join
 Copy-Item -Force (Join-Path $RepoWindowsPath 'desktop\assets\gopilot-icon.png') (Join-Path $InstallDir 'gopilot-icon.png')
 
 $package = Get-Content -Raw (Join-Path $RepoWindowsPath 'package.json') | ConvertFrom-Json
+$claudeConfigWindowsPath = (($env:USERPROFILE -replace '\\', '/') + '/.claude')
+$claudeConfigLinuxPath = (& wsl.exe -d $Distro -u $LinuxUser -- wslpath -u $claudeConfigWindowsPath).Trim()
+if ([string]::IsNullOrWhiteSpace($claudeConfigLinuxPath)) {
+    throw 'Could not resolve the Windows Claude configuration inside WSL.'
+}
+
+# The WSL updater runs outside an interactive agent shell, so CLAUDE_CONFIG_DIR
+# is otherwise absent. Copy the already checksum-verified WSL skill into the
+# Windows-backed Claude config on every app refresh. Pass each path directly to
+# WSL so neither PowerShell nor bash has to reconstruct a quoted command string.
+$linuxUserRecord = (& wsl.exe -d $Distro -u $LinuxUser -- getent passwd $LinuxUser | Select-Object -First 1)
+$linuxUserFields = @($linuxUserRecord -split ':')
+if ($linuxUserFields.Count -lt 6 -or [string]::IsNullOrWhiteSpace($linuxUserFields[5])) {
+    throw 'Could not resolve the Linux user home directory.'
+}
+$skillSourceLinuxPath = "$($linuxUserFields[5])/.claude/skills/herdr/SKILL.md"
+$skillDestinationDir = "$claudeConfigLinuxPath/skills/herdr"
+$skillDestinationPath = "$skillDestinationDir/SKILL.md"
+& wsl.exe -d $Distro -u $LinuxUser -- test -f $skillSourceLinuxPath
+if ($LASTEXITCODE -ne 0) { throw 'The verified WSL Herdr skill is missing.' }
+& wsl.exe -d $Distro -u $LinuxUser -- mkdir -p $skillDestinationDir
+if ($LASTEXITCODE -ne 0) { throw 'Could not create the Claude Herdr skill directory.' }
+& wsl.exe -d $Distro -u $LinuxUser -- install -m 0644 $skillSourceLinuxPath $skillDestinationPath
+if ($LASTEXITCODE -ne 0) { throw 'Could not synchronize the verified Herdr skill to Claude.' }
+
 $config = [ordered]@{
     distro = $Distro
     linuxUser = $LinuxUser
     repoLinuxPath = $RepoLinuxPath
     repoWindowsPath = $RepoWindowsPath
+    claudeConfigLinuxPath = $claudeConfigLinuxPath
     # Follow every main commit whose GitHub Actions CI passed. Change to
     # 'stable' to follow deliberate version tags/releases instead.
     updateChannel = 'nightly'

@@ -38,6 +38,9 @@ function Read-Secret([string]$Prompt) {
   try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
   finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
+function Test-WorkhorseKey([string]$Value) {
+  return -not [string]::IsNullOrWhiteSpace($Value) -and $Value -match '^sk-[\x21-\x7E]+$'
+}
 
 try {
   Write-Host "`n============================================================"
@@ -111,14 +114,17 @@ printf '\n[user]\ndefault=$linuxUser\n' >> /etc/wsl.conf
   }
 
   $hasExistingKey = $false
-  & wsl.exe -d $Distro -- bash -lc "grep -qE '^WORKHORSE_GATEWAY_KEY=.+$' $RepoDir/deploy/.env 2>/dev/null"
+  & wsl.exe -d $Distro -- bash -lc "LC_ALL=C grep -qE '^WORKHORSE_GATEWAY_KEY=sk-[[:graph:]]+$' $RepoDir/deploy/.env 2>/dev/null"
   if ($LASTEXITCODE -eq 0) { $hasExistingKey = $true }
   $keyPrompt = if ($hasExistingKey) {
-    'Paste a replacement WORKHORSE_GATEWAY_KEY, or press Enter to keep the installed key (input is hidden)'
+    'Paste a replacement WORKHORSE_GATEWAY_KEY, or press Enter to keep the installed key (hidden; use right-click or Shift+Insert, not Ctrl+V)'
   } else {
-    'Paste WORKHORSE_GATEWAY_KEY (input is hidden)'
+    'Paste WORKHORSE_GATEWAY_KEY (hidden; use right-click or Shift+Insert, not Ctrl+V)'
   }
   $key = Read-Secret $keyPrompt
+  if (-not [string]::IsNullOrWhiteSpace($key) -and -not (Test-WorkhorseKey $key)) {
+    Fail 'The workhorse key is invalid. It must start with sk- and contain printable characters only. At the hidden prompt, paste with right-click or Shift+Insert rather than Ctrl+V.'
+  }
   if ([string]::IsNullOrWhiteSpace($key) -and -not $hasExistingKey) {
     Fail 'A workhorse gateway key is required for a ready installation.'
   }
